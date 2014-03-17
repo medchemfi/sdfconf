@@ -1,41 +1,33 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 
-#New migrated version on /motu/group/rialm/sakari/sdfconf/
-#less changes :(
 
 import os
 import sys
 import re
 import math
-#from collections import OrderedDict as odict
 import argparse
 import numpy
 import time
 import pylab
 import copy
-#import glob
-  
+
+#Common regular expressions used.  
 confchop=re.compile('\{\[\d+\]\}')
 molchop = re.compile('^\${4}')
 metachop = re.compile('>\s+<')
 stapa=re.compile('\{|\[|\(')
 endpa=re.compile('\}|\]|\)')
 goodchop = re.compile('\s*,{0,1}\s*')
-#metaendchop = re.compile('>')
 ckey = "confnum"
 atomcut=[0, 10, 20, 30, 31, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69]
 
 
-#Argument sh*t
 
 class Sdffile:
     def __init__(self, path=''):
         self._dictomoles = dict() # {'aspirin':{1:aspi1, 2:aspi2, ...}, 'bentzene':{1:benz1, 2:benz2, ...}}
         self._orderlist = list()
-        #self._numerical = False
-        #if args.closestatom:
-        #    self._numerical = True
         if path != '':
             self.readself(path)
             
@@ -108,13 +100,12 @@ class Sdffile:
                 _lines.append(line)
         del(_lines)
         return _moles
-
+    
     def add(self, stringsofone):
+        #Add a molecule
         new = Sdfmole(stringsofone)
         name = new.getname()
 
-
-        #new
         if not name in self._dictomoles:
             self._dictomoles[name]=dict()
         n = self.tempconfn(new, self._dictomoles[name])
@@ -123,11 +114,13 @@ class Sdffile:
         self._orderlist.append([name,n])
         
     def remove(self, name, confn):
+        #Remove a molecule
         del(self._dictomoles[name][str(confn)])
         self._orderlist.remove([name,confn])
 
                         
     def sdfmetacombi(self, other, bolist=[True, True], overwrite=False):
+        #Combine metadata from another sdf-file.
         for omol in other:
             melist = []
             if bolist[0]:
@@ -152,6 +145,7 @@ class Sdffile:
                 mol.metacombine(omol, overwrite)
                         
     def sdflistremove(self, other, sameconf=True):
+        #Remove that are present in the other file. Cut operator.
         for omol in other:
             oname = omol.getname()
             if sameconf:
@@ -173,6 +167,7 @@ class Sdffile:
     #conformation numbers
     
     def tempconfn(self, mol, dictomol=None):
+        #Returns a temporary conformation number
         n = mol.getconfn()
         if not n:
             i=-1
@@ -186,6 +181,7 @@ class Sdffile:
         return n
         
     def uniconfn(self, mol, n='-1'):
+        #Returns a unique conformation number
         n=abs(int(n))
         try:
             moli = self._dictomoles[mol.getname()]
@@ -198,6 +194,7 @@ class Sdffile:
             return '1'
 
     def addconfs(self, bolist = [True, False]):
+        
         for i, molinfo in enumerate(self._orderlist):
             mol = self._dictomoles[molinfo[0]][molinfo[1]]
             c = mol.getconfn()
@@ -217,6 +214,7 @@ class Sdffile:
     #misc
 
     def metatoname(self, meta, joiner='_'):
+        #Changes the name of molecules to whatever found in given metafield
         for i, molord in enumerate(self._orderlist):
             olname = molord[0]
             n = molord[1]
@@ -235,6 +233,7 @@ class Sdffile:
         self.dictmaint()
 
     def metamerger(self, string):
+        #Method to merge multiple metafields into one. Comes with a few operations. Frontend to mergenewmeta
         [newmeta, task] = re.split('\s*=\s*',string)
         funki = task.find('(')
         funk = task[:funki]
@@ -259,14 +258,17 @@ class Sdffile:
                 mol.addmeta(newmeta, [str(oper(map(str,tab)))])
     
     def nametoid(self, meta):
+        #Adds a metafield including the molecule name
         for mol in self:
             mol.addmeta(meta, mol._name)
             
     def changemetaname(self, oldname, newname):
+        #Change the name of a metafield
         for mol in self:
             mol.changemetaname(oldname, newname)
     
     def dictmaint(self): 
+        #Maintenance of Sdffile dictionaries
         delkeys=[]
         for key in self._dictomoles:
             if len(self._dictomoles[key])==0:
@@ -275,9 +277,11 @@ class Sdffile:
             del(self._dictomoles[key])
     
     def sametest(self, bolist, samelist):
+        #Test wether molecules are "the same" as described in bolist.
         return (bolist[0] <= samelist[0]) and (bolist[1] <= samelist[1])
         
     def makecsv(self,stringofmetas,separator=';\t'):
+        #Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields
         listofmeta = [met.strip() for met in re.split('\s*,|;\s*',stringofmetas)]
         if len(listofmeta)==1 and listofmeta[0]=='?':
             listofmeta = self.listmetas()
@@ -294,6 +298,7 @@ class Sdffile:
         return csv
         
     def listmetas(self):
+        #Make a list of all metafields present in the file.
         metas = []
         for mol in self:
             for meta in mol._metakeys:
@@ -302,6 +307,7 @@ class Sdffile:
         return metas
     
     def counts(self):
+        #Get counts of different conformations and molecules
         counts = []
         for mol in self._dictomoles:
             counts.append('{}\t{}'.format(mol,len(self._dictomoles[mol])))
