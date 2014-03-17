@@ -107,17 +107,13 @@ class Sdffile:
             else:
                 _lines.append(line)
         del(_lines)
-        #del(strings)
         return _moles
 
     def add(self, stringsofone):
         new = Sdfmole(stringsofone)
         name = new.getname()
-        '''if name in self._dictomoles:
-            n = self.tempconfn(new, self._dictomoles[name])
-        else:
-            self._dictomoles[name]=dict()
-            n='-1' '''
+
+
         #new
         if not name in self._dictomoles:
             self._dictomoles[name]=dict()
@@ -129,14 +125,7 @@ class Sdffile:
     def remove(self, name, confn):
         del(self._dictomoles[name][str(confn)])
         self._orderlist.remove([name,confn])
-        '''
-    def sdfmetacombi(self, other, bolist=[True, True], overwrite=False):
-        for mol in self:
-            for omol in other:
-                if self.sametest(bolist,mol.issame(omol)):
-                    mol.metacombine(omol, overwrite)
-                    if all(bolist):
-                        break'''
+
                         
     def sdfmetacombi(self, other, bolist=[True, True], overwrite=False):
         for omol in other:
@@ -257,19 +246,6 @@ class Sdffile:
         else:
             if args.verbose:
                 print 'Command {} not found'.format(funk)
-
-    
-    '''
-    def metamerger(self, string):
-        [newmeta, metas] = re.split('\s*=\s*',string)
-        choppy = re.split('\s*,|;\s*',metas)
-        operators = {'sum':sum, 'max':max, 'min':min, 'avg':avg, 'join':' '.join, 'prod':numpy.prod}
-        if choppy[0] in operators:
-            self.mergenewmeta(newmeta, choppy[1:], operators[choppy[0].lower().strip()])
-        else:
-            if args.verbose:
-                print 'Command {} not found'.format(choppy[0])
-    '''
     
     def mergenewmeta(self, newmeta, metas, oper):
         for mol in self:
@@ -331,39 +307,6 @@ class Sdffile:
             counts.append('{}\t{}'.format(mol,len(self._dictomoles[mol])))
         return counts
     
-    '''
-    def closest(self, point, meta=None):
-        coord1 = coorder(point) #map(numify, goodchop.split(point.strip('{[()]}')))
-        if type(coord1)==list:
-            coord1 = numpy.array(coord1)
-        else:
-            metar = coord1
-        for mol in self:
-            #is coord1 meta or not?
-            alist = mol.dists(coord1)
-            alist=sorted(alist, key=lambda i: i[0])
-            if not meta:
-                mol.addmeta('Closest_atom',str(alist[0][1]))
-                mol.addmeta('Closest_distance',str(alist[0][0]))
-            if meta:
-                for i in range(len(alist)):
-                    alist[i].append(i)
-                #alist=sorted(alist, key=lambda i: i[2])
-                try:
-                    intrests = map(numify, re.split('\s+',mol._meta[meta.strip()]))
-                except TypeError:
-                    continue
-                closers=[]
-                for atomn in intrests:
-                    #loci = 
-                    closers.append(alist[nestfind(alist, 1, atomn)])
-                if len(closers)>0:
-                    closers = sorted(closers, key=lambda i: i[0])
-                    #mol.addmeta('Closer_atoms_than_{}'.format(closers[0][1]+1),closers[0][2])
-                    #mol.addmeta('Closer_atoms_than_{}_{}'.format([meta,closers[0][1]+1)],closers[0][2])
-                    mol.addmeta('Closest_atom_from_{}'.format(meta),str(closers[0][1]))
-                    mol.addmeta('Closer_atoms_than_{}'.format(meta),str(closers[0][2]))
-    '''
 
     def closest(self, point, name=None):
         coord1 = numpy.array(coorder(point)) #map(numify, goodchop.split(point.strip('{[()]}')))
@@ -405,31 +348,6 @@ class Sdffile:
                 mol.addmeta('Closest_atom_from_{}'.format(meta),str(closers[0][1]))
                 mol.addmeta('Closer_atoms_than_{}'.format(meta),str(closers[0][2]))
 
-    '''
-    def closer(self, point, meta):
-        coord1 = numpy.array([float(c) for c in re.split('\s*,|;\s*',point)])
-        #cc=0
-        for mol in self:
-            mol.numerize()
-            closest = [-1,float('Inf')] #number, distance
-            #alist=[]
-            for i, atom in enumerate(mol._atoms):
-                if atom[3].strip().lower()=='h':
-                    continue
-                coord2 = numpy.array([float(c) for c in atom[0:3]])
-                dist = sum((coord1-coord2)**2)**0.5
-                #alist.append([dist,i])
-                if  dist<closest[1]:
-                    closest=[i+1,dist]
-            #if closest[0] != -1:
-            #blist=sorted(alist, key=lambda i: i[0])
-            #for i in range(len(blist)):
-            #    blist[i].append(i)
-            #clist=sorted(blist, key=lambda i: i[1])
-            mol.addmeta('Closest_atom',str(closest[0]))
-            mol.addmeta('Closest_distance',str(closest[1]))
-            #mol.addmeta('Closer_atoms',str(clist[closest[0]-1][2]))
-    '''
 
     def closestatoms(self, point, metafield):
         dot = coorder(point)#self.coordormeta(point)
@@ -454,24 +372,6 @@ class Sdffile:
             ind = mind.index(min(mind))
             mol.addmeta(metafield+'_closest_atom',str(mins[ind]))
             mol.addmeta(metafield+'_closest_distance',str(mind[ind]))
-
-
-    '''
-    def closestatoms(self, point, metafield):
-        dot = self.coordormeta(point)
-        for mol in self:
-            try:
-                if not dot:
-                    mins, mind = mol.atomlistdistances(point,metafield)
-                else:
-                    mins, mind = mol.pointlistdists(dot,metafield)
-            except TypeError:
-                continue
-            mol.addmeta(metafield+'_closest_distances',' '.join([str(cell) for cell in mind]))
-            ind = mind.index(min(mind))
-            mol.addmeta(metafield+'_closest_atom',str(mins[ind]))
-            mol.addmeta(metafield+'_closest_distance',str(mind[ind]))
-    '''
 
     def closestbybonds(self,fromwfield,towfield,newfield):
         for mol in self:
@@ -528,63 +428,6 @@ class Sdffile:
         else:
             return None
 
-    
-    '''
-    def selftostring(self, output): #replaces writeself
-        #if path:
-        #    f = open(path, 'w')
-        #else:
-        #    f = sys.stdout
-        #for molinfo in self._orderlist:
-        #    for line in self._dictomoles[molinfo[0]][molinfo[1]].selftolist():
-        #        f.write(line)
-        if output=='getcsv':#args.getcsv:
-            return '\n'.join(self.makecsv(args.getcsv))+'\n'
-            #f.write('\n'.join(self.makecsv(args.getcsv))+'\n')
-        elif output=='metalist':#args.metalist:
-            return '\n'.join(self.listmetas())+'\n'
-            #f.write('\n'.join(self.listmetas())+'\n')
-        elif output=='counts':#args.counts:
-            towrite = ['Total {}\t{}'.format(len(self._dictomoles),len(self))]
-            towrite.extend(self.counts())
-            return '\n'.join(towrite)+'\n'
-            #f.write('\n'.join(towrite)+'\n')
-        elif output=='sdf':
-            return str(self)
-        else:
-            return None
-        #else:
-        #    f.write(str(self))
-        #if path:
-        #    f.close()
-        #else:
-        #    f.flush()
-    '''
-    
-    '''
-    def writeself(self, path=None): #will be deprecated
-        if path:
-            f = open(path, 'w')
-        else:
-            f = sys.stdout
-        #for molinfo in self._orderlist:
-        #    for line in self._dictomoles[molinfo[0]][molinfo[1]].selftolist():
-        #        f.write(line)
-        if args.getcsv:
-            f.write('\n'.join(self.makecsv(args.getcsv))+'\n')
-        elif args.metalist:
-            f.write('\n'.join(self.listmetas())+'\n')
-        elif args.counts:
-            towrite = ['Total {}\t{}'.format(len(self._dictomoles),len(self))]
-            towrite.extend(self.counts())
-            f.write('\n'.join(towrite)+'\n')
-        else:
-            f.write(str(self))
-        if path:
-            f.close()
-        else:
-            f.flush()
-    '''
     def mehist(self, Xname, Yname=None, **kwargs):
         #kwargs: title, Xtitle, Ytitle, bins
         newargs = dict()
@@ -622,44 +465,10 @@ class Sdffile:
         if 'title' in newargs:
             pylab.title(newargs['title'])
         
-        '''
-        def myHist2d(table,xname,yname,bins=[10,10]):
-            #P = pylab
-            X,xe,ye=P.histogram2d(getcolumn(table,xname),getcolumn(table,yname),bins=bins)
-            ex=[xe[0],xe[-1],ye[-1],ye[1]]
-            P.imshow(np.transpose(X),extent=ex,interpolation='nearest',aspect='auto')
-            P.colorbar()
-            P.xlabel(xname)
-            P.ylabel(yname)
-        '''
     
     def show(self):
         pylab.show()
         
-    
-
-    '''
-    def logicchop(self, string):
-        exp = '(<|>)'
-        mope = re.search(exp, string)
-        ope = mope.group(0)
-        things = re.split(exp, string)
-        value = numify(things[-1].strip())
-        deles = []
-        for inf in self._orderlist:
-            try:
-                meta = numify(self._dictomoles[inf[0]][inf[1]]._meta[things[0].strip()])
-                if ope == '<':
-                    if not meta < value:
-                        deles.append(inf)
-                elif ope == '>':
-                    if not meta > value:
-                        deles.append(inf)
-            except KeyError:
-                deles.append(inf)
-        for key in deles:
-            self.remove(key[0],key[1])
-    '''
    
        
     def logicchop(self, string): #This is horrible. Don't even try if you value your sanity...
@@ -756,99 +565,6 @@ class Sdffile:
                 continue
         self.dictmaint()
 
-
-    '''
-    def logicchop(self, string): #This is horrible. Don't even try if you value your sanity...
-        exp = '<|>|%|=|~|!' 
-        ope = re.findall(exp, string)
-        #ope = mope.group(0)
-        things = re.split(exp, string)
-        foreach = None
-        
-        if len(ope)==1:
-            if ope[0]!='!':
-                value = numify(things[1].strip())
-        elif len(ope)==2:
-            foreach = dict()
-            for mol in self:
-                name = mol.getname()
-                if not name in foreach:
-                    foreach[name] = list()
-                foreach[name].append(numify(mol._meta[things[0]]))
-            if ope[1] =='%':
-                if things[2].upper() == 'T':
-                    fu = max
-                elif things[2].upper() == 'B':
-                    fu = min
-                elif things[2].upper() == 'A':
-                    fu = avg
-                elif re.match('M|N',things[2].upper()): #things[2].upper() == 'M':
-                    if ope[0] == '<':
-                        reve=False
-                    elif ope[0] == '>':
-                        reve=True
-                    for key in foreach:
-                        values = foreach[key]#[numify(mol._meta[things[0]]) for mol in foreach[key]]
-                        if things[2].upper() == 'M':
-                            N = int(ceil(len(values)*float(things[1])/100.0))
-                        else:
-                            N = int(things[1])
-                        try:
-                            foreach[key] = sorted(values,reverse=reve)[N]
-                        except IndexError:
-                            if len(values)<2:
-                                if reve:
-                                    foreach[key] = values[0]-1
-                                else:
-                                    foreach[key] = values[0]+1
-                            else:
-                                foreach[key] = sorted(values,reverse=reve)[-1]
-                            #if args.verbose:  #TODO
-                            #    print 'Too few conformations for {}'.format(key)
-                else:
-                    print 'Invalid statement. End with [T]op, [B]ottom or [A]verage'
-            try:
-                for key in foreach:
-                    foreach[key]=fu(foreach[key])*(numify(things[1])/100)
-            except UnboundLocalError:
-                pass
-        deles = []
-        for i, inf in reversed(list(enumerate(self._orderlist))):
-            try:
-                meta = numify(self._dictomoles[inf[0]][inf[1]]._meta[things[0].strip()].strip())
-                if foreach:
-                    value = foreach[inf[0]]
-                if ope[0] == '<':
-                    if not meta < value:
-                        deles.append(inf)
-                elif ope[0] == '~':
-                    if not re.search('(^|\s|,|;)'+re.escape(self._dictomoles[inf[0]][inf[1]]._meta[things[1]])+'($|\s|,|;)', str(meta)):
-                        deles.append(inf)
-                elif ope[0] == '=':
-                    if not re.search('(^|\s|,|;)'+re.escape(str(things[1]).strip())+'($|\s|,|;)', str(meta)):
-                        deles.append(inf)
-                elif ope[0] == '>':
-                    if not meta > value:
-                        deles.append(inf)
-                elif ope[0] == '!':
-                    #l=len(self)
-                    for j in range(0,i)[::-1]:#leaves the first one intact #for j in range(i+1,l): #Leaves the last one in place!
-                        meinf = self._orderlist[j]
-                        if inf[0]!=meinf[0]:
-                            continue
-                        if meta == numify(self._dictomoles[meinf[0]][meinf[1]]._meta[things[0].strip()].strip()):
-                            deles.append(inf)
-                            break
-            except KeyError:
-                deles.append(inf)
-        for key in deles:
-            try:
-                self.remove(key[0],key[1])
-            except KeyError:
-                print key
-                continue
-        self.dictmaint()
-    '''
 
     def sorter(self,sortstring):
         sortstring=sortstring.strip()
@@ -1015,15 +731,6 @@ class Sdfmole:
         self._numeric = False
         self._ignoretype = []
         
-        '''
-        if args.closestatom: #Kaipaa pääohjelmaa!
-            self._comments = list()
-            self._counts = list()
-            self._atoms = list()
-            self._bonds = list()
-            self._properties =list()
-        '''
-        
         if stringsofone:
             self.initialize(stringsofone)
             
@@ -1067,11 +774,6 @@ class Sdfmole:
         return new
     
     def metahand(self, strilist):
-            '''k=-1
-            for i,ite in enumerate(strilist):
-                if ite!='':
-                    k=i
-            return strilist[:k+1]'''
             return strilist[0]
             
     
@@ -1105,11 +807,6 @@ class Sdfmole:
             self._meta[key] = self.metahand(sto)
             self._metakeys.append(key)
             sto = []
-        
-        ''' responsibility taken elsewhere. numerize was also here before
-        if args.closestatom:
-            self.numerize()
-        '''    
     
     def dists(self, coord1):
         self.numerize()
@@ -1222,17 +919,6 @@ class Sdfmole:
         
         if self._numeric:
             me.extend(self.make_other())
-            ''' taken elsewhere
-            for line in self._comment:
-                me.append(line + '\n')
-            me.append(listtostring(self._counts[:-1],3)+'{:>6}'.format(self._counts[-1])+'\n') # atomheader!
-            for atom in self._atoms:
-                me.append(atomtostring(atom)+'\n')
-            for bond in self._bonds:
-                me.append(listtostring(bond, 3)+'\n')
-            for prop in self._properties:
-                me.append(prop+'\n')
-            '''
         else:
             for line in self._other:
                 me.append(line + '\n')
@@ -1354,7 +1040,6 @@ def coorder(point):
 
 
 def atomtostring(tab):
-    #c='{:>10.4f}'.format
     d=[]
     for i in range(len(atomcut)-1):
         n=atomcut[i+1]-atomcut[i]
@@ -1398,7 +1083,6 @@ def sub(num):
 		return num[0]-sum(num[1:])
 
 def getcolumn(tab,head):
-    #header = tab[0]
     ind = tab[0].index(head.strip())
     column = []
     for row in tab[1:]:
@@ -1408,7 +1092,6 @@ def getcolumn(tab,head):
 def readcsv(path):
     f=open(path,'r')
     matrix = csvtomatrix(f.readlines())
-    #matrix = [[numify(chibuti.sub('',cell)) for cell in line.split('\t')] for line in f.readlines()]
     f.close()
     return matrix
 
@@ -1416,62 +1099,22 @@ def csvtomatrix(lines):
     chibuti=re.compile('[\s\n;]+')
     return [[numify(chibuti.sub('',cell)) for cell in line.split('\t')] for line in lines]
 
-#def sametest(self, bolist, samelist):
-#    return (bolist[0] <= samelist[0]) and (bolist[1] <= samelist[1])
-    
 def ensure_dir(f):
     d = os.path.dirname(f)
     if not os.path.exists(d):
         os.makedirs(d)
 
-''' taken to Sdffile
-def writer(sdf, writetype, **kwargs):#path=None, split=False, makefolder=False): #new way of writing things
-    newargs = dict(kwargs)
-    if writetype=='none':
-        return
-    if not 'split' in kwargs:
-        if 'path' in kwargs: #output or overwrite
-            del(newargs['path'])
-            f = open(kwargs['path'],'w')
-            f.write(sdf.selftostring(writetype, **newargs)) #TODO
-            f.close()
-        else: #stdout
-            f = sys.stdout
-            f.write(sdf.selftostring(writetype, **newargs)) #TODO
-            f.flush()
-    else: #means split
-        del(newargs['split'])
-        if not 'path' in kwargs: #recursive fix, not possible to make multioutput for stdout
-            del(newargs['path'])
-            writer(sdf,writetype, **newargs) #TODO
-        else:
-            del(newargs['path'])
-            dotplace=kwargs['path'].rfind('.')
-            if dotplace < 0:
-                dotplace = len(wraita)
-            files = sdf.splitme(kwargs['split'])
-            for i, onesdf in enumerate(files):
-                
-                onepath = kwargs['path'][:dotplace]+'_'+str(i)+kwargs['path'][dotplace:]
-                if 'makefolder' in kwargs:
-                    del(newargs['makefolder'])
-                    onepath = kwargs['path'][:dotplace]+'_'+str(i)+'/'+kwargs['path']
-                ensure_dir(onepath)
-                writer(onesdf,writetype, **newargs) #TODO
-'''
 
 def splitter(stringofparams):
     return parentifier([cell.strip() for cell in stringofparams.split(',')],',')
 
 def parentifier(original,separator):
-    #print original
     m=[]
     s=False
     for i, item in enumerate(original):
         sta=list(stapa.finditer(item))
         end=list(endpa.finditer(item))
         if len(sta)>len(end):
-            #if len(sta)>len(end):#not end:
             if s:
                 m[-1]=[i]
             else:
@@ -1484,7 +1127,6 @@ def parentifier(original,separator):
     new=[]
     i=0
     for li in m:
-        #print m
         if len(li)==0:
             continue
         new.extend(original[i:li[0]])
@@ -1497,7 +1139,6 @@ def parentifier(original,separator):
         return new
 
 def lister(string):
-    #print string
     string = string.strip()
     if string.find('[')==0 and (string.rfind(']')-len(string))==-1:
         li = splitter(string[1:-1])
@@ -1533,11 +1174,9 @@ if __name__ == "__main__":
     choiceremo.add_argument("-pm", "--pickmeta", type = str,                help = "Remove all nonspecified metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;)")
     arger.add_argument("-s", "--split", type = int,                         help = "Split the file into even pieces. Positibe means number of file while negative means number of molecules per file. 0 doesn't apply.")
     arger.add_argument("-mf", "--makefolder", action = "store_true",        help = "Put outputfile(s) into folder(s).")
-    #arger.add_argument("-nu", "--numerical", action = "store_true",         help = "Enables the numerical processing of atoms, bonds, etc. Resource demanding.")
     outputtype = arger.add_mutually_exclusive_group()
     outputtype.add_argument("-gc", "--getcsv", type = str ,                 help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need")
     outputtype.add_argument("-ml", "--metalist", action = "store_true",     help = "Writes a list of metafields.")
-    #outputtype.add_argument("-nm", "--counts", action = "store_true",       help = "Number of different molecules and different conformations")
     outputtype.add_argument("-nm", "--counts", type = int,                  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
 
@@ -1545,7 +1184,6 @@ if __name__ == "__main__":
     arger.add_argument("-mc", "--multiclosestatom", type = str,             help = "Calculates the distances from atom number in a given field, multiple atoms in second field. Creates a field <[secondfieldname]_closest_distance> ['Closest_atom,PRIMARY_SOM|Closest_atom,SECONDARY_SOM]")
     arger.add_argument("-cb", "--closestbybonds", type = str,               help = "Calculates the closest atom of interest (atom number) from given atom (fieldname) to given atoms (fieldname). Adds '<input3>_atom' and '<input3>_distance' metafields. Needs three fieldnames, separated by ','. Fields are 'from', 'to' and 'newfield'. You can give multiple parameters, separate by '|'")
     arger.add_argument("-cla", "--closeratoms", type = str,                 help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
-    #arger.add_argument("-cia", "--closestintrestingatom", type = str,       help = "Calculates the distances from atom number in a given field, multiple atoms in second field. Creates a field <[secondfieldname]_closest_distance> ['Closest_atom,PRIMARY_SOM|Closest_atom,SECONDARY_SOM]")
     arger.add_argument("-v", "--verbose", action = "store_true" ,           help = "More info on your run.")
     arger.add_argument("-mm", "--mergemeta", type = str,                    help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, join. Takes multiple arguments separated by |")
     arger.add_argument("-cm", "--changemeta", type = str,                   help = "Changes names of metafields. [olname1>newname1|oldname2>newname2]. ")
@@ -1557,8 +1195,6 @@ if __name__ == "__main__":
     manyfiles = args.input #glob.glob(args.input)
     
     def main(inputfile):
-        #print args
-        
         times = [time.time()]
         sdf1 = Sdffile(inputfile)
         times.append(time.time())
@@ -1585,14 +1221,12 @@ if __name__ == "__main__":
                 print 'Name written to ID-field. It took {} seconds.'.format(times[-1]-times[-2])
         
         if args.remove==2:
-            #print 'names it is'
             sdf1.remconfs([True, False])
             times.append(time.time())
             if args.verbose:
                 print 'Conformation numbers removed from names. It took {} seconds.'.format(times[-1]-times[-2])
         
         elif args.remove==1:
-            #print 'meta beware'
             sdf1.remconfs([False, True])
             times.append(time.time())
             if args.verbose:
@@ -1644,39 +1278,6 @@ if __name__ == "__main__":
                 times.append(time.time())
                 if args.verbose:
                     print 'Metadata from csv-file added. It took {} seconds.'.format(times[-1]-times[-2])
-        '''
-        if args.closestatom:
-            sdf1.closest(args.closestatom)
-            times.append(time.time())
-            if args.verbose:
-                print 'Closest atoms to point calculated. It took {} seconds.'.format(times[-1]-times[-2])
-                
-        if args.closeratoms:
-            for statement in args.closeratoms.split('|'):
-                params = re.split('\s*,|;\s*',statement)
-                #for i in params:
-                #    print i
-                sdf1.closest(', '.join(params[0:3]),params[3])
-                times.append(time.time())
-                if args.verbose:
-                    print 'Atoms closer than {} to point calculated. It took {} seconds.'.format(params[1],times[-1]-times[-2])
-        
-        if args.multiclosestatom:
-            for statement in args.multiclosestatom.split('|'):
-                argus = statement.split(',')
-                sdf1.closestatoms(argus[0].strip(),argus[1].strip())
-                times.append(time.time())
-                if args.verbose:
-                    print 'Closest atoms to given atom calculated. It took {} seconds.'.format(times[-1]-times[-2])
-        
-        if args.closestbybonds:
-            for statement in args.closestbybonds.split('|'):
-                argus = statement.split(',')
-                sdf1.closestbybonds(argus[0].strip(),argus[1].strip(),argus[2].strip())
-                times.append(time.time())
-                if args.verbose:
-                    print 'Closest atom to given atom by bond calculated. It took {} seconds.'.format(times[-1]-times[-2])
-        '''        
         
         if args.closestatom:
             for statement in args.closestatom.split('|'):
@@ -1693,19 +1294,6 @@ if __name__ == "__main__":
                 times.append(time.time())
                 if args.verbose:
                     print 'Atoms closer than {} to point calculated. It took {} seconds.'.format(params[1],times[-1]-times[-2])
-
-
-        '''
-        if args.closeratoms:
-            for statement in args.closeratoms.split('|'):
-                params = re.split('\s*,|;\s*',statement)
-                #for i in params:
-                #    print i
-                sdf1.closest(', '.join(params[0:3]),params[3])
-                times.append(time.time())
-                if args.verbose:
-                    print 'Atoms closer than {} to point calculated. It took {} seconds.'.format(params[1],times[-1]-times[-2])
-        '''
 
         if args.multiclosestatom:
             for statement in args.multiclosestatom.split('|'):
@@ -1767,7 +1355,6 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Given metafields removed. It took {} seconds.'.format(times[-1]-times[-2])
         elif args.pickmeta!=None:
-            #print ('"{}"').format(args.pickmeta)
             sdf1.removemeta(args.pickmeta, True)
             times.append(time.time())
             if args.verbose:
@@ -1790,10 +1377,8 @@ if __name__ == "__main__":
                         larg.append(para)
                 for key in darg:
                     darg[key]=lister(darg[key])
-                    #if type(darg[key])==list:
                     darg[key]=numify(darg[key])
                 if 'save' in darg:
-                    #saveflag = True
                     path=darg['save']
                     del(darg['save'])
                 if 'noplot' in larg:
@@ -1807,39 +1392,14 @@ if __name__ == "__main__":
             times.append(time.time())
             if args.verbose:
                 print 'Plotting histograms done. It took {} seconds.'.format(times[-1]-times[-2])
-        times.append(time.time())
-
-        '''
-        if args.plothist:
-            plots = args.plothist.split('|')
-            for plot in plots:
-                #parsing of plot X, Y, dict
-                arg=[]
-                darg=[]
-                for one in re.split('\s*,\s*',plot):
-                    ind = one.find('=')
-                    if ind==-1:
-                        arg.append(one)
-                sdf1.mehist(logic.strip())
-                if args.verbose:
-                    print 'Plot done.'
-            times.append(time.time())
-            if args.verbose:
-                print 'Plotting histograms done. It took {} seconds.'.format(times[-1]-times[-2])
-        '''
-        
+        times.append(time.time())        
         
         wriarg=dict()
         
         if args.overwrite:
             wriarg['path']=inputfile
-            #path = inputfile
         elif args.output:
             wriarg['path']=args.output
-            #path = args.output
-        #else:
-        #    path = None
-        
         if args.getcsv:
             writetype='getcsv'
             wriarg['csv']=args.getcsv
@@ -1855,43 +1415,10 @@ if __name__ == "__main__":
         
         if args.split:
             wriarg['split']=args.split
-            #split = True
-        #else:
-        #    split = False
-        
         if args.makefolder:
             wriarg['makefolder']=args.makefolder #True #makefolder = True
-        #else:
-        #    makefolder = False
-        
-        #common situation
-        #writer(sdf1,writetype,**wriarg)
         sdf1.writer(writetype,**wriarg)
-        #writer(sdf1,writetype,path,split,makefolder)
         times.append(time.time())
-        
-            #has gone into writer method
-        '''
-            if not wraita:
-                self.writeself()
-            else:
-                dotplace=wraita.rfind('.')
-                if dotplace < 0:
-                    dotplace = len(wraita)
-                files = sdf1.splitme(args.split)
-                #print len(files)
-                for i, sdf in enumerate(files):
-                    path = wraita[:dotplace]+'_'+str(i)+wraita[dotplace:]
-                    if args.makefolder:
-                        path = wraita[:dotplace]+'_'+str(i)+'/'+wraita
-                    ensure_dir(path)
-                    sdf.writeself(path)
-                del(dotplace, files)
-        
-        else:
-            sdf1.writeself(wraita)
-        times.append(time.time())
-        '''
         
         if args.verbose:
                 print 'File writing done. It took {} seconds.'.format(times[-1]-times[-2])
