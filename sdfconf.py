@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 
+#New migrated version on /motu/group/rialm/sakari/sdfconf/
+#Nyt se alkaa
+
 import os
 import sys
 import re
