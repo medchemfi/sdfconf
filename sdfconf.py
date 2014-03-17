@@ -2,7 +2,7 @@
 # -*- coding: latin-1 -*-
 
 #New migrated version on /motu/group/rialm/sakari/sdfconf/
-#Nyt se alkaa
+#less changes :(
 
 import os
 import sys
