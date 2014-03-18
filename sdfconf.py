@@ -13,12 +13,13 @@ import pylab
 import copy
 
 #Common regular expressions used.  
-confchop=re.compile('\{\[\d+\]\}')
-molchop = re.compile('^\${4}')
-metachop = re.compile('>\s+<')
-stapa=re.compile('\{|\[|\(')
-endpa=re.compile('\}|\]|\)')
-goodchop = re.compile('\s*,{0,1}\s*')
+confchop=re.compile('\{\[\d+\]\}') #gets conformation number
+molchop = re.compile('^\${4}') #Separates molecules in file
+#metachop = re.compile('>\s+<') #Detects beginning of metafield name
+stapa=re.compile('\{|\[|\(') #Starting parentesis
+endpa=re.compile('\}|\]|\)') #Ending parenthesis
+goodchop = re.compile('\s*,{0,1}\s*') #CSV-separator
+metaname = re.compile('\>(.*)\<(.+)\>') #Match gets metafield name
 ckey = "confnum"
 atomcut=[0, 10, 20, 30, 31, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69]
 
@@ -798,9 +799,10 @@ class Sdfmole:
                 
         key = ''
         sto = []
+        #NEW 2014.03.14 Changing metadata back to multiline. Also reject lines longer than 200 characters.
         for line in strings[first:]: #some optimazition required in the order of statements
             m=metachop.match(line)
-            if m:#if line[:3] == '> <':
+            if m:
                 if key != '':
                     self._meta[key] = self.metahand(sto)
                     self._metakeys.append(key)
@@ -1040,6 +1042,53 @@ class Sdfmole:
         return distances
     
 #end of Sdfmole
+
+class Sdfmeta:
+    #name
+    #datatype: string list dict ?
+    #the structure
+    self._datypes = ['string', 'vlist', 'hlist', 'contlist', 'dict','unknown']
+    
+    def __init__(self, listofstrings=[]):
+        self._name = ''
+        self._datatype = '' 
+        self._data = None
+        self.initialize(listofstrings)
+        pass
+        
+    def initialize(self, listofstrings):
+        '''parse the metadata'''
+        if listofstrings[0][0] != '>' :
+            return
+        else:
+            self._name = metaname.match(listofstrings[0]).groups()
+        mylist=[]
+        for lines in listofstrings
+    
+    def getname(self):
+        return self._name[1]
+        
+    def dtype(self):
+        return self._datatype
+    
+    def selftolistofstrings(self):
+        '''return in .sdf-file format. No linechanges''' #TODO
+        #Make list
+        strings = []
+        #Append name
+        strings.append('>'+self._name[0]+'<'+self._name[1]+'>')
+        
+        #Do other things
+        
+        #Apply the last blanck line
+        strings.append('')
+        return strings
+        
+    def selftostring(self):
+        '''return in .sdf-file format. With linechanges'''
+        return '\n'.join(self.selftolistofstrings)+'\n'
+        
+    
 
 def coorder(point):
     return map(numify, goodchop.split(point.strip('{[()]}')))
