@@ -19,7 +19,10 @@ molchop = re.compile('^\${4}') #Separates molecules in file
 stapa=re.compile('\{|\[|\(') #Starting parentesis
 endpa=re.compile('\}|\]|\)') #Ending parenthesis
 goodchop = re.compile('\s*,{0,1}\s*') #CSV-separator
+
 metaname = re.compile('\>(.*)\<(.+)\>') #Match gets metafield name
+#metadict = re.compile('[;,^]{0,1}\s*(\w+):(\w+)\s*[;,$]{0,1}' #re.compile('\s*[,;]{0,1}\s*(.*):(.*)\s*[,;]{0,1}\s*')
+
 ckey = "confnum"
 atomcut=[0, 10, 20, 30, 31, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69]
 
@@ -1047,23 +1050,93 @@ class Sdfmeta:
     #name
     #datatype: string list dict ?
     #the structure
-    self._datypes = ['string', 'vlist', 'hlist', 'contlist', 'dict','unknown']
+    #                |------ singles ? -----|
+    self._datypes = ['string', 'int', 'float' 'vlist', 'hlist', 'contlist', 'dict','unknown']
     
     def __init__(self, listofstrings=[]):
         self._name = ''
         self._datatype = '' 
         self._data = None
         self.initialize(listofstrings)
-        pass
         
     def initialize(self, listofstrings):
         '''parse the metadata'''
+        #licho = re.compile('')
+        
+        #get name of metafield
         if listofstrings[0][0] != '>' :
+            #Raise error
             return
         else:
             self._name = metaname.match(listofstrings[0]).groups()
-        mylist=[]
-        for lines in listofstrings
+        
+        #Remove the last empty line and linechanges
+        if not len(listofstrings[-1].strip())==0:
+            #Raise error?
+            return
+        else:
+            mylines = [line.rstrip('\n ') for line in listofstrings[1:-2] ]
+        
+        #More to come
+        #TODO
+        
+    def whattype(self, onestring):
+        '''
+        Tries to find out what type your sting is
+        Return (parsed,parsedtype,delim)
+        '''
+        #Number?
+        numoutof = numify(onestring)
+        ty = type(numoutof)
+        if ty in (int, float):
+            #Number, return
+            return (numoutof,ty,())
+        else:
+            #Not number
+            pass
+        del(numoutof,ty)
+        
+        #Is it a list delimited by ,;\t ?
+        splitted = listsep(onestring,',;\t')
+        #if splitted:
+        #is dict?
+        dicti = {}
+        notdict = False
+        for cell in splitted[0]:
+            dicted = cell.split(':')
+            if len(dicted)==2:
+                dicti[dicted[0].strip()] = numify( dicted[1].strip() )
+                #good
+            else:
+                #abort
+                del(dicti, dicted)
+                notdict = True
+                break
+        if notdict:
+            lister = [ numify( cell.strip() ) for cell in splitted[0] ]
+            mytype = allsame(lister)
+            if mytype:
+                return 
+                
+            
+        if not splitted:
+            #separated by ' '
+            splitted = listsep(self, onestring, ' ')
+            
+            pass #TODO
+            
+        '''
+        splitted = re.slit('( *[\t,;] *)',onestring)
+        delim=splitted[1::2]
+        splitted = splitted[0::2]        
+        '''
+        dicts = [re.split(' *[:=] *',cell) for cell in splitted]
+        
+        nodict = False
+        for cell in dicts:
+            pass
+            
+                
     
     def getname(self):
         return self._name[1]
@@ -1087,8 +1160,10 @@ class Sdfmeta:
     def selftostring(self):
         '''return in .sdf-file format. With linechanges'''
         return '\n'.join(self.selftolistofstrings)+'\n'
-        
     
+    def isdict(self, string):
+        
+#End of Sdfmeta
 
 def coorder(point):
     return map(numify, goodchop.split(point.strip('{[()]}')))
@@ -1202,6 +1277,38 @@ def lister(string):
         return li
     else:
         return string
+        
+def listsep(tosplit, delim):
+    '''
+    Splits a list by delimiter characters
+    Return list and list of delimiters
+    not in action: If length is 1, return None
+    '''
+    splitted = re.slit('( *['+delim+'] *)', tosplit)
+    delim=splitted[1::2]
+    splitted = splitted[0::2]        
+    #if len(splitted)>1:
+    return (splitted,delim)
+    #else:
+    #    return None
+        
+def allsame(listordict):
+    '''
+    Checks if all items in list, tuple or dict are of same type,
+    types being float, int and string. If includes int and float, returns float
+    If all same, return type, else return None
+    '''
+    if type(listordict) == dict:
+        stuff = listordict.values()
+    else:
+        stuff = listordict
+    types = set(map(typerist,stuff))
+    if len(types) == 1:
+        return types[0]
+    elif not string in types:
+        return float
+    else:
+        return None
 
 if __name__ == "__main__":
     
