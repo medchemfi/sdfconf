@@ -1050,10 +1050,11 @@ class Sdfmeta:
     #name
     #datatype: string list dict ?
     #the structure
-    #                |------ singles ? -----|
-    self._datypes = ['string', 'int', 'float' 'vlist', 'hlist', 'contlist', 'dict','unknown']
+    #                 |------ singles ? -----|
+    #self._datypes = ['string', 'int', 'float' 'vlist', 'hlist', 'contlist', 'dict','unknown']
     
     def __init__(self, listofstrings=[]):
+        
         self._name = ''
         self._datatype = '' 
         self._data = None
@@ -1080,63 +1081,9 @@ class Sdfmeta:
         #More to come
         #TODO
         
-    def whattype(self, onestring):
-        '''
-        Tries to find out what type your sting is
-        Return (parsed,parsedtype,delim)
-        '''
-        #Number?
-        numoutof = numify(onestring)
-        ty = type(numoutof)
-        if ty in (int, float):
-            #Number, return
-            return (numoutof,ty,())
-        else:
-            #Not number
-            pass
-        del(numoutof,ty)
         
-        #Is it a list delimited by ,;\t ?
-        splitted = listsep(onestring,',;\t')
-        #if splitted:
-        #is dict?
-        dicti = {}
-        notdict = False
-        for cell in splitted[0]:
-            dicted = cell.split(':')
-            if len(dicted)==2:
-                dicti[dicted[0].strip()] = numify( dicted[1].strip() )
-                #good
-            else:
-                #abort
-                del(dicti, dicted)
-                notdict = True
-                break
-        if notdict:
-            lister = [ numify( cell.strip() ) for cell in splitted[0] ]
-            mytype = allsame(lister)
-            if mytype:
-                return 
-                
-            
-        if not splitted:
-            #separated by ' '
-            splitted = listsep(self, onestring, ' ')
-            
-            pass #TODO
-            
-        '''
-        splitted = re.slit('( *[\t,;] *)',onestring)
-        delim=splitted[1::2]
-        splitted = splitted[0::2]        
-        '''
-        dicts = [re.split(' *[:=] *',cell) for cell in splitted]
+
         
-        nodict = False
-        for cell in dicts:
-            pass
-            
-                
     
     def getname(self):
         return self._name[1]
@@ -1160,9 +1107,6 @@ class Sdfmeta:
     def selftostring(self):
         '''return in .sdf-file format. With linechanges'''
         return '\n'.join(self.selftolistofstrings)+'\n'
-    
-    def isdict(self, string):
-        
 #End of Sdfmeta
 
 def coorder(point):
@@ -1284,7 +1228,7 @@ def listsep(tosplit, delim):
     Return list and list of delimiters
     not in action: If length is 1, return None
     '''
-    splitted = re.slit('( *['+delim+'] *)', tosplit)
+    splitted = re.split('( *['+delim+'] *)', tosplit)
     delim=splitted[1::2]
     splitted = splitted[0::2]        
     #if len(splitted)>1:
@@ -1302,13 +1246,76 @@ def allsame(listordict):
         stuff = listordict.values()
     else:
         stuff = listordict
-    types = set(map(typerist,stuff))
+    types = set(map(type, stuff))
     if len(types) == 1:
-        return types[0]
-    elif not string in types:
+        return types.pop()
+    elif not str in types:
         return float
     else:
         return None
+        
+def whattype(onestring):
+    '''
+    Tries to find out what type your string is
+    Return (parsed,parsedtype,delim)
+    '''
+    #Number?
+    numoutof = numify(onestring)
+    ty = type(numoutof)
+    if ty in (int, float):
+        #Number, return
+        return ((numoutof),ty,())
+    #not just number, go on.
+    del(numoutof,ty)
+    
+    
+    def listtypetest(onestring, delimiter):
+        #print 'onestring'
+        #print onestring
+        #Is it a list delimited by given delimiter ?
+        splitted = listsep(onestring,delimiter)
+        #is dict?
+        dicti = {}
+        notdict = False
+        #print 'splitted'
+        #print splitted
+        for i, cell in enumerate(splitted[0]):
+            dicted = cell.split(':')
+            if len(dicted)==2:
+                dicti[dicted[0].strip()] = numify( dicted[1].strip() )
+                #good
+            else:
+                #abort
+                del(dicti, dicted)
+                notdict = True
+                #print 'ding! not dict!'
+                break
+        if notdict:
+            if len(splitted[0])==1:
+                return None
+            lister = [ numify( cell.strip() ) for cell in splitted[0] ]
+            mytype = allsame(lister)
+            if mytype: #all same
+                if mytype == str:
+                    return None
+                elif mytype == float:
+                    lister = map(float,lister)
+                return (lister,mytype,splitted[1])
+            else:
+                pass
+        else: #is dict
+            mytype = allsame(dicti)
+            if mytype:
+                return (dicti, mytype, splitted[1])
+        return None
+
+    chars = [';',',','\t',' ']
+    for char in chars:
+        news = listtypetest(onestring,char)
+        #print news
+        if news:
+            return news
+    return ((onestring),str,())
 
 if __name__ == "__main__":
     
