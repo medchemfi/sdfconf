@@ -820,13 +820,16 @@ class Sdfmole:
             self._metakeys.append(key)
             sto = []
         '''
+        #print str(first)
+        add = 0
         for i, line in enumerate(strings[first:]): #some optimazition required in the order of statements
             if line == '\n': #emptyline
-                if i == first+1:
-                    first = i
+                if i-add < 2:
+                    add = i
+                    #print 'ping! empty line on line {}'.format(i)
                     continue
-                newmeta = Sdfmeta(strings[first:i+1])
-                first = i+1
+                newmeta = Sdfmeta(strings[first+add:first+i+1])
+                add = i+1
                 self._meta[newmeta.getname()] = newmeta
                 self._metakeys.append(newmeta.getname())
                 
@@ -1066,7 +1069,7 @@ class Sdfmeta:
     
     def __init__(self, listofstrings=[]):
         
-        self._name = '' #Metafield name
+        self._name = ['',''] #Metafield name
         self._datatype = None #int, float, str
         self._datastruct = None #list, dict, single
         self._data = None #The actual data
@@ -1078,16 +1081,19 @@ class Sdfmeta:
         #get name of metafield
         if listofstrings[0][0] != '>' :
             #Raise error
+            print listofstrings[0]
+            #print 'No meta'
             return
         else:
+            #print listofstrings[0]
             self._name = metaname.match(listofstrings[0]).groups()
-        
+            #print self._name
         #Remove the last empty line and linechanges
         if not len(listofstrings[-1].strip())==0:
             #Raise error?
             return
-        else:
-            mylines = [line.rstrip('\n ') for line in listofstrings[1:-1] ]
+        else: #             rstrip?
+            mylines = [line.strip('\n ') for line in listofstrings[1:-1] ]
         
         '''
         #Parse datalines separately
@@ -1108,10 +1114,11 @@ class Sdfmeta:
         #instead of commented section, merge lines with '' and do whattype
         #if no delimiter or ' ' in the end of line, add ' '
         newlines = []
-        for line in mylines:
+        for line in mylines[:-1]:
             newlines.append(line)
             if not re.match('[ ,;\t]',line[-1]):
                 newlines.append(' ')
+        newlines.append(mylines[-1])
         (data,dtype,delims) = whattype(''.join(newlines))
         #if string, it's special
         if dtype == str:
@@ -1334,6 +1341,7 @@ def whattype(onestring):
     Tries to find out what type your string is
     Return (parsed,parsedtype,delim)
     '''
+    #onestring = onestring.strip()
     #Number?
     numoutof = numify(onestring)
     ty = type(numoutof)
