@@ -82,16 +82,16 @@ class Sdffile:
         return ''.join(tab)
         
     def __getitem__(self, ind):
-		if isinstance( ind, slice ) :
-			mols = self._orderlist[ind]
-			return [self._dictomoles[inf[0]][inf[1]] for inf in mols]
-		elif isinstance( ind, int ) :
-			mols = self._orderlist[ind]
-			return self._dictomoles[mols[0]][mols[1]]
-		else:
-			raise TypeError, "Invalid argument type."
-		
-		
+        if isinstance( ind, slice ) :
+            mols = self._orderlist[ind]
+            return [self._dictomoles[inf[0]][inf[1]] for inf in mols]
+        elif isinstance( ind, int ) :
+            mols = self._orderlist[ind]
+            return self._dictomoles[mols[0]][mols[1]]
+        else:
+            raise TypeError, "Invalid argument type."
+        
+        
 
     def sdfseparator(self, strings):
         #Hajoittaa .sdf tiedoston listaksi listoja, joista yksi sisaltaa yhden tiedoston molekyyleista
@@ -219,13 +219,16 @@ class Sdffile:
     #misc
 
     def metatoname(self, meta, joiner='_'):
-        #Changes the name of molecules to whatever found in given metafield
+        '''
+        Changes the name of molecules to whatever found in given metafield.
+        Applies only for metafields of type str
+        '''
         for i, molord in enumerate(self._orderlist):
             olname = molord[0]
             n = molord[1]
             mol = self._dictomoles[olname][n]
             
-            name = mol._meta[meta]
+            name = mol._meta[meta].getmetastr()
             #index = self._orderlist.index([olname,n])
             #self._orderlist[]=
             mol._name = name
@@ -250,6 +253,7 @@ class Sdffile:
         else:
             if args.verbose:
                 print 'Command {} not found'.format(funk)
+    
     
     def mergenewmeta(self, newmeta, metas, oper):
         for mol in self:
@@ -1082,6 +1086,17 @@ class Sdfmeta:
         self._delims = []
         self.initialize(listofstrings)
         
+    def __getitem__(self, ind):
+        if self._datastruct == OrDi:
+            mylist = self._data.values()
+        else:
+            mylist = self._data
+        if isinstance( ind, slice ) or isinstance( ind, int ) :
+            return mylist[ind]
+        else:
+            raise TypeError, "Invalid argument type."
+
+        
     def initialize(self, listofstrings):
         '''parse the metadata'''
         #get name of metafield
@@ -1100,22 +1115,6 @@ class Sdfmeta:
             return
         else: #             rstrip?
             mylines = [line.strip('\n ') for line in listofstrings[1:-1] ]
-        
-        '''
-        #Parse datalines separately
-        datas=[]
-        for oneline in listofstrings:
-            datas.append(whattype(oneline))
-        
-        #Combine the lines #
-        #newda=None
-        (da0,t0,deli0) = datas[i]
-        for i in range(len(datas)-2):
-            (da1,t1,deli1) = datas[i]
-            (da2,t2,deli2) = datas[i+1]
-            if type(da1) == type(da2):
-                n
-        '''
         
         #instead of commented section, merge lines with '' and do whattype
         #if no delimiter or ' ' in the end of line, add ' '
@@ -1142,21 +1141,32 @@ class Sdfmeta:
         else:
             self._datastruct = type(data)
             self._delims = delims
+            
+    def __copy__(self):
+        new = Sdfmeta()
+        new._name = copy.copy( self._name )
+        new._datatype = copy.copy( self._datatype )
+        new._datastruct = copy.copy( self._datastruct )
+        new._data = copy.copy( self._data )
+        new._delims = copy.copy( self._delims )
+        return new
+        
+    def __deepcopy__(self):
+        new = Sdfmeta()
+        new._name = copy.deepcopy( self._name )
+        new._datatype = copy.deepcopy( self._datatype )
+        new._datastruct = copy.deepcopy( self._datastruct )
+        new._data = copy.deepcopy( self._data )
+        new._delims = copy.deepcopy( self._delims )
+        return new
     
     def getname(self):
         return self._name[1]
         
     def dtype(self):
         return self._datatype
-    
-    def selftolistofstrings(self):
-        '''return in .sdf-file format. No linechanges''' #TODO
-        #Make list
-        strings = []
-        #Append name
-        strings.append('>'+self._name[0]+'<'+self._name[1]+'>')
         
-        #Do other things
+    def getmetastrings(self, length=float('inf')):
         dictflag = self._datastruct == OrDi
         if dictflag:
             key = self._data.keys()[0]
@@ -1168,7 +1178,7 @@ class Sdfmeta:
             itera = enumerate(self._data[1:])
         l = len(tmp[-1])
         
-        
+        strings=[]
         for i, item in itera:
             if dictflag:
                 stuff = item+':'+str(self._data[item])
@@ -1176,7 +1186,7 @@ class Sdfmeta:
                 stuff = str(item)
             #add delimiter
             lde = len(self._delims[i])
-            if l +lde > 74:
+            if l +lde > length:
                 strings.append(''.join(tmp))
                 tmp=[]
                 l=0
@@ -1184,7 +1194,7 @@ class Sdfmeta:
             tmp.append(self._delims[i])
             #add data
             lda = len(stuff)
-            if l +lda > 74:
+            if l +lda > length:
                 strings.append(''.join(tmp))
                 tmp=[]
                 l=0
@@ -1192,6 +1202,20 @@ class Sdfmeta:
             tmp.append(stuff)
         if len(tmp)>0:
             strings.append(''.join(tmp))
+        return strings
+        
+    def getmetastr(self):
+        return self.getmetastrings()[0]
+    
+    def selftolistofstrings(self):
+        '''return in .sdf-file format. No linechanges''' #TODO
+        #Make list
+        strings = []
+        #Append name
+        strings.append('>'+self._name[0]+'<'+self._name[1]+'>')
+        
+        #Do other things
+        strings.extend(self.getmetastrings(74))
         
         #Apply the last blanck line
         strings.append('')
