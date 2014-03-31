@@ -11,6 +11,7 @@ import numpy
 import time
 import pylab
 import copy
+from collections import OrderedDict as OrDi
 
 #Common regular expressions used.  
 confchop=re.compile('\{\[\d+\]\}') #gets conformation number
@@ -948,12 +949,17 @@ class Sdfmole:
             for line in self._other:
                 me.append(line + '\n')
         
+        ''' #Metastructure has changed
         for key in self._metakeys:
             me.append('>  <'+key+'>\n')
             #for line in self._meta[key]:
             #    me.append(line + '\n')
             me.append(self._meta[key] + '\n')
             me.append('\n')
+        '''
+        for key in self._metakeys:
+            mystrings = [line+'\n' for line in self._meta[key].selftolistofstrings()]
+            me.extend(mystrings)
         me.append('$$$$\n')
         return me
         
@@ -1151,9 +1157,23 @@ class Sdfmeta:
         strings.append('>'+self._name[0]+'<'+self._name[1]+'>')
         
         #Do other things
-        tmp=[str(self._data)]
+        dictflag = self._datastruct == OrDi
+        if dictflag:
+            key = self._data.keys()[0]
+            tmp=[key+':'+str(self._data[key])]
+            del(key)
+            itera = enumerate(self._data.keys()[1:])
+        else:
+            tmp=[str(self._data[0])]
+            itera = enumerate(self._data[1:])
         l = len(tmp[-1])
-        for i, item in enumerate(self._data):
+        
+        
+        for i, item in itera:
+            if dictflag:
+                stuff = item+':'+str(self._data[item])
+            else:
+                stuff = str(item)
             #add delimiter
             lde = len(self._delims[i])
             if l +lde > 74:
@@ -1163,13 +1183,13 @@ class Sdfmeta:
             l += lde
             tmp.append(self._delims[i])
             #add data
-            lda = len(item)
+            lda = len(stuff)
             if l +lda > 74:
                 strings.append(''.join(tmp))
                 tmp=[]
                 l=0
             l += lda
-            tmp.append(item)
+            tmp.append(stuff)
         if len(tmp)>0:
             strings.append(''.join(tmp))
         
@@ -1324,7 +1344,7 @@ def allsame(listordict):
     types being float, int and string. If includes int and float, returns float
     If all same, return type, else return None
     '''
-    if type(listordict) == dict:
+    if type(listordict) == OrDi:
         stuff = listordict.values()
     else:
         stuff = listordict
@@ -1347,7 +1367,7 @@ def whattype(onestring):
     ty = type(numoutof)
     if ty in (int, float):
         #Number, return
-        return ((numoutof),ty,())
+        return ([numoutof],ty,[])
     #not just number, go on.
     del(numoutof,ty)
     
@@ -1358,7 +1378,7 @@ def whattype(onestring):
         #Is it a list delimited by given delimiter ?
         splitted = listsep(onestring,delimiter)
         #is dict?
-        dicti = {}
+        dicti = OrDi() #OrderedDict
         notdict = False
         #print 'splitted'
         #print splitted
@@ -1399,7 +1419,7 @@ def whattype(onestring):
         #print news
         if news:
             return news
-    return ([onestring],str,())
+    return ([onestring],str,[])
 
 if __name__ == "__main__":
     
