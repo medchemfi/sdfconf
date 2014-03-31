@@ -793,16 +793,17 @@ class Sdfmole:
         first = -1
         
         for i, line in enumerate(strings[1:]): #notice index shift: i=0; line=strings[1]
-            if metachop.match(line):#if line[:3] == '> <':
+            if metaname.match(line):#if line[:3] == '> <':
                 first = i+1
                 break
             else:
                 self._other.append(line.rstrip('\n'))
                 #self._other.append(line.strip())
                 
-        key = ''
-        sto = []
-        #NEW 2014.03.14 Changing metadata back to multiline. Also reject lines longer than 200 characters.
+        #key = ''
+        #sto = []
+        #NEW 2014.03.14 Changing metadata back to multiline. Also reject lines longer than 74 characters.
+        '''
         for line in strings[first:]: #some optimazition required in the order of statements
             m=metachop.match(line)
             if m:
@@ -818,7 +819,17 @@ class Sdfmole:
             self._meta[key] = self.metahand(sto)
             self._metakeys.append(key)
             sto = []
-    
+        '''
+        for i, line in enumerate(strings[first:]): #some optimazition required in the order of statements
+            if line == '\n': #emptyline
+                if i == first+1:
+                    first = i
+                    continue
+                newmeta = Sdfmeta(strings[first:i+1])
+                first = i+1
+                self._meta[newmeta.getname()] = newmeta
+                self._metakeys.append(newmeta.getname())
+                
     def dists(self, coord1):
         self.numerize()
         alist=[]
@@ -1055,15 +1066,15 @@ class Sdfmeta:
     
     def __init__(self, listofstrings=[]):
         
-        self._name = ''
-        self._datatype = '' 
-        self._data = None
+        self._name = '' #Metafield name
+        self._datatype = None #int, float, str
+        self._datastruct = None #list, dict, single
+        self._data = None #The actual data
+        self._delims = []
         self.initialize(listofstrings)
         
     def initialize(self, listofstrings):
         '''parse the metadata'''
-        #licho = re.compile('')
-        
         #get name of metafield
         if listofstrings[0][0] != '>' :
             #Raise error
@@ -1076,14 +1087,48 @@ class Sdfmeta:
             #Raise error?
             return
         else:
-            mylines = [line.rstrip('\n ') for line in listofstrings[1:-2] ]
+            mylines = [line.rstrip('\n ') for line in listofstrings[1:-1] ]
         
-        #More to come
-        #TODO
+        '''
+        #Parse datalines separately
+        datas=[]
+        for oneline in listofstrings:
+            datas.append(whattype(oneline))
         
+        #Combine the lines #
+        #newda=None
+        (da0,t0,deli0) = datas[i]
+        for i in range(len(datas)-2):
+            (da1,t1,deli1) = datas[i]
+            (da2,t2,deli2) = datas[i+1]
+            if type(da1) == type(da2):
+                n
+        '''
         
-
+        #instead of commented section, merge lines with '' and do whattype
+        #if no delimiter or ' ' in the end of line, add ' '
+        newlines = []
+        for line in mylines:
+            newlines.append(line)
+            if not re.match('[ ,;\t]',line[-1]):
+                newlines.append(' ')
+        (data,dtype,delims) = whattype(''.join(newlines))
+        #if string, it's special
+        if dtype == str:
+            self._datatype = str
+            self._data = mylines
+            self._datastruct = list
+            self._delims = ['' for line in mylines[:-1]]
+            return
+        #not just string
         
+        self._data = data
+        self._datatype = dtype
+        if type(data) == list and len(data)==1:
+            self._datastruct = 'single'
+        else:
+            self._datastruct = type(data)
+            self._delims = delims
     
     def getname(self):
         return self._name[1]
@@ -1099,6 +1144,27 @@ class Sdfmeta:
         strings.append('>'+self._name[0]+'<'+self._name[1]+'>')
         
         #Do other things
+        tmp=[str(self._data)]
+        l = len(tmp[-1])
+        for i, item in enumerate(self._data):
+            #add delimiter
+            lde = len(self._delims[i])
+            if l +lde > 74:
+                strings.append(''.join(tmp))
+                tmp=[]
+                l=0
+            l += lde
+            tmp.append(self._delims[i])
+            #add data
+            lda = len(item)
+            if l +lda > 74:
+                strings.append(''.join(tmp))
+                tmp=[]
+                l=0
+            l += lda
+            tmp.append(item)
+        if len(tmp)>0:
+            strings.append(''.join(tmp))
         
         #Apply the last blanck line
         strings.append('')
@@ -1107,6 +1173,15 @@ class Sdfmeta:
     def selftostring(self):
         '''return in .sdf-file format. With linechanges'''
         return '\n'.join(self.selftolistofstrings)+'\n'
+        
+    def cleandelim(self):
+        '''Clean excess whitespaces from delimiters'''
+        for i in range(len(delim)):
+            #new = 
+            #if len(new)==0:
+            #    new = ' '
+            self._delim[i] = self._delim[i].strip() + ' '
+            
 #End of Sdfmeta
 
 def coorder(point):
@@ -1292,6 +1367,7 @@ def whattype(onestring):
                 break
         if notdict:
             if len(splitted[0])==1:
+                #therefore, no list of strings is generated
                 return None
             lister = [ numify( cell.strip() ) for cell in splitted[0] ]
             mytype = allsame(lister)
@@ -1315,7 +1391,7 @@ def whattype(onestring):
         #print news
         if news:
             return news
-    return ((onestring),str,())
+    return ([onestring],str,())
 
 if __name__ == "__main__":
     
