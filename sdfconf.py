@@ -228,7 +228,7 @@ class Sdffile:
             n = molord[1]
             mol = self._dictomoles[olname][n]
             
-            name = mol._meta[meta].getmetastr()
+            name = joiner.join(mol._meta[meta].getmetastrings())
             #index = self._orderlist.index([olname,n])
             #self._orderlist[]=
             mol._name = name
@@ -265,6 +265,51 @@ class Sdffile:
                 mol.addmeta(newmeta, [str(oper(tab))])
             except TypeError:
                 mol.addmeta(newmeta, [str(oper(map(str,tab)))])
+                
+    def metaoper(self, oper, metas):
+        '''
+        method to make operations for Sdfmeta objects
+        return resulting metavalue of operation.
+        '''
+        structs = [meta._datastruct for meta in metas]
+        types   = [meta._datatype   for meta in metas]
+        mathopers = (sum, sub, numpy.prod, max, min, avg)
+        workmetas = copy.deepcopy(metas)
+        if oper in mathopers:
+            if str in types:
+                #cannot calculate strings, doh
+                return None
+            if len(set(structs))==2 and 'single' in structs:
+                #singles and (list or OrDi) in structs, extend singles to lists
+                ostru = iter(set(structs)-{'single'}).next() #the other structuretype
+
+                minlen = min( map(len, {meta._data for meta in workmetas}-{1}) ) # shortest list length, ignore singles
+                if ostru == list:
+                    #make lists have the same length
+                    for i, meta in enumerate(workmetas): 
+                        if meta._datastruct == 'single':
+                            workmeta[i]._data = meta._data * minlen
+                        else:
+                            workmeta[i]._data = meta._data[:minlen]
+                    
+                elif ostru == OrDi:
+                    keys = set()
+                    for i, meta in enumerate(workmetas):
+                        if meta._datastruct == OrDi:
+                            keys = keys.union(meta._data)
+                    for meta in workmetas:
+                        if meta._datastruct == 'single':
+                            pass
+        
+        if oper != ' '.join:
+            if len(types)>1:
+                #quit if multiple types. Add support for  mixed structure, e.g., single and list
+                return None
+            
+            if list in types:
+                datas = [meta._data for meta in metas]
+                minlen = min( map(len, datas) )
+                datas = [data[:minlen] for data in datas]
     
     def nametoid(self, meta):
         #Adds a metafield including the molecule name
@@ -1077,14 +1122,15 @@ class Sdfmeta:
     #                 |------ singles ? -----|
     #self._datypes = ['string', 'int', 'float' 'vlist', 'hlist', 'contlist', 'dict','unknown']
     
-    def __init__(self, listofstrings=[]):
+    def __init__(self, listofstrings=None):
         
-        self._name = ['',''] #Metafield name
+        self._name = [None,None] #Metafield name
         self._datatype = None #int, float, str
         self._datastruct = None #list, dict, single
         self._data = None #The actual data
         self._delims = []
-        self.initialize(listofstrings)
+        if listofstrings:
+            self.initialize(listofstrings)
         
     def __getitem__(self, ind):
         if self._datastruct == OrDi:
@@ -1142,6 +1188,45 @@ class Sdfmeta:
             self._datastruct = type(data)
             self._delims = delims
             
+    def construct(self, data, delims=None):
+        new = Sdfmeta()
+        if type(data) in (Ordi, dict, list):
+            if type(data)==dict:
+                data = OrDi(data)
+                new._datastruct = OrDi
+            elif type(data)==list and len(data)==1:
+                new._datastruct = 'single'
+            else:
+                new._datastruct = type(data)
+        elif type(data) in (str, int, float):
+            new._datastruct = 'single'
+            data = [data]
+        else:
+            raise TypeError('Datastructure type not list, dict, OrderedDict, str, int or float.')
+        
+        if type(new._data) == list:
+            data = map(numify, data)
+            types = set(map(type, data))
+        else:
+            for key in data:
+                newkey = numify(key)
+                data[newkey] = numify(data[key])
+                if key != newkey:
+                    del(data[key])
+            types = {type(data[key]) for key in data}
+            
+        if not all({typ in (int, float, str) for typ in types}):
+            raise TypeError('Data type not str, int or float.')
+        if len(types)>1 and str in types:
+            raise TypeError('Mixed datatypes. Strings and numbers.')
+        elif len(types)==1:
+            newtype = iter(types).next()
+        else:
+            newtype = float
+            if type(new._data) == list:
+                
+            
+            
     def __copy__(self):
         new = Sdfmeta()
         new._name = copy.copy( self._name )
@@ -1170,7 +1255,7 @@ class Sdfmeta:
         dictflag = self._datastruct == OrDi
         if dictflag:
             key = self._data.keys()[0]
-            tmp=[key+':'+str(self._data[key])]
+            tmp=[str(key)+':'+str(self._data[key])]
             del(key)
             itera = enumerate(self._data.keys()[1:])
         else:
@@ -1181,7 +1266,7 @@ class Sdfmeta:
         strings=[]
         for i, item in itera:
             if dictflag:
-                stuff = item+':'+str(self._data[item])
+                stuff = str(item)+':'+str(self._data[item])
             else:
                 stuff = str(item)
             #add delimiter
@@ -1409,7 +1494,7 @@ def whattype(onestring):
         for i, cell in enumerate(splitted[0]):
             dicted = cell.split(':')
             if len(dicted)==2:
-                dicti[dicted[0].strip()] = numify( dicted[1].strip() )
+                dicti[numify(dicted[0].strip())] = numify( dicted[1].strip() )
                 #good
             else:
                 #abort
@@ -1444,6 +1529,53 @@ def whattype(onestring):
         if news:
             return news
     return ([onestring],str,[])
+    
+def listoper(oper, metas, singles=True):
+    tab = []
+    i=0
+    while True:
+        caltab = []
+        for meta in metas:
+            try:
+                caltab.append(meta._data[i])
+            except IndexError:
+                if meta._datastruct == 'single' and singles: #if singles == False, chop the meta even if length == 1
+                    caltab.append(meta._data[0])
+                else:
+                    return tab
+        tab.append(oper(caltab))
+        i+=1
+    return tab
+    
+def OrDioper(oper, metas):
+    keys = set.intersection(*[set(meta._data) for meta in metas if meta._datastruct != 'single'])
+    dic = dict()
+    for key in keys:
+        caltab = []
+        for meta in metas:
+            if meta._datastruct == 'single':
+                caltab.append(meta._data[0])
+            else:
+                caltab.append(meta._data[key])
+        dic[key] = oper(caltab)
+    
+    for meta in metas:
+        refmeta = meta
+        if refmeta._datastruct == OrDi:
+            break
+    if refmeta._datastruct != OrDi:
+        return None
+    outordi = OrDi()
+    for key in refmeta._datastruct:
+        if key in dic:
+            outordi[key]=dic[key]
+    return outordi
+    
+def singleoper(oper, metas):
+    if len({meta._datastruct for meta in metas} - {single})>0:
+        return None
+    else:
+        return [oper([meta._data[0] for meta in metas])]
 
 if __name__ == "__main__":
     
