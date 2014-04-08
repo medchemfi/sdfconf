@@ -199,7 +199,6 @@ class Sdffile:
             return '1'
 
     def addconfs(self, bolist = [True, False]):
-        
         for i, molinfo in enumerate(self._orderlist):
             mol = self._dictomoles[molinfo[0]][molinfo[1]]
             c = mol.getconfn()
@@ -223,7 +222,8 @@ class Sdffile:
         Changes the name of molecules to whatever found in given metafield.
         Applies only for metafields of type str
         '''
-        for i, molord in enumerate(self._orderlist):
+        #for i, molord in enumerate(self._orderlist):
+        for molord in self._orderlist:
             olname = molord[0]
             n = molord[1]
             mol = self._dictomoles[olname][n]
@@ -241,7 +241,9 @@ class Sdffile:
         self.dictmaint()
 
     def metamerger(self, string):
-        #Method to merge multiple metafields into one. Comes with a few operations. Frontend to mergenewmeta
+        '''
+        Method to merge multiple metafields into one. Comes with a few operations. Frontend to mergenewmeta
+        '''
         [newmeta, task] = re.split('\s*=\s*',string)
         funki = task.find('(')
         funk = task[:funki]
@@ -256,65 +258,30 @@ class Sdffile:
     
     
     def mergenewmeta(self, newmeta, metas, oper):
+        '''Merges multiple metavalues'''
         for mol in self:
             tab=[]
             for meta in metas:
                 if meta in mol._meta:
-                    tab.append(numify(mol._meta[meta]))
+                    #tab.append(numify(mol._meta[meta]))
+                    tab.append(mol._meta[meta]) #add meta instead of number
+                else:
+                    num = numify(meta)
+                    if type(num) in (float, int):
+                        tab.append(Sdfmeta.construct('',num)) #You can use numbers instead of metafield too.
+            mol.addmeta(newmeta, Sdfmeta.metaoper(oper, tab))
+            
+            '''
             try:
                 mol.addmeta(newmeta, [str(oper(tab))])
             except TypeError:
                 mol.addmeta(newmeta, [str(oper(map(str,tab)))])
-                
-    def metaoper(self, oper, metas):
-        '''
-        method to make operations for Sdfmeta objects
-        return resulting metavalue of operation.
-        '''
-        structs = [meta._datastruct for meta in metas]
-        types   = [meta._datatype   for meta in metas]
-        mathopers = (sum, sub, numpy.prod, max, min, avg)
-        workmetas = copy.deepcopy(metas)
-        if oper in mathopers:
-            if str in types:
-                #cannot calculate strings, doh
-                return None
-            if len(set(structs))==2 and 'single' in structs:
-                #singles and (list or OrDi) in structs, extend singles to lists
-                ostru = iter(set(structs)-{'single'}).next() #the other structuretype
-
-                minlen = min( map(len, {meta._data for meta in workmetas}-{1}) ) # shortest list length, ignore singles
-                if ostru == list:
-                    #make lists have the same length
-                    for i, meta in enumerate(workmetas): 
-                        if meta._datastruct == 'single':
-                            workmeta[i]._data = meta._data * minlen
-                        else:
-                            workmeta[i]._data = meta._data[:minlen]
-                    
-                elif ostru == OrDi:
-                    keys = set()
-                    for i, meta in enumerate(workmetas):
-                        if meta._datastruct == OrDi:
-                            keys = keys.union(meta._data)
-                    for meta in workmetas:
-                        if meta._datastruct == 'single':
-                            pass
-        
-        if oper != ' '.join:
-            if len(types)>1:
-                #quit if multiple types. Add support for  mixed structure, e.g., single and list
-                return None
-            
-            if list in types:
-                datas = [meta._data for meta in metas]
-                minlen = min( map(len, datas) )
-                datas = [data[:minlen] for data in datas]
+            '''
     
-    def nametoid(self, meta):
+    def nametometa(self, meta):
         #Adds a metafield including the molecule name
         for mol in self:
-            mol.addmeta(meta, mol._name)
+            mol.addmeta(meta, mol.getname())
             
     def changemetaname(self, oldname, newname):
         #Change the name of a metafield
@@ -643,7 +610,20 @@ class Sdffile:
     def addcsvmeta(self, path):
         f = open(path)
         chop = re.compile('\s*,|\t\s*')
-        csvdata = [[cell.strip('"|\n*') for cell in chop.split(line)] for line in f.readlines()] #lukee tiedoston, splittaa pilkuista ja poistaa alkioista hipsut/rivinvaihdot
+        csvdata = [[cell.strip('\n ') for cell in chop.split(line)] for line in f.readlines()] #lukee tiedoston, splittaa pilkuista ja poistaa alkioista rivinvaihdot
+        for j, line in enumerate(csvdata):
+            s=-1
+            newtab=[]
+            for i, cell in enumerate(line):
+                if   s <  0 and cell[0] == '"' and cell[-1] != '"':
+                    s = i
+                    #pass
+                elif s >= 0 and cell[0] != '"' and cell[-1] == '"':
+                    newtab.append(','.join(line[s:i+1]).strip('"'))
+                    s = -1
+                else:
+                    newtab.append(cell.strip('"'))
+            csvdata[j] = newtab
         f.close()
         header = csvdata[0]
         for csvmol in csvdata[1:]:
@@ -777,6 +757,8 @@ class Sdffile:
                         ensure_dir(onepath)
                     newargs['path'] = onepath
                     onesdf.writer(writetype, **newargs) #TODO
+                    
+    
         
 #end of Sdffile
 
@@ -833,9 +815,11 @@ class Sdfmole:
             new._other      = copy.deepcopy(self._other,memo)
         return new
     
+    ''' deprecated
     def metahand(self, strilist):
             return strilist[0]
             
+    '''
     
     def initialize(self, strings):
         self._name = strings[0].strip()
@@ -883,14 +867,16 @@ class Sdfmole:
                 self._meta[newmeta.getname()] = newmeta
                 self._metakeys.append(newmeta.getname())
                 
-    def dists(self, coord1):
+    def dists(self, point1, atomN=0):
         self.numerize()
+        coord1 = coorder(point1)
+        if not coord1:
+            coord1 =  self.getatomloc(self._meta[point1][atomN])
         alist=[]
         for i in range(len(self._atoms)):
-            #if self.gettype(i+1).lower()=='h':
-            #if self.gettype(i+1) in ['H','F','Br','I']:
-            if self.gettype(i+1).strip() in ['H','F','Br','I']:
-                continue
+            #this responsibility will be taken elsewhere
+            #if self.gettype(i+1).strip() in ['H','F','Br','I']:
+            #    continue
             coord2 = numpy.array(self.getcoord(i+1)) #numpy.array([float(c) for c in atom[0:3]])
             dist = sum((coord1-coord2)**2)**0.5
             alist.append([dist,i+1])
@@ -914,7 +900,7 @@ class Sdfmole:
         if m:
             ans[0] = m.group(0)[2:-2]
         if ckey in self._meta:
-            ans[1] = self._meta[ckey].strip()
+            ans[1] = self._meta[ckey][0].strip()
         if ans[0] and ans[1]:
             if ans[0]!=ans[1]:
                 print(mes.format(ans[0],ans[1]))
@@ -926,7 +912,8 @@ class Sdfmole:
         #return next((item for item in a if item is not None), None)
         
     def addconf(self, conf, bolist = [True, True]):
-        already = self.getconf()
+        conf = str(conf)
+        already = str( self.getconf() )
         if bolist[1]:
             if already[1]:
                 if conf != already[1]:
@@ -960,9 +947,8 @@ class Sdfmole:
 
     def metacombine(self, othersdfmol,overwrite=False):
         for key in othersdfmol._metakeys:
-            if not overwrite:
-                if key in self._meta:
-                    continue
+            if not overwrite and key in self._meta:
+                continue
             self.addmeta(key,othersdfmol._meta[key],overwrite)
             #self._metakeys.append(key)
             #self._meta[key]=list(othersdfmol._meta[key])
@@ -976,17 +962,17 @@ class Sdfmole:
         return same
     
     def make_other(self):
-            other = []
-            for line in self._comment:
-                other.append(line + '\n')
-            other.append(listtostring(self._counts[:-1],3)+'{:>6}'.format(self._counts[-1])+'\n') # atomheader!
-            for atom in self._atoms:
-                other.append(atomtostring(atom)+'\n')
-            for bond in self._bonds:
-                other.append(listtostring(bond, 3)+'\n')
-            for prop in self._properties:
-                other.append(prop+'\n')
-            return other
+        other = []
+        for line in self._comment:
+            other.append(line + '\n')
+        other.append(listtostring(self._counts[:-1],3)+'{:>6}'.format(self._counts[-1])+'\n') # atomheader!
+        for atom in self._atoms:
+            other.append(atomtostring(atom)+'\n')
+        for bond in self._bonds:
+            other.append(listtostring(bond, 3)+'\n')
+        for prop in self._properties:
+            other.append(prop+'\n')
+        return other
     
     def selftolist(self):
         me=[]
@@ -1015,22 +1001,33 @@ class Sdfmole:
     def addmeta(self,metafield, value, overwrite = True):
         if metafield in self._meta and not overwrite:
             return
+        '''
         if type(value) == list:
             #value = [value]
             value = ' '.join(value)
+        '''
+        if type(value) == Sdfmeta:
+            insert = value
+        else:
+            insert = Sdfmeta.construct(metafield, value)
+        self._meta[metafield] = insert
         if not metafield in self._meta:
             self._metakeys.append(metafield)
-        self._meta[metafield] = value
         #print metafield+' '+self._meta[metafield]
+        
+    def metasort(self, reverse=False):
+        self._metakeys.sort(reverse, key=lambda meta: meta.lower())
         
     def changemetaname(self, oldname, newname):
         if oldname in self._meta:
             i=self._metakeys.index(oldname)
             self._metakeys[i]=newname
             self._meta[newname]=self._meta[oldname]
+            self._meta[newname].setname(newname)
             del(self._meta[oldname])
             
     def atomlistdistances(self,metaatom,metalist):
+        ''' oneline version
         self.numerize()
         try:
             atom=numify(self._meta[metaatom])
@@ -1042,7 +1039,24 @@ class Sdfmole:
         for oneatom in atoms:
             dists.append(self.atomdist(atom,oneatom))
         return (atoms,dists)
-    
+        '''
+        '''
+        used to give distances from one atom in metafield to many atoms in metafield
+        in future will:
+        add new meta with 
+        '''
+        self.numerize()
+        try:
+            atom=numify(self._meta[metaatom])
+            manyatom=self._meta[metalist]
+        except KeyError:
+            return None
+        atoms = [numify(one) for one in re.split('\s+',manyatom.strip())]
+        dists = []
+        for oneatom in atoms:
+            dists.append(self.atomdist(atom,oneatom))
+        return (atoms,dists)
+        
     def getatomloc(self,n):
         self.numerize()
         return numpy.array([numify(coord) for coord in self._atoms[n-1][0:3]])
@@ -1051,22 +1065,27 @@ class Sdfmole:
         self.numerize()
         return sum((self.getatomloc(atom1)-self.getatomloc(atom2))**2)**0.5
     
-    def pointlistdists(self, point,metalist):
-        arpoint=numpy.array(point)
-        self.numerize()
+    def pointlistdists(self, point, metalist):
+        #arpoint=numpy.array(point)
+        #arpoint=coorder(point)
+        #self.numerize()
+        alldists = self.dists(point)
         try:
-            manyatom=self._meta[metalist]
+            atoms = self._meta[metalist]
         except KeyError:
             return None
-        atoms = [numify(one) for one in re.split('\s+',manyatom.strip())]
+        #atoms = [numify(one) for one in re.split('\s+',manyatom.strip())]
         dists = []
         for oneatom in atoms:
-            dists.append(self.disttopoint(oneatom,arpoint))
+            #dists.append(self.disttopoint(oneatom,arpoint))
+            dists.append(alldists[oneatom-1])
         return (atoms,dists)
     
+    '''deprecated?
     def disttopoint(self, atom1, point):
         return sum((self.getatomloc(atom1)-point)**2)**0.5
-        
+    '''
+    
     def bonddists(self, atom1, intrests=None):
         #dijikstra algorithm for finding path length to all atoms, or to list of intresting atoms
         self.numerize()
@@ -1148,19 +1167,22 @@ class Sdfmeta:
         #get name of metafield
         if listofstrings[0][0] != '>' :
             #Raise error
-            print listofstrings[0]
+            #print listofstrings[0]
             #print 'No meta'
-            return
+            #return
+            self._name = [' ','']
+            fi = 0
         else:
             #print listofstrings[0]
             self._name = metaname.match(listofstrings[0]).groups()
+            fi = 1
             #print self._name
         #Remove the last empty line and linechanges
         if not len(listofstrings[-1].strip())==0:
             #Raise error?
             return
         else: #             rstrip?
-            mylines = [line.strip('\n ') for line in listofstrings[1:-1] ]
+            mylines = [line.strip('\n ') for line in listofstrings[fi:-1] ]
         
         #instead of commented section, merge lines with '' and do whattype
         #if no delimiter or ' ' in the end of line, add ' '
@@ -1187,10 +1209,21 @@ class Sdfmeta:
         else:
             self._datastruct = type(data)
             self._delims = delims
-            
-    def construct(self, data, delims=None):
+    
+    @staticmethod
+    def construct(name, data, delims=None):
         new = Sdfmeta()
-        if type(data) in (Ordi, dict, list):
+        new.setname(name)
+        '''
+        if type(name) in (list, tuple):
+            new._name = list(name[:2])
+        elif type(name) == str:
+            new._name = ['  ', name]
+        else:
+            raise TypeError('Name defined incorrectly!')
+        '''
+        
+        if type(data) in (OrDi, dict, list):
             if type(data)==dict:
                 data = OrDi(data)
                 new._datastruct = OrDi
@@ -1198,13 +1231,20 @@ class Sdfmeta:
                 new._datastruct = 'single'
             else:
                 new._datastruct = type(data)
-        elif type(data) in (str, int, float):
+        elif type(data) in (int, float):
             new._datastruct = 'single'
             data = [data]
+        elif type(data) == str:
+            (newdata, newtype, newdelims) = whattype(data)
+            if newtype != str:
+                return Sdfmeta.construct(name, newdata, newdelims)
+            else:
+                new._datastruct = 'single'
+                data = [data]
         else:
             raise TypeError('Datastructure type not list, dict, OrderedDict, str, int or float.')
         
-        if type(new._data) == list:
+        if type(data) == list:
             data = map(numify, data)
             types = set(map(type, data))
         else:
@@ -1215,16 +1255,25 @@ class Sdfmeta:
                     del(data[key])
             types = {type(data[key]) for key in data}
             
+        new._data = data
         if not all({typ in (int, float, str) for typ in types}):
             raise TypeError('Data type not str, int or float.')
-        if len(types)>1 and str in types:
+        if len(types)==1:
+            new._datatype = iter(types).next()
+        elif len(types)>1 and str in types:
             raise TypeError('Mixed datatypes. Strings and numbers.')
-        elif len(types)==1:
-            newtype = iter(types).next()
         else:
-            newtype = float
+            new._datatype = float
             if type(new._data) == list:
-                
+                new._data = map(float, new._data)
+            elif type(new._data) == OrDi:
+                for key in new._data:
+                    new._data[key] = float(new._data[key])
+            else:
+                raise TypeError('DaFaq?')
+        if type(new._data) in (list, OrDi) and delims == None:
+            new._delims =  [ ', ' ]*(len(new._data)-1) 
+        return new
             
             
     def __copy__(self):
@@ -1246,7 +1295,15 @@ class Sdfmeta:
         return new
     
     def getname(self):
-        return self._name[1]
+        return self._name[-1]
+        
+    def setname(self, newname):
+        if type(newname) in (list, tuple):
+            self._name = list(name[:2])
+        elif type(newname) == str:
+            self._name[-1] = newname
+        else:
+            raise TypeError('Name defined incorrectly!')
         
     def dtype(self):
         return self._datatype
@@ -1317,11 +1374,66 @@ class Sdfmeta:
             #if len(new)==0:
             #    new = ' '
             self._delim[i] = self._delim[i].strip() + ' '
+    
+    @staticmethod
+    def metaoper(oper, metas):
+        '''
+        method to make operations for Sdfmeta objects
+        return resulting metavalue of operation.
+        resulting Sdfmeta is nameless
+        '''
+        structs = [meta._datastruct for meta in metas]
+        types   = [meta._datatype   for meta in metas]
+        mathopers = (sum, sub, numpy.prod, max, min, avg)
+        workmetas = copy.deepcopy(metas)
+        if oper in mathopers:
+            if str in types:
+                #cannot calculate strings, doh
+                return None
+            if len(set(structs))==2 and 'single' in structs:
+                #singles and (list or OrDi) in structs, extend singles to lists
+                ostru = iter(set(structs)-{'single'}).next() #the other structuretype
+
+                minlen = min( map(len, {meta._data for meta in workmetas}-{1}) ) # shortest list length, ignore singles
+                if ostru == list:
+                    #make lists have the same length
+                    for i, meta in enumerate(workmetas): 
+                        if meta._datastruct == 'single':
+                            workmeta[i]._data = meta._data * minlen
+                        else:
+                            workmeta[i]._data = meta._data[:minlen]
+                    return Sdfmeta('', listoper(oper, workmetas)) #Nameless meta
+                elif ostru == OrDi:
+                    #extend singles to 
+                    keys = set(workmetas[0]._data)
+                    for meta in workmetas[1:]:
+                        if meta._datastruct == OrDi:
+                            keys.intersection_update(set(meta._data))
+                    for i,meta in enumerate(workmetas):
+                        if meta._datastruct == 'single':
+                            newdict = OrDi()
+                            for key in keys:
+                                newdict[key]=meta._data[0]
+                            workmeta[i]=Sdfmeta(meta.getname(),newdict)
+                    return Sdfmeta('',OrDioper(oper,workmeta))
+        if oper != ' '.join:
+            if len(types)>1:
+                #quit if multiple types. Add support for  mixed structure, e.g., single and list
+                return None
             
+            if list in types:
+                datas = [meta._data for meta in metas]
+                minlen = min( map(len, datas) )
+                datas = [data[:minlen] for data in datas]
+    
 #End of Sdfmeta
 
 def coorder(point):
-    return map(numify, goodchop.split(point.strip('{[()]}')))
+    coord = numpy.array( map(numify, goodchop.split(point.strip('{[()]}'))) )
+    if type(coord) == numpy.array and len(coord) > 1:
+        return coord
+    else:
+        return None
 
 
 def atomtostring(tab):
@@ -1359,7 +1471,13 @@ def numify(stri):
             raise TypeError('Wrong type')
             
 def avg(num):
-    return float(sum(num))/len(num)
+    try:
+        return float(sum(num))/len(num)
+    except TypeError:
+        if type(num) in (int,float):
+            return num
+        else:
+            raise TypeError
     
 def sub(num):
 	if len(num)<2:
@@ -1396,9 +1514,10 @@ def splitter(stringofparams):
 def parentifier(original,separator):
     m=[]
     s=False
+    pars=(stapa,endpa)
     for i, item in enumerate(original):
-        sta=list(stapa.finditer(item))
-        end=list(endpa.finditer(item))
+        sta=list(pars[0].finditer(item))
+        end=list(pars[1].finditer(item))
         if len(sta)>len(end):
             if s:
                 m[-1]=[i]
@@ -1559,17 +1678,22 @@ def OrDioper(oper, metas):
                 caltab.append(meta._data[key])
         dic[key] = oper(caltab)
     
+    '''
+    #wtf did i smoke? this ensures we have a OrDi
     for meta in metas:
         refmeta = meta
         if refmeta._datastruct == OrDi:
             break
     if refmeta._datastruct != OrDi:
         return None
+            
     outordi = OrDi()
     for key in refmeta._datastruct:
         if key in dic:
             outordi[key]=dic[key]
     return outordi
+    '''
+    return OrDi(dic)
     
 def singleoper(oper, metas):
     if len({meta._datastruct for meta in metas} - {single})>0:
@@ -1587,8 +1711,8 @@ if __name__ == "__main__":
     choicewrite.add_argument("-o", "--overwrite", action='store_true',      help = "overwrite. you don't need to specify output file")
     arger.add_argument("-cf", "--tofield", action = "store_true",           help = "add conformation number to metadata from name. if number in name doesn't exist, make a new one.")
     arger.add_argument("-cn", "--toname",  action = "store_true",           help = "add conformation number to name from metadata. if number in metadata doesn't exist, make a new one.")
-    arger.add_argument("-mn", "--metatoname",  type = str,                  help = "Change the name of molecule to the data in given metafield")
-    arger.add_argument("-ni", "--nametoid",  type = str,                    help = "Copy the name of molecule into given metafield")
+    arger.add_argument("-mtn", "--metatoname",  type = str,                 help = "Change the name of molecule to the data in given metafield")
+    arger.add_argument("-ntm", "--nametometa",  type = str,                 help = "Copy the name of molecule into given metafield")
     arger.add_argument("-rc", "--remove",  type = int,                      help = "remove conformation number from 1=metadata, 2=name, 3=both. if number doesn't exist, do nothing")
     choicecombi = arger.add_mutually_exclusive_group()
     choicecombi.add_argument("-co", "--combine", type = str,                help = "Combine metadata from specified file to the data of original file. Confromationr_epik_Ionization_Penaltys must match.")
@@ -1643,11 +1767,11 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Conformation numbers added to names. It took {} seconds.'.format(times[-1]-times[-2])
         
-        if args.nametoid:
-            sdf1.nametoid(args.nametoid)
+        if args.nametometa:
+            sdf1.nametometa(args.nametometa)
             times.append(time.time())
             if args.verbose:
-                print 'Name written to ID-field. It took {} seconds.'.format(times[-1]-times[-2])
+                print 'Name written to metafieldfield '+args.nametometa+'. It took {} seconds.'.format(times[-1]-times[-2])
         
         if args.remove==2:
             sdf1.remconfs([True, False])
