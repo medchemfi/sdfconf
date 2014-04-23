@@ -24,9 +24,14 @@ goodchop = re.compile('\s*,{0,1}\s*') #CSV-separator
 metaname = re.compile('\>(.*)\<(.+)\>') #Match gets metafield name
 #metadict = re.compile('[;,^]{0,1}\s*(\w+):(\w+)\s*[;,$]{0,1}' #re.compile('\s*[,;]{0,1}\s*(.*):(.*)\s*[,;]{0,1}\s*')
 
+parre = re.compile('[\{\[\(\)\]\}]') #Matches all parentheses
+
 ckey = "confnum"
 atomcut=[0, 10, 20, 30, 31, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69]
 
+
+#Parsing a slice from string
+#slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (':3'.split(':') + ['', '', ''])[:3]])
 
 
 class Sdffile:
@@ -249,7 +254,7 @@ class Sdffile:
         funk = task[:funki]
         metas = goodchop.split(task[funki:].strip('{[()]}'))
         
-        operators = {'sum':sum, 'max':max, 'min':min, 'avg':avg, 'join':' '.join, 'prod':numpy.prod, 'sub':sub}
+        operators = {'sum':sum, 'max':max, 'min':min, 'avg':avg, 'join':metajoiner, 'prod':numpy.prod, 'sub':sub, 'div':div}
         if funk in operators:
             self.mergenewmeta(newmeta, metas, operators[funk.lower().strip()])
         else:
@@ -257,19 +262,29 @@ class Sdffile:
                 print 'Command {} not found'.format(funk)
     
     
-    def mergenewmeta(self, newmeta, metas, oper):
-        '''Merges multiple metavalues'''
+    def mergenewmeta(self, newmetaname, metas, oper):
+        '''Merges multiple metavalues into one'''
         for mol in self:
-            tab=[]
+            newmeta = Sdfmeta()
+            newmeta.setname(newmetaname)
+            tab= []
             for meta in metas:
                 if meta in mol._meta:
-                    #tab.append(numify(mol._meta[meta]))
+                    #newmeta.extend(mol._meta[meta])
                     tab.append(mol._meta[meta]) #add meta instead of number
                 else:
                     num = numify(meta)
                     if type(num) in (float, int):
-                        tab.append(Sdfmeta.construct('',num)) #You can use numbers instead of metafield too.
-            mol.addmeta(newmeta, Sdfmeta.metaoper(oper, tab))
+                        tab.append(Sdfmeta.construct('',num))
+                        #newmeta.extend(Sdfmeta.construct('',num)) #You can use numbers instead of metafield too.
+            #mol.addmeta(newmetaname, Sdfmeta.metaoper(oper, tab))
+            newmet = Sdfmeta.metaoper(oper, tab)
+            if not newmet:
+                #for met in tab:
+                #    print met._datatype
+                print tab
+                
+            mol.addmeta(newmetaname, newmet)
             
             '''
             try:
@@ -304,17 +319,21 @@ class Sdffile:
     def makecsv(self,stringofmetas,separator=';\t'):
         #Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields
         listofmeta = [met.strip() for met in re.split('\s*,|;\s*',stringofmetas)]
-        if len(listofmeta)==1 and listofmeta[0]=='?':
-            listofmeta = self.listmetas()
+        if listofmeta[0]=='?':
+            metalist = self.listmetas()
+            for meta in listofmeta[1:]:
+                metalist.remove(meta)
+            listofmeta = metalist
+        
         csv = [separator.join(listofmeta)]
         for info in self._orderlist:
             mol = self._dictomoles[info[0]][info[1]]
             line = []#[mol._name]
             for meta in listofmeta:
                 if meta in mol._meta:
-                    line.append(mol._meta[meta])
+                    line.append('"'+mol._meta[meta].getmetastr()+'"')
                 else:
-                    line.append('_')
+                    line.append('""')
             csv.append(separator.join(line))
         return csv
         
@@ -335,17 +354,38 @@ class Sdffile:
         return counts
     
 
-    def closest(self, point, name=None):
-        coord1 = numpy.array(coorder(point)) #map(numify, goodchop.split(point.strip('{[()]}')))
+    def closest(self, point, **varargdict): #name, intrests, num
+        #coord1 = numpy.array(coorder(point)) #map(numify, goodchop.split(point.strip('{[()]}')))
         #coord1 = numpy.array(coord1)
-        if not name:
+        if not 'name' in varargdict:
             name = ''
+        else:
+            name = varargdict['name']+'_'
         for mol in self:
-            #is coord1 meta or not?
-            alist = mol.dists(coord1)
-            alist=sorted(alist, key=lambda i: i[0])
+            #is coord1 meta or not? If it was a metafield with atomnumber, it would give that one as closest, so no.
+            #alist = mol.dists(coord1)
+            alist = mol.dists(point)
+            alist=sorted(alist, key=lambda item: item[0])
+            '''
             mol.addmeta(name+'Closest_atom',str(alist[0][1]))
             mol.addmeta(name+'Closest_distance',str(alist[0][0]))
+            '''
+            newlist = []
+            moles=[]
+            if 'intrests' in varargdict:
+                for atom in alist:
+                    if atom[1] in varargdict['intrests']:
+                        moles.append(atom)
+            else:
+                moles = alist
+            del(alist)
+            if 'num' in varargdict:
+                moles = moles[:varargdict['num']]
+            od = OrDi()
+            for item in moles:
+                od[item[1]]=item[0]
+            mol.addmeta(name+'Closest_atoms',od)
+            
 
 
     def closer(self, point, meta, name=None):
@@ -456,6 +496,9 @@ class Sdffile:
             return None
 
     def mehist(self, Xname, Yname=None, **kwargs):
+        print "Histograms don't work right now!"
+        return
+        
         #kwargs: title, Xtitle, Ytitle, bins
         newargs = dict()
         titargs = ['Xtitle','Ytitle','title']
@@ -591,9 +634,24 @@ class Sdffile:
                 print key
                 continue
         self.dictmaint()
+        
+    
+    def logicparse(self, string):
+        opesplit=[item.strip() for item in re.split('(>=|<=|<|>|=)',string)]
+        if len(onesplit)==3:
+            opera = onesplit[1]
+            tocompare = [ leveler(onesplit[0]) , leveler(onesplit[2]) ]
+            
+            
+        elif len(onesplit)==1:
+            pass
+            #find min or max
 
 
     def sorter(self,sortstring):
+        '''
+        if datastructure has more than 1 entry, picks the 1st.
+        '''
         sortstring=sortstring.strip()
         sortstring=sortstring.strip('\"|\'')
         if sortstring[0]=='<':
@@ -604,7 +662,7 @@ class Sdffile:
             #if args.verbose:
             #    print 'Bad sortstring'
             return self._orderlist
-        return sorted(self._orderlist, key=lambda avain: numify(self._dictomoles[avain[0]][avain[1]]._meta[sortstring[1:]]),reverse=rever)
+        return sorted(self._orderlist, key=lambda avain: numify(self._dictomoles[avain[0]][avain[1]]._meta[sortstring[1:]][0]),reverse=rever)
         
     
     def addcsvmeta(self, path):
@@ -807,10 +865,10 @@ class Sdfmole:
         new._comment        = copy.deepcopy(self._comment)
         if new._numeric:
             #new._comments   = copy.deepcopy(self._comments)
-            new._counts     = copy.deepcopy(self._counts)
-            new._atoms      = copy.deepcopy(self._atoms)
-            new._bonds      = copy.deepcopy(self._bonds)
-            new._properties = copy.deepcopy(self._properties)
+            new._counts     = copy.deepcopy(self._counts,memo)
+            new._atoms      = copy.deepcopy(self._atoms,memo)
+            new._bonds      = copy.deepcopy(self._bonds,memo)
+            new._properties = copy.deepcopy(self._properties,memo)
         else:
             new._other      = copy.deepcopy(self._other,memo)
         return new
@@ -867,11 +925,11 @@ class Sdfmole:
                 self._meta[newmeta.getname()] = newmeta
                 self._metakeys.append(newmeta.getname())
                 
-    def dists(self, point1, atomN=0):
+    def dists(self, point1, index=0):
         self.numerize()
         coord1 = coorder(point1)
-        if not coord1:
-            coord1 =  self.getatomloc(self._meta[point1][atomN])
+        if coord1 == None:
+            coord1 =  self.getatomloc(self._meta[point1]._data[index])
         alist=[]
         for i in range(len(self._atoms)):
             #this responsibility will be taken elsewhere
@@ -879,7 +937,7 @@ class Sdfmole:
             #    continue
             coord2 = numpy.array(self.getcoord(i+1)) #numpy.array([float(c) for c in atom[0:3]])
             dist = sum((coord1-coord2)**2)**0.5
-            alist.append([dist,i+1])
+            alist.append([float(dist),i+1])
         #alist=sorted(alist, key=lambda i: i[0])
         return alist
 
@@ -1006,12 +1064,12 @@ class Sdfmole:
             #value = [value]
             value = ' '.join(value)
         '''
-        if type(value) == Sdfmeta:
+        if isinstance(value, Sdfmeta): #type(value) == Sdfmeta:
             insert = value
         else:
             insert = Sdfmeta.construct(metafield, value)
         self._meta[metafield] = insert
-        if not metafield in self._meta:
+        if not metafield in self._metakeys:
             self._metakeys.append(metafield)
         #print metafield+' '+self._meta[metafield]
         
@@ -1131,7 +1189,64 @@ class Sdfmole:
             else:
                 atom=nextone
         return distances
+        
+    def stringtoownmeta(self,string):
+        #find parens, test if same
+        leveled = leveler(string)
+        pass
     
+    def logichelp(self, partab, **vararg): #mypar=None, keypar=False
+        #newmeta = Sdfmeta()
+        #if isinstance(partab, str):
+        pass
+        '''
+        if isinstance(partab, tuple)
+            
+        
+        if 'mypar' in vararg:
+            #SLICE
+            pass
+        else:
+            
+            if partab in self._meta:
+                newmeta = copy.deepcopy(self._meta)
+        '''
+    
+    def levopemap(self, tab, par=None):
+        if isinstance(tab, tuple):
+            return (tab[0], self.levopemap(tab[1], tab[0]))
+        elif isinstance(tab, list):
+            for i, thing in enumerate(tab):
+                if not isinstance(thing, str):
+                    continue
+                thing = thing.strip()
+                sear = re.search('*|/', thing)
+                if not sear:
+                    sear = re.match('+|-', thing)
+                if sear:
+                    tab1=[]
+                    tab1.extend(tab[:i])
+                    tab1.append(thing[:sear.start()])
+                    tab2=[thing[sear.stop():]]
+                    tab2.extend(tab[i+1:])
+                    return (sear.group(),self.levopemap(tab1),self.levopemap(tab2))
+                else:
+                    return [self.levopemap(item) for item in tab]
+        else:
+            tab = tab.strip()
+            if tab in mole._meta:
+                return mole._meta[tab]
+            else:
+                tab = numify(tab)
+                if not isinstance(tab, str):
+                    return Sdfmeta.construct(tab)
+                else:
+                    try:
+                        slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
+                    except ValueError:
+                        raise ValueError('Your logic makes no sense...')
+                        
+                
 #end of Sdfmole
 
 class Sdfmeta:
@@ -1222,8 +1337,14 @@ class Sdfmeta:
         else:
             raise TypeError('Name defined incorrectly!')
         '''
-        
-        if type(data) in (OrDi, dict, list):
+        if type(data) == str:
+            (newdata, newtype, newdelims) = whattype(data)
+            if newtype != str:
+                return Sdfmeta.construct(name, newdata, newdelims)
+            else:
+                new._datastruct = 'single'
+                data = [data]
+        elif type(data) in (OrDi, dict, list):
             if type(data)==dict:
                 data = OrDi(data)
                 new._datastruct = OrDi
@@ -1234,14 +1355,15 @@ class Sdfmeta:
         elif type(data) in (int, float):
             new._datastruct = 'single'
             data = [data]
-        elif type(data) == str:
-            (newdata, newtype, newdelims) = whattype(data)
-            if newtype != str:
-                return Sdfmeta.construct(name, newdata, newdelims)
-            else:
-                new._datastruct = 'single'
-                data = [data]
+        elif isinstance(data, Sdfmeta): #type(data) == Sdfmeta:
+            out = copy.deepcopy(data)
+            out.setname(name)
+            if delims:
+                out._delims = delims
+            return out
         else:
+            print type(data)
+            #print data
             raise TypeError('Datastructure type not list, dict, OrderedDict, str, int or float.')
         
         if type(data) == list:
@@ -1285,13 +1407,13 @@ class Sdfmeta:
         new._delims = copy.copy( self._delims )
         return new
         
-    def __deepcopy__(self):
+    def __deepcopy__(self, memo):
         new = Sdfmeta()
-        new._name = copy.deepcopy( self._name )
-        new._datatype = copy.deepcopy( self._datatype )
-        new._datastruct = copy.deepcopy( self._datastruct )
-        new._data = copy.deepcopy( self._data )
-        new._delims = copy.deepcopy( self._delims )
+        new._name = copy.deepcopy( self._name,memo)
+        new._datatype = copy.deepcopy( self._datatype,memo)
+        new._datastruct = copy.deepcopy( self._datastruct,memo )
+        new._data = copy.deepcopy( self._data,memo )
+        new._delims = copy.deepcopy( self._delims,memo )
         return new
     
     def getname(self):
@@ -1301,12 +1423,62 @@ class Sdfmeta:
         if type(newname) in (list, tuple):
             self._name = list(name[:2])
         elif type(newname) == str:
-            self._name[-1] = newname
+            self._name[1] = newname
+            if not self._name[0]:
+                self._name[0] = '  '
         else:
             raise TypeError('Name defined incorrectly!')
         
     def dtype(self):
         return self._datatype
+        
+    def extend(self, other):
+        '''
+        Used to merge more data to a Sdfmeta
+        '''
+        
+        #If new Sdfmeta, do this
+        if not self._datastruct:
+            self._data = other._data
+            self._datastruct = other._datastruct
+            self._datatype = other._datatype
+            self._delims = other._delims
+            return
+            
+        floatflag = False
+        if self._datatype != other._datatype:
+            if self._datatype == str or other._datatype == str:
+                raise TypeError('Mixed datatypes')
+            else:
+                floatflag = True
+        
+        elif self._datastruct == other._datastruct:
+            if self._datastruct == list:
+                self._data.extend(other._data)
+            elif self._datastruct == OrDi:
+                self._data.update(other._data)
+            elif self._datastruct == 'single':
+                self._datastruct == list
+                self._data.append(other._data)
+            
+        elif self._datastruct == OrDi or other._datastruct == OrDi:
+            raise TypeError('Mixed datastructures')
+        else:
+            self._datastruct = list
+            self._data.extend(other._data)
+            
+        try:
+            self._delims.append(self._delims[-1])
+            self._delims.extend(other._delims)
+        except IndexError:
+            self._delims = [', ']*(len(self._data)-1)
+            
+        if floatflag:
+            if self._datastruct == list:
+                self._data = map(float, self._data)
+            else:
+                self._data = {k: float(v) for k, v in self._data.items()}
+        
         
     def getmetastrings(self, length=float('inf')):
         dictflag = self._datastruct == OrDi
@@ -1367,14 +1539,20 @@ class Sdfmeta:
         '''return in .sdf-file format. With linechanges'''
         return '\n'.join(self.selftolistofstrings)+'\n'
         
-    def cleandelim(self):
+    def cleandelim(self, unify=False):
         '''Clean excess whitespaces from delimiters'''
-        for i in range(len(delim)):
-            #new = 
-            #if len(new)==0:
-            #    new = ' '
-            self._delim[i] = self._delim[i].strip() + ' '
-    
+        for i in range(len(self._delims)):
+            self._delims[i] = self._delims[i].strip() + ' '
+        if unify:
+            ones = list(set(self._delims))
+            nums = [0] * len(ones)
+            for item in self._delims:
+                nums[ones.index(item)] += 1
+            newdelim = ones[nums.index(max(nums))]
+            for i in range(len(self._delims)):
+                self._delims[i] = newdelim
+                
+        
     @staticmethod
     def metaoper(oper, metas):
         '''
@@ -1384,38 +1562,51 @@ class Sdfmeta:
         '''
         structs = [meta._datastruct for meta in metas]
         types   = [meta._datatype   for meta in metas]
-        mathopers = (sum, sub, numpy.prod, max, min, avg)
+        mathopers = (sum, sub, numpy.prod, max, min, avg, div)
         workmetas = copy.deepcopy(metas)
         if oper in mathopers:
             if str in types:
                 #cannot calculate strings, doh
                 return None
-            if len(set(structs))==2 and 'single' in structs:
-                #singles and (list or OrDi) in structs, extend singles to lists
-                ostru = iter(set(structs)-{'single'}).next() #the other structuretype
-
-                minlen = min( map(len, {meta._data for meta in workmetas}-{1}) ) # shortest list length, ignore singles
-                if ostru == list:
-                    #make lists have the same length
-                    for i, meta in enumerate(workmetas): 
-                        if meta._datastruct == 'single':
-                            workmeta[i]._data = meta._data * minlen
-                        else:
-                            workmeta[i]._data = meta._data[:minlen]
-                    return Sdfmeta('', listoper(oper, workmetas)) #Nameless meta
-                elif ostru == OrDi:
-                    #extend singles to 
-                    keys = set(workmetas[0]._data)
-                    for meta in workmetas[1:]:
-                        if meta._datastruct == OrDi:
-                            keys.intersection_update(set(meta._data))
-                    for i,meta in enumerate(workmetas):
-                        if meta._datastruct == 'single':
-                            newdict = OrDi()
-                            for key in keys:
-                                newdict[key]=meta._data[0]
-                            workmeta[i]=Sdfmeta(meta.getname(),newdict)
-                    return Sdfmeta('',OrDioper(oper,workmeta))
+            
+            if len(set(structs))>2:
+                raise TypeError('Mixed datastructs')
+            
+            
+            #if len(set(structs))==2 and 'single' in structs:
+            #singles and (list or OrDi) in structs, extend singles to lists
+            minlen = min( {len(meta._data) for meta in workmetas}-{1} ) # shortest list length, ignore singles
+            ostru = iter(set(structs)-{'single'}).next() #the other structuretype
+            
+            if ostru == list:
+                #make lists have the same length
+                for i, meta in enumerate(workmetas): 
+                    if meta._datastruct == 'single':
+                        workmetas[i]._data = meta._data * minlen
+                    else:
+                        workmetas[i]._data = meta._data[:minlen]
+                return Sdfmeta('', listoper(oper, workmetas)) #Nameless meta
+            elif ostru == OrDi:
+                #extend singles to 
+                keys = set(workmetas[0]._data)
+                for meta in workmetas[1:]:
+                    if meta._datastruct == OrDi:
+                        keys.intersection_update(set(meta._data))
+                for i,meta in enumerate(workmetas):
+                    if meta._datastruct == 'single':
+                        newdict = OrDi()
+                        for key in keys:
+                            newdict[key]=meta._data[0]
+                        workmetas[i]=Sdfmeta.construct(meta.getname(),newdict)
+                return Sdfmeta.construct('',OrDioper(oper,workmetas))
+        
+        elif oper == joiner: #Therefore, it's joiner
+            return metajoiner(metas)
+        
+        else:
+            raise ValueError('Non-existent operator ')
+        
+        '''
         if oper != ' '.join:
             if len(types)>1:
                 #quit if multiple types. Add support for  mixed structure, e.g., single and list
@@ -1425,12 +1616,12 @@ class Sdfmeta:
                 datas = [meta._data for meta in metas]
                 minlen = min( map(len, datas) )
                 datas = [data[:minlen] for data in datas]
-    
+        '''
 #End of Sdfmeta
 
 def coorder(point):
     coord = numpy.array( map(numify, goodchop.split(point.strip('{[()]}'))) )
-    if type(coord) == numpy.array and len(coord) > 1:
+    if type(coord) == numpy.ndarray and len(coord) > 1:
         return coord
     else:
         return None
@@ -1457,6 +1648,8 @@ def nestfind(alist, subindex, tofind):
     return next((i for i, sublist in  enumerate(alist) if sublist[subindex]==tofind),-1)
     
 def numify(stri):
+    if type(stri) in (int, float):
+        return stri
     try:
         return int(stri)
     except ValueError:
@@ -1480,11 +1673,36 @@ def avg(num):
             raise TypeError
     
 def sub(num):
-	if len(num)<2:
-		return num
-	else:
-		return num[0]-sum(num[1:])
+    if len(num)<2:
+        return num
+    else:
+        return num[0]-sum(num[1:])
+        
+def div(num):
+    try:
+        if len(num)<2:
+            return 1.0/num
+        else:
+            return float(num[0])/numpy.prod(num[1:])
+    except ZeroDivisionError:
+        return float('inf')
 
+def metajoiner(metas, **params):
+    '''
+    Joins multiple metavalues into one
+    params : name, delims
+    '''
+    newmeta = Sdfmeta()
+    if 'name' in params:
+        newmeta.setname(params['name'])
+    else:
+        newmeta.setname('')
+    tab= []
+    for meta in metas:
+        newmeta.extend(meta)
+    newmeta.cleandelim(unify=True)
+    return newmeta
+    
 def getcolumn(tab,head):
     ind = tab[0].index(head.strip())
     column = []
@@ -1583,7 +1801,164 @@ def allsame(listordict):
         return float
     else:
         return None
+
+'''
+def stringtoownmeta(string):
+    #find parens, test if same
+    
+    def leveler(pars, otab, string):
+        print pars
+        print string
+        tab = copy.deepcopy(otab)
+        if len(pars)<2:
+            return string
+        curpar = alpar[0]
+        ci=0
+        level = 1
+        tab.append(string[:pars[0][1]])
+        for i, item in enumerate(alpar[1:]):
+            if curpar[0] in pair.values():
+                ci=i+2
+                curpar = pars[ci]
+                continue
+            elif item[0] == pair[curpar[0]]:
+                level -= 1
+                if level == 0:
+                    #full parentheses here
+                    tab.append([curpar[1],item[1],curpar[0],leveler(pars[ci+1:i+1],[],string[curpar[1]+1:item[1]])])
+                    try:
+                        ci = i+2
+                        curpar = pars[ci]
+                    except IndexError:
+                        break
+                    level = 1
+                    continue
+            elif item[0] == curpar[0]:
+                level += 1
+        endstring = string[item[1]+1:]
+        if len(endstring)>0:
+            tab.append(endstring)
+        return tab
+    
+    alpar = [(item.group(), item.start()) for item in parre.finditer(string)]
+    pair = {'(':')','[':']','{':'}'}
+    tab=leveler(alpar,[],string)
+    return tab
+    
+def leveler2(string):
+    pair = {'(':')','[':']','{':'}'}
+    pars = [(item.group(), item.start()) for item in parre.finditer(string)]
+    print pars
+    print string
+    tab = []#copy.deepcopy(otab)
+    if len(pars)<2:
+        return string
+    curpar = pars[0]
+    ci=0
+    level = 1
+    stastring = string[:pars[0][1]]
+    if len(stastring)>0:
+        tab.append(stastring)
+    for i, item in enumerate(pars):
+        if i == ci:
+            continue
+        if curpar[0] in pair.values():
+            ni=curpar[1]
+            ci=i
+            curpar = pars[i]
+            level = 1
+            midstring = string[ni+1:curpar[1]]
+            if len(midstring)>0:
+                tab.append(midstring)
+            continue
+        elif item[0] == pair[curpar[0]]:
+            level -= 1
+            if level == 0:
+                #full parentheses here
+                tab.append([curpar[0],leveler(string[curpar[1]+1:item[1]])]) #curpar[1],item[1],
+                try:
+                    ci = i+1
+                    curpar = pars[ci]
+                except IndexError:
+                    break
+                level = 1
+                continue
+        elif item[0] == curpar[0] :
+            level += 1
+    endstring = string[pars[-1][1]+1:]
+    if len(endstring)>0:
+        tab.append(endstring)
+    return tab
+'''
+
+def leveler(string):
+    pair = {'(':')','[':']','{':'}'}
+    pars = [(item.group(), item.start()) for item in parre.finditer(string)]
+    
+    tab = []
+    
+    if len(pars)<2:
+        return [string]
+    
+    curpar = None
+    backpar = None
+    
+    if pars[0][1]>0:
+        stastring = string[:pars[0][1]]
+        tab.append(stastring)
         
+    for i, item in enumerate(pars):
+        
+        if not curpar:
+            curpar = item
+            level = 1
+            if backpar:
+                addy = string[backpar[1]+1:curpar[1]]
+                if len(addy) > 0:
+                    tab.append(addy)
+                backpar = None
+        elif item[0] == curpar[0]:
+            level += 1
+        if item[0] == pair[curpar[0]]:
+            level -= 1
+            if level == 0:
+                tab.append((curpar[0],leveler(string[curpar[1]+1:item[1]]))) #curpar[1],item[1],
+                curpar = None
+                backpar = item
+    endstring = string[pars[-1][1]+1:]
+    if len(endstring)>0:
+        tab.append(endstring)
+    return tab
+    
+def levdepth(tab,i):
+    if isinstance(tab, tuple):
+        return depth(tab[1],i+1)
+    elif isinstance(tab, list):
+        j=i
+        mi=-1
+        for ind, thing in enumerate(tab):
+            k=depth(thing,i)
+            if k>j:
+                j=k
+                mi=ind
+        return j
+    else:
+        return i
+
+
+
+
+def tabjoin(taber):
+    pair = {'(':')','[':']','{':'}'}
+    string = []
+    for item in taber:
+        if isinstance(item, str):
+            string.append(item)
+        elif isinstance(item, list):
+            string.extend([item[0],tabjoin(item[1]),pair[item[0]]])
+    return ''.join(string)
+
+    
 def whattype(onestring):
     '''
     Tries to find out what type your string is
