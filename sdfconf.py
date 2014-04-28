@@ -34,7 +34,7 @@ atomcut=[0, 10, 20, 30, 31, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69]
 #slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (':3'.split(':') + ['', '', ''])[:3]])
 
 
-class Sdffile:
+class Sdffile(object):
     def __init__(self, path=''):
         self._dictomoles = dict() # {'aspirin':{1:aspi1, 2:aspi2, ...}, 'bentzene':{1:benz1, 2:benz2, ...}}
         self._orderlist = list()
@@ -820,7 +820,7 @@ class Sdffile:
         
 #end of Sdffile
 
-class Sdfmole:
+class Sdfmole(object):
     mes='Conformation number mismatch! {} vs {}'
     
     def __init__(self, stringsofone=None):
@@ -1195,24 +1195,15 @@ class Sdfmole:
         leveled = leveler(string)
         pass
     
-    def logichelp(self, partab, **vararg): #mypar=None, keypar=False
-        #newmeta = Sdfmeta()
-        #if isinstance(partab, str):
-        pass
-        '''
-        if isinstance(partab, tuple)
-            
+    def logicgetmeta(self, partab): #mypar=None, keypar=False
+        return self.collapser(self.levopemap(partab))
         
-        if 'mypar' in vararg:
-            #SLICE
-            pass
-        else:
-            
-            if partab in self._meta:
-                newmeta = copy.deepcopy(self._meta)
-        '''
     
-    def levopemap(self, tab, par=None):
+    
+    def levopemap(self, tab, par=None, length=None):
+        '''
+        Accepts lists made by leveler method. Maps this list for mathematical operators and metafield names. Also slices.
+        '''
         if isinstance(tab, tuple):
             return (tab[0], self.levopemap(tab[1], tab[0]))
         elif isinstance(tab, list):
@@ -1220,36 +1211,90 @@ class Sdfmole:
                 if not isinstance(thing, str):
                     continue
                 thing = thing.strip()
-                sear = re.search('*|/', thing)
+                #print thing
+                sear = re.search('[+-]', thing)
                 if not sear:
-                    sear = re.match('+|-', thing)
+                    sear = re.search('[\*/]', thing)
                 if sear:
                     tab1=[]
                     tab1.extend(tab[:i])
-                    tab1.append(thing[:sear.start()])
-                    tab2=[thing[sear.stop():]]
+                    if sear.start() > 0:
+                        tab1.append(thing[:sear.start()])
+                    if sear.end() < len(thing):
+                        tab2 = [thing[sear.end():]]
+                    else:
+                        tab2 = []
                     tab2.extend(tab[i+1:])
                     return (sear.group(),self.levopemap(tab1),self.levopemap(tab2))
-                else:
-                    return [self.levopemap(item) for item in tab]
+            return [self.levopemap(item, par,len(tab)) for item in tab]
         else:
+            
             tab = tab.strip()
-            if tab in mole._meta:
-                return mole._meta[tab]
+            
+            if tab in self._meta:
+                return self._meta[tab]
+            
+            if length==1 and par!=None:
+                return str(tab)
+                ''' slicing happens later on :)
+                if par in ('[','{'):
+                    try:
+                        return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
+                    except ValueError:
+                        print tab
+                        raise ValueError('Your logic makes no sense...')
+                if par == '(':
+                    return 
+                '''
             else:
                 tab = numify(tab)
                 if not isinstance(tab, str):
-                    return Sdfmeta.construct(tab)
+                    return Sdfmeta.construct('', tab)
                 else:
-                    try:
-                        slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
-                    except ValueError:
-                        raise ValueError('Your logic makes no sense...')
+                    #return tab
+                    print tab
+                    raise ValueError('Your logic makes no sense: '+tab)
                         
+    
+    def collapser(self, tab, para=None):
+        print (tab, para)
+        maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div}
+        pars = ('(','[','{')
+        if isinstance(tab,list):
+            if len(tab)==2:
+                #it's a "slice"
+                meta = self.collapser(tab[0])
+                sli = self.collapser(tab[1][1],tab[1][0])
+                return meta.slicer(sli, tab[1][0]) #THIS IS IT!
                 
+            elif len(tab)==1:
+                #evaluate
+                return self.collapser(tab[0],para)
+        elif isinstance(tab, tuple):
+            if tab[0] in maths:
+                return Sdfmeta.metaoper(maths[tab[0]],[self.collapser(tab[1]),self.collapser(tab[2])]) #OR THIS
+            elif tab[0] in pars:
+                return self.collapser(tab[1], tab[0])
+        elif isinstance(tab, str):
+            if para in ('(','[','{'):
+                trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
+                if not str in map(type, trytab):
+                    return Sdfmeta.construct( '', trytab )
+            try:
+                return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
+            except ValueError:
+                print tab
+                raise ValueError('Your logic makes no sense...')
+        elif isinstance(tab, Sdfmeta):
+            return tab #OR THIS
+        else:
+            print tab
+            raise TypeError('Unknown logic')
+            
+
 #end of Sdfmole
 
-class Sdfmeta:
+class Sdfmeta(object):
     #name
     #datatype: string list dict ?
     #the structure
@@ -1271,7 +1316,7 @@ class Sdfmeta:
             mylist = self._data.values()
         else:
             mylist = self._data
-        if isinstance( ind, slice ) or isinstance( ind, int ) :
+        if isinstance( ind, (slice, int) ):
             return mylist[ind]
         else:
             raise TypeError, "Invalid argument type."
@@ -1575,8 +1620,16 @@ class Sdfmeta:
             
             #if len(set(structs))==2 and 'single' in structs:
             #singles and (list or OrDi) in structs, extend singles to lists
-            minlen = min( {len(meta._data) for meta in workmetas}-{1} ) # shortest list length, ignore singles
-            ostru = iter(set(structs)-{'single'}).next() #the other structuretype
+            try:
+                minlen = min( {len(meta._data) for meta in workmetas}-{1} ) # shortest list length, ignore singles
+                ostru = iter(set(structs)-{'single'}).next() #the other structuretype
+                singles = True
+            except ValueError:
+                #Only singles
+                minlen = 1
+                ostru = list
+                singles = False
+            
             
             if ostru == list:
                 #make lists have the same length
@@ -1585,7 +1638,7 @@ class Sdfmeta:
                         workmetas[i]._data = meta._data * minlen
                     else:
                         workmetas[i]._data = meta._data[:minlen]
-                return Sdfmeta('', listoper(oper, workmetas)) #Nameless meta
+                return Sdfmeta.construct('', listoper(oper, workmetas, singles) ) #Nameless meta
             elif ostru == OrDi:
                 #extend singles to 
                 keys = set(workmetas[0]._data)
@@ -1617,6 +1670,53 @@ class Sdfmeta:
                 minlen = min( map(len, datas) )
                 datas = [data[:minlen] for data in datas]
         '''
+        
+    def slicer(self, sliceorindex, paren):
+        #parens = {'(':getpare,'[':getbrac,'{':getcubr}
+        #slices = {Sdfmeta:pass, slice:pass}
+        #parens = {'(':{Sdfmeta:pass, slice:pass},'[':{Sdfmeta:pass, slice:pass},'{':{Sdfmeta:pass, slice:pass}}
+        
+        def itsslice( toget, slic ):
+            print 'SLICE!'
+            if paren == '(':
+                return Sdfmeta.construct( '', OrDi( [ (i, toget[i]) for i in self._data.keys()[slic] ] ) )
+            #elif self._datastruct == 'dict'
+            #    self._data.values()
+            #
+            else:
+                #try:
+                return Sdfmeta.construct( '', toget[slic] )
+                #except TypeError:
+                #    print slic
+                #    print self._data
+            #return toget[sliceorindex]
+        
+        def itsmeta( toget, meta ):
+            print 'META!'
+            #if meta._datastruct == 'dict':
+            if type(meta._data) == OrDi:
+                indexes = meta._data.values()
+            else:
+                indexes = meta._data
+            if paren == '(':
+                if type(self._data) != OrDi:
+                    raise TypeError('"(" not applicaple for lists')
+                return Sdfmeta.construct( '' , OrDi([(i, toget[i]) for i in indexes]) )
+            return Sdfmeta.construct( '', [toget[i] for i in indexes] )
+        
+        if paren == '{':
+            toget = self._data.keys()
+        #elif paren == '[' and self._datastruct == 'dict':
+        elif paren == '[' and type(self._data) == OrDi:
+            toget = self._data.values()
+        else:
+            toget = self._data
+        
+        if not type(toget) in (list, OrDi):
+            raise TypeError('There is something wrong with our toget going to slicer') 
+        slices = {Sdfmeta:itsmeta, slice:itsslice}
+        return slices[type(sliceorindex)](toget, sliceorindex)
+
 #End of Sdfmeta
 
 def coorder(point):
@@ -1905,6 +2005,7 @@ def leveler(string):
     
     if pars[0][1]>0:
         stastring = string[:pars[0][1]]
+        #if len(stastring)>0:
         tab.append(stastring)
         
     for i, item in enumerate(pars):
@@ -1932,7 +2033,8 @@ def leveler(string):
     
 def levdepth(tab,i):
     if isinstance(tab, tuple):
-        return depth(tab[1],i+1)
+        if len(tab)==2:
+            return depth(tab[1],i+1)
     elif isinstance(tab, list):
         j=i
         mi=-1
@@ -1957,6 +2059,20 @@ def tabjoin(taber):
         elif isinstance(item, list):
             string.extend([item[0],tabjoin(item[1]),pair[item[0]]])
     return ''.join(string)
+    
+
+def test(thing, i):
+    '''
+    Method for testing things returned by leveler and Sdfmole.levopemap
+    '''
+    if isinstance(thing, (list,tuple)):
+        for item in thing:
+            test(item, i+1)
+    elif isinstance(thing, sdfconf.Sdfmeta):
+        print ''.join(['  ']*i) + ' '.join(thing.selftolistofstrings())
+    elif isinstance(thing, (str,slice)):
+        print ''.join(['  ']*i) + str(thing)
+
 
     
 def whattype(onestring):
