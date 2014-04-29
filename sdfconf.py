@@ -11,6 +11,7 @@ import numpy
 import time
 import pylab
 import copy
+import operator
 from collections import OrderedDict as OrDi
 
 #Common regular expressions used.  
@@ -637,16 +638,103 @@ class Sdffile(object):
         
     
     def logicparse(self, string):
-        opesplit=[item.strip() for item in re.split('(>=|<=|<|>|=)',string)]
-        if len(onesplit)==3:
-            opera = onesplit[1]
-            tocompare = [ leveler(onesplit[0]) , leveler(onesplit[2]) ]
+        
+        def dealer(picks, drops):
+            #if pick:
+            for info in drops:
+                del(self._dictomoles[info[0]][info[1]])
+            self._orderlist = picks
+            self.dictmaint()
+            '''
+            else:
+                for info in trues:
+                    del(self._dictomoles[info[0]][info[1]])
+                self._orderlist = falses
+                self.dictmaint()
+            '''
+        string = string.strip()
+        if string[:2] == '+ ':
+            pick = True
+            string = string[2:]
+        elif string[:2] == '- ':
+            pick = False
+            string = string[2:]
+        else:
+            pick = True
+        
+        #pick = True
+        opesplit=[item.strip() for item in re.split('(>=|<=|<|>|==|=|!=)',string)]
+        comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
+        
+        if len(opesplit)==3:
+            opera = opesplit[1]
+            tocompare = [ leveler(opesplit[0]) , leveler(opesplit[2]) ]
+            trues = []
+            falses = []
+            for info in self._orderlist:
+                mole = self._dictomoles[info[0]][info[1]]
+                if comps[opera]( mole.logicgetmeta(tocompare[0]), mole.logicgetmeta(tocompare[1]) ):
+                    trues.append(info)
+                else:
+                    falses.append(info)
+                
+                
+        elif len(opesplit)==1:
+            tear = leveler(string)
+            if len(tear) != 2:
+                raise Error('Weird logic.')
+            #funks = {'min':dicmin, 'max':dicmax}
+            funk = tear[0]
+            matheus = tear[1][1]
             
+            rcomindex = matheus[-1].rfind(',')
+            if rcomindex == -1:
+                raise TypeError('Weird logic. No comma.')
             
-        elif len(onesplit)==1:
-            pass
+            if len(matheus) > 1:
+                metatab = matheus[:-1]
+            else:
+                metatab = matheus[-1][:rcomindex]
+            
+            #metastring = tear[1][1][-1][:rcomindex]
+            #numstring = tear[1][1][-1][rcomindex+1:]
+            numstring = matheus[-1][rcomindex+1:]
+            
+            perindex = numstring.rfind('%')
+            if perindex > 0:
+                num = numify(numstring[:perindex])
+                per = True
+            else:
+                num = numify(numstring)
+                per = False
+            trues = []
+            falses = []
+            for molec in self._dictomoles:
+                moles = OrDi()
+                for conf in self._dictomoles[molec]:
+                    moles[conf] = self._dictomoles[molec][conf].logicgetmeta(metatab)
+                    #metas.append( self._dictomoles[molec][conf].logicgetmeta(tear[1][1]) )
+                if tear[0]=='max':
+                    reverse = True
+                else:
+                    reverse = False
+                moles = OrDi(sorted(moles.iteritems(), key= lambda xx: xx[1], reverse = reverse))
+                if per:
+                    grab = int(math.ceil(len(moles)*num/100.0))
+                    #if grab == 0:
+                    #    grab = 1
+                else:
+                    grab = int(num)
+                trues.extend( [[molec, item] for item in moles.keys()[:grab]] )
+                falses.extend( [[molec, item] for item in moles.keys()[grab:]] )
+            
+        if pick:
+            dealer(trues, falses)
+        else:
+            dealer(falses, trues)
             #find min or max
-
+        
+        
 
     def sorter(self,sortstring):
         '''
@@ -1257,7 +1345,7 @@ class Sdfmole(object):
                         
     
     def collapser(self, tab, para=None):
-        print (tab, para)
+        #print (tab, para)
         maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div}
         pars = ('(','[','{')
         if isinstance(tab,list):
@@ -1270,6 +1358,13 @@ class Sdfmole(object):
             elif len(tab)==1:
                 #evaluate
                 return self.collapser(tab[0],para)
+            elif len(tab)>2:
+                #multiple parentheses in series. First must be meta.
+                metaus = self.collapser(tab[0])
+                for item in tab[1:]:
+                    #sli = self.collapser(item[1],item[0])
+                    metaus = self.collapser([metaus,item])
+                return metaus
         elif isinstance(tab, tuple):
             if tab[0] in maths:
                 return Sdfmeta.metaoper(maths[tab[0]],[self.collapser(tab[1]),self.collapser(tab[2])]) #OR THIS
@@ -1320,7 +1415,82 @@ class Sdfmeta(object):
             return mylist[ind]
         else:
             raise TypeError, "Invalid argument type."
-
+            
+    def __iter__(self):
+        if type(self._data) == OrDi:
+            return iter(self._data.values())
+        else:
+            return iter(self._data)
+            
+    #comparisons
+    def __lt__(self, other):
+        return self._compare(other,operator.lt)
+        
+    def __le__(self, other):
+        return self._compare(other,operator.le)
+        
+    def __eq__(self, other):
+        return self._eqcompare(other,operator.eq)
+        
+    def __ge__(self, other):
+        return self._compare(other,operator.ge)
+        
+    def __gt__(self, other):
+        return self._compare(other,operator.gt)
+        
+    def __ne__(self, other):
+        return not self._eqcompare(other,operator.ne)
+    
+    def _compare(self, other, oper):
+        if type(other) != Sdfmeta:
+            othermeta = Sdfmeta.construct('', numify(other))
+        else:
+            othermeta = other
+        if type(self._data) == OrDi:
+            li1 = self._data.values()
+        else:
+            li1 = list(self._data)
+        
+        if type(othermeta._data) == OrDi:
+            li2 = othermeta._data.values()
+        else:
+            li2 = list(othermeta._data)
+        
+        for item2 in li2:
+            fulfils = True
+            for item1 in li1:
+                if not oper(item1, item2):
+                    fulfils = False
+                    break
+            if fulfils:
+                return True
+        return False
+    
+    def _eqcompare(self, other, oper):
+        if type(other) != Sdfmeta:
+            othermeta = Sdfmeta.construct('', numify(other))
+        else:
+            othermeta = other
+        if type(self._data) == OrDi:
+            li1 = self._data.values()
+        else:
+            li1 = list(self._data)
+        
+        if type(othermeta._data) == OrDi:
+            li2 = othermeta._data.values()
+        else:
+            li2 = list(othermeta._data)
+        
+        for item2 in li2:
+            #fulfils = True
+            for item1 in li1:
+                if oper(item1, item2):
+                    #fulfils = False
+                    #break
+                    return True
+            #if fulfils:
+                #return True
+        return False
         
     def initialize(self, listofstrings):
         '''parse the metadata'''
@@ -1640,17 +1810,28 @@ class Sdfmeta(object):
                         workmetas[i]._data = meta._data[:minlen]
                 return Sdfmeta.construct('', listoper(oper, workmetas, singles) ) #Nameless meta
             elif ostru == OrDi:
-                #extend singles to 
-                keys = set(workmetas[0]._data)
-                for meta in workmetas[1:]:
+                #extend singles to dicts
+                keys = None
+                keyorder = None
+                #keys = set(workmetas[0]._data)
+                #'''
+                for meta in workmetas:
                     if meta._datastruct == OrDi:
-                        keys.intersection_update(set(meta._data))
+                        if not keys:
+                            keys = set(meta._data)
+                        else:
+                            keys.intersection_update(set(meta._data))
+                        if not keyorder:
+                            keyorder = meta._data.keys()
+                
                 for i,meta in enumerate(workmetas):
                     if meta._datastruct == 'single':
                         newdict = OrDi()
-                        for key in keys:
-                            newdict[key]=meta._data[0]
+                        for key in keyorder:
+                            if key in keys:
+                                newdict[key]=meta._data[0]
                         workmetas[i]=Sdfmeta.construct(meta.getname(),newdict)
+                #'''
                 return Sdfmeta.construct('',OrDioper(oper,workmetas))
         
         elif oper == joiner: #Therefore, it's joiner
@@ -1677,7 +1858,7 @@ class Sdfmeta(object):
         #parens = {'(':{Sdfmeta:pass, slice:pass},'[':{Sdfmeta:pass, slice:pass},'{':{Sdfmeta:pass, slice:pass}}
         
         def itsslice( toget, slic ):
-            print 'SLICE!'
+            #print 'SLICE!'
             if paren == '(':
                 return Sdfmeta.construct( '', OrDi( [ (i, toget[i]) for i in self._data.keys()[slic] ] ) )
             #elif self._datastruct == 'dict'
@@ -1692,7 +1873,7 @@ class Sdfmeta(object):
             #return toget[sliceorindex]
         
         def itsmeta( toget, meta ):
-            print 'META!'
+            #print 'META!'
             #if meta._datastruct == 'dict':
             if type(meta._data) == OrDi:
                 indexes = meta._data.values()
@@ -1944,53 +2125,8 @@ def stringtoownmeta(string):
     pair = {'(':')','[':']','{':'}'}
     tab=leveler(alpar,[],string)
     return tab
+    '''
     
-def leveler2(string):
-    pair = {'(':')','[':']','{':'}'}
-    pars = [(item.group(), item.start()) for item in parre.finditer(string)]
-    print pars
-    print string
-    tab = []#copy.deepcopy(otab)
-    if len(pars)<2:
-        return string
-    curpar = pars[0]
-    ci=0
-    level = 1
-    stastring = string[:pars[0][1]]
-    if len(stastring)>0:
-        tab.append(stastring)
-    for i, item in enumerate(pars):
-        if i == ci:
-            continue
-        if curpar[0] in pair.values():
-            ni=curpar[1]
-            ci=i
-            curpar = pars[i]
-            level = 1
-            midstring = string[ni+1:curpar[1]]
-            if len(midstring)>0:
-                tab.append(midstring)
-            continue
-        elif item[0] == pair[curpar[0]]:
-            level -= 1
-            if level == 0:
-                #full parentheses here
-                tab.append([curpar[0],leveler(string[curpar[1]+1:item[1]])]) #curpar[1],item[1],
-                try:
-                    ci = i+1
-                    curpar = pars[ci]
-                except IndexError:
-                    break
-                level = 1
-                continue
-        elif item[0] == curpar[0] :
-            level += 1
-    endstring = string[pars[-1][1]+1:]
-    if len(endstring)>0:
-        tab.append(endstring)
-    return tab
-'''
-
 def leveler(string):
     pair = {'(':')','[':']','{':'}'}
     pars = [(item.group(), item.start()) for item in parre.finditer(string)]
@@ -2153,13 +2289,20 @@ def listoper(oper, metas, singles=True):
                     caltab.append(meta._data[0])
                 else:
                     return tab
-        tab.append(oper(caltab))
+        tab.append(float(oper(caltab)))
         i+=1
     return tab
     
 def OrDioper(oper, metas):
     keys = set.intersection(*[set(meta._data) for meta in metas if meta._datastruct != 'single'])
-    dic = dict()
+    newkeys=[]
+    if len(metas)>0:
+        for key in metas[0]._data:
+            if key in keys:
+                newkeys.append(key)
+    keys = newkeys
+    del(newkeys)
+    dic = OrDi()
     for key in keys:
         caltab = []
         for meta in metas:
@@ -2167,24 +2310,8 @@ def OrDioper(oper, metas):
                 caltab.append(meta._data[0])
             else:
                 caltab.append(meta._data[key])
-        dic[key] = oper(caltab)
-    
-    '''
-    #wtf did i smoke? this ensures we have a OrDi
-    for meta in metas:
-        refmeta = meta
-        if refmeta._datastruct == OrDi:
-            break
-    if refmeta._datastruct != OrDi:
-        return None
-            
-    outordi = OrDi()
-    for key in refmeta._datastruct:
-        if key in dic:
-            outordi[key]=dic[key]
-    return outordi
-    '''
-    return OrDi(dic)
+        dic[key] = float(oper(caltab))
+    return dic #OrDi(dic)
     
 def singleoper(oper, metas):
     if len({meta._datastruct for meta in metas} - {single})>0:
