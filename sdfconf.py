@@ -173,7 +173,15 @@ class Sdffile(object):
                             newlist.append(info)
                     self._orderlist = newlist
         self.dictmaint()
-
+    
+    def stripbutmeta(self, metalogic):
+        '''
+        removes all atoms from the file, except for those defined in the given logical meta statement.
+        '''
+        levels = leveler(metalogic)
+        for mol in self:
+            mol.stripbutmeta(levels)
+        
     
     #conformation numbers
     
@@ -255,7 +263,7 @@ class Sdffile(object):
         funk = task[:funki]
         metas = goodchop.split(task[funki:].strip('{[()]}'))
         
-        operators = {'sum':sum, 'max':max, 'min':min, 'avg':avg, 'join':metajoiner, 'prod':numpy.prod, 'sub':sub, 'div':div}
+        operators = {'sum':sum, 'max':max, 'min':min, 'avg':avg, 'join':metajoiner, 'prod':numpy.prod, 'sub':sub, 'div':div, 'pow':mypow}
         if funk in operators:
             self.mergenewmeta(newmeta, metas, operators[funk.lower().strip()])
         else:
@@ -537,8 +545,8 @@ class Sdffile(object):
             return None
 
     def mehist(self, Xname, Yname=None, **kwargs):
-        print "Histograms don't work right now!"
-        return
+        #print "Histograms don't work right now!"
+        #return
         
         #kwargs: title, Xtitle, Ytitle, bins
         newargs = dict()
@@ -550,6 +558,63 @@ class Sdffile(object):
         for key in newargs:
             del(kwargs[key])
         
+        #New implementation
+        datas = [[]]
+        levels = [leveler(Xname)]
+        if Yname:
+            datas.append([])
+            levels.append(leveler(Yname))
+        #YData = None
+        
+        for mol in self:
+            #Xcan = mol.logicgetmeta(Xlevel)
+            try:
+                metas = tuple( mol.logicgetmeta(level) for level in levels )
+                minlen = min( {len(meta) for meta in metas}-{1} ) # shortest list length, ignore singles
+                structs = set([meta._datastruct for meta in metas])-{'single'}
+                #ostru = iter(structs).next()
+                #ostru = iter(set(tuple(meta._datastruct for meta in metas))-{'single'}).next() #the other structuretype
+            except ValueError:
+                #Only singles
+                minlen = 1
+                structs = {list}
+                #ostru = list
+                #singles = False
+            
+            if len(structs)>1:
+                for i,meta in enumerate(metas):
+                    if meta._datastruct == OrDi:
+                        meta = copy.deepcopy(meta)
+                        meta._data = tstmeta._data.values()
+                        metas[i] = meta
+            elif iter(structs).next() == OrDi:
+                keys = metas[0]._data.keys()[:minlen]
+                for i, meta in enumerate(metas):
+                    for key in keys:
+                        datas[i].append(meta._data[key])
+            else:
+                for i, meta in enumerate(metas):
+                    if len(meta)<minlen:
+                        datas[i].extend(meta._data[:1]*minlen)
+                    elif meta._datastruct==list:
+                        datas[i].extend(meta._data[:minlen])
+        
+        pylab.figure()
+        if not Yname:
+            larg=[datas[0]] #[getcolumn(data,Xname)]
+            if 'bins' in kwargs:
+                larg.append(kwargs['bins'])
+                #print kwargs['bins']
+                del(kwargs['bins'])
+            (n, bins, patches)=pylab.hist(*larg,**kwargs) #kwargs?
+        else:
+            X,xe,ye=pylab.histogram2d(datas[0],datas[1],**kwargs)
+            ex=[xe[0],xe[-1],ye[-1],ye[1]]
+            pylab.imshow(numpy.transpose(X),extent=ex,interpolation='nearest',aspect='auto')
+            cb=pylab.colorbar()
+            #cb.spacing
+            
+        ''' Old implementation
         data = csvtomatrix(self.selftostring('getcsv',csv='?').split('\n'))[:-2]
         pylab.figure()
         if not Yname:
@@ -565,6 +630,8 @@ class Sdffile(object):
             pylab.imshow(numpy.transpose(X),extent=ex,interpolation='nearest',aspect='auto')
             cb=pylab.colorbar()
             #cb.spacing
+        '''
+        
         if 'Xtitle' in newargs:
             pylab.xlabel(newargs['Xtitle'])
         else:
@@ -793,6 +860,31 @@ class Sdffile(object):
         return sorted(self._orderlist, key=lambda avain: numify(self._dictomoles[avain[0]][avain[1]]._meta[sortstring[1:]][0]),reverse=rever)
         
     
+    def sortmetas(self, sorty):
+        '''
+        Sorts cells of a metafield in ascending or descending order
+        '''
+        sorty=sorty.strip()
+        sorty=sorty.strip('\"|\'')
+        if sorty[0] == '<':
+            ascending=True
+            tosort = sorty[1:]
+        elif sorty[0] == '>':
+            ascending=False
+            tosort = sorty[1:]
+        else:
+            ascending=True
+            tosort = sorty
+        if sorty[-1] == '+':
+            sorty = sorty[:-1]
+            byValue = False
+        else:
+            byValue = True
+        for mol in self:
+            if tosort in mol._meta:
+                mol._meta[tosort].sortme(ascending,byValue)
+        #return sorted(self._orderlist, key=lambda avain: numify(self._dictomoles[avain[0]][avain[1]]._meta[sorty[1:]][0]),reverse=rever)
+    
     def addcsvmeta(self, path, verbose=False):
         f = open(path)
         chop = re.compile('\s*[;,\t]\s*')
@@ -803,7 +895,9 @@ class Sdffile(object):
             s=-1
             newtab=[]
             for i, cell in enumerate(line):
-                if len(cell)==0:
+                if s<0 and len(cell)==0:
+                    newtab.append('')
+                elif s>=0 and len(cell)==0:
                     continue
                 elif s < 0 and cell[0] == '"' and cell[-1] != '"':
                     s = i
@@ -811,6 +905,8 @@ class Sdffile(object):
                 elif s >= 0 and cell[0] != '"' and cell[-1] == '"':
                     newtab.append(','.join(line[s:i+1]).strip('"'))
                     s = -1
+                elif s>=0:
+                    continue
                 else:
                     newtab.append(cell.strip('"'))
             csvdata[j] = newtab
@@ -819,39 +915,27 @@ class Sdffile(object):
             m = confchop.search(csvmol[0])
             if m:
                 n=m.group(0)[2:-2]
-                #l=len(n)+4
-                #seeker = csvmol[0][:-l]
                 seeker = csvmol[0][:-(len(n)+4)]
             else:
-                #l=0
                 seeker = csvmol[0]
-            #try:
-            #    moldic = self._dictomoles[seeker]
-            #except KeyError:
             if not seeker in self._dictomoles:
-                #print csvmol[0]
-                #print csvmol[0][:-l] in self._dictomoles
-                #print l
-                if verbose:
-                    print seeker+' not found!'
-                continue
+                pass
+                #if verbose:
+                #    print seeker+' not found!'
+                #continue
             if m:
                 keys = [n]
             else:
                 keys = self._dictomoles[seeker].keys()
-            #moldic = {n:moldic[n]}
             for key in keys:
                 if key in self._dictomoles[seeker]:
                     mol = self._dictomoles[seeker][key]
                 else:
-                    #print self._dictomoles[seeker].keys()
                     continue
-                #mol = moldic[key]
                 for i, newmeta in enumerate(csvmol[1:]):
                     if len(newmeta)!=0:
                         mol.addmeta(header[i+1], newmeta, overwrite=True)
                         mol._meta[header[i+1]].cleandelim(True)
-                        #print 'added '+header[i+1]+' to '+key
         del(csvdata)
                     
     def removemeta(self, metaliststring, pick = False):
@@ -1057,7 +1141,8 @@ class Sdfmole(object):
                 self._meta[newmeta.getname()] = newmeta
                 self._metakeys.append(newmeta.getname())
                 
-    def dists(self, point1, index=0):
+    def dists(self, point1, ignores=['H']):
+        ignores = [item.upper() for item in ignores]
         self.numerize()
         coord1 = coorder(point1)
         if coord1 == None:
@@ -1066,8 +1151,9 @@ class Sdfmole(object):
         alist=[]
         for i in range(len(self._atoms)):
             #this responsibility will be taken elsewhere
-            #if self.gettype(i+1).strip() in ['H','F','Br','I']:
-            #    continue
+            if self.gettype(i+1).strip() in ignores:
+                continue
+            
             coord2 = numpy.array(self.getcoord(i+1)) #numpy.array([float(c) for c in atom[0:3]])
             dist = sum((coord1-coord2)**2)**0.5
             alist.append([float(dist),i+1])
@@ -1351,11 +1437,12 @@ class Sdfmole(object):
         if isinstance(tab, tuple):
             return (tab[0], self.levopemap(tab[1], tab[0]))
         elif isinstance(tab, list):
-            for i, thing in enumerate(tab):
+            for j, thing in enumerate(tab):
                 if not isinstance(thing, str):
                     continue
                 thing = thing.strip()
                 #print thing
+                '''old
                 sear = re.search('[+-]', thing)
                 if not sear:
                     sear = re.search('[\*/]', thing)
@@ -1370,6 +1457,51 @@ class Sdfmole(object):
                         tab2 = []
                     tab2.extend(tab[i+1:])
                     return (sear.group(),self.levopemap(tab1),self.levopemap(tab2))
+                '''
+                
+                ''' tryout
+                def opeser(whats,fromwhat):
+                    if not type(whats) in (list, tuple):
+                        what = (what)
+                    bi = -1
+                    Lfw = len(fromwhat)
+                    for what in whats:
+                        if type(what) != str:
+                            raise TypeError
+                        Lw = len(what)
+                        dup = 2*what
+                        for i in range(Lfw)
+                '''
+                #new
+                sear = re.search('[+-]', thing)
+                if sear:
+                    i = sear.start()
+                    ie = sear.end()
+                if not sear:
+                    sear = re.search('(^|[^\*])[\*/]([^\*]|$)', thing)
+                    if sear:
+                        helpse = re.search('[\*/]', thing[sear.start():sear.end()])
+                        i = sear.start()+helpse.start()
+                        ie = sear.start()+helpse.end()
+                        del(helpse)
+                if not sear:
+                    sear = re.search('[\*]{2}', thing)
+                    if sear:
+                        i = sear.start()
+                        ie = sear.end()
+                if sear:
+                    tab1=[]
+                    tab1.extend(tab[:j])
+                    if i > 0:
+                        tab1.append(thing[:i])
+                    if ie < len(thing):
+                        tab2 = [thing[ie:]]
+                    else:
+                        tab2 = []
+                    tab2.extend(tab[j+1:])
+                    #return (sear.group(),self.levopemap(tab1),self.levopemap(tab2))
+                    return (thing[i:ie],self.levopemap(tab1),self.levopemap(tab2))
+                #new ends
             return [self.levopemap(item, par,len(tab)) for item in tab]
         else:
             
@@ -1402,7 +1534,7 @@ class Sdfmole(object):
     
     def collapser(self, tab, para=None):
         #print (tab, para)
-        maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div}
+        maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div,'**':mypow}
         pars = ('(','[','{')
         if isinstance(tab,list):
             if len(tab)==2:
@@ -1442,6 +1574,17 @@ class Sdfmole(object):
             #print tab
             raise TypeError('Unknown logic')
             
+    
+    def stripbutmeta(self, levemeta):
+        self.numerize()
+        atoms = self.logicgetmeta(levemeta)
+        newatoms = []
+        for n in atoms._data:
+            newatoms.append(self._atoms[n-1])
+        self._atoms = newatoms
+        self._bonds = []
+        self._counts[0] = len(newatoms)
+        self._counts[1] = 0
 
 #end of Sdfmole
 
@@ -1478,6 +1621,9 @@ class Sdfmeta(object):
             return iter(self._data.values())
         else:
             return iter(self._data)
+            
+    def __len__(self):
+        return len(self._data)
             
     #comparisons
     def __lt__(self, other):
@@ -1553,19 +1699,13 @@ class Sdfmeta(object):
         '''parse the metadata'''
         #get name of metafield
         if listofstrings[0][0] != '>' :
-            #Raise error
-            #print listofstrings[0]
-            #print 'No meta'
-            #return
             self._name = ['  ','']
             fi = 0
         else:
-            #print listofstrings[0]
             self._name = metaname.match(listofstrings[0]).groups()
             fi = 1
             if re.match('[ ]{0,2}', self._name[0]):
                 self._name = ('  ', self._name[1])
-            #print self._name
         #Remove the last empty line and linechanges
         if not len(listofstrings[-1].strip())==0:
             #Raise error?
@@ -1577,12 +1717,12 @@ class Sdfmeta(object):
         #if no delimiter or ' ' in the end of line, add ' '
         newlines = []
         for line in mylines[:-1]:
-        #for line in mylines:
             newlines.append(line)
             if not re.match('[ ,;\t]',line[-1]):
                 newlines.append(' ')
         newlines.append(mylines[-1])
         (data,dtype,delims) = whattype(''.join(newlines))
+
         #if string, it's special
         if dtype == str:
             self._datatype = str
@@ -1721,8 +1861,10 @@ class Sdfmeta(object):
                 self._name = ('  ', newname)
             else:
                 self._name = (self._name[0], newname)
+        elif newname == None:
+            self.setname('')
         else:
-            raise TypeError('Name defined incorrectly!')
+            raise TypeError('Name defined incorrectly! '+str(newname))
         
     def dtype(self):
         return self._datatype
@@ -1878,7 +2020,7 @@ class Sdfmeta(object):
         '''
         structs = [meta._datastruct for meta in metas]
         types   = [meta._datatype   for meta in metas]
-        mathopers = (sum, sub, numpy.prod, max, min, avg, div)
+        mathopers = (sum, sub, numpy.prod, max, min, avg, div, mypow)
         workmetas = copy.deepcopy(metas)
         if oper in mathopers:
             if str in types:
@@ -2001,6 +2143,18 @@ class Sdfmeta(object):
             raise TypeError('There is something wrong with our toget going to slicer') 
         slices = {Sdfmeta:itsmeta, slice:itsslice}
         return slices[type(sliceorindex)](toget, sliceorindex)
+        
+    def sortme(self, ascending=True, byValue = True):
+        '''
+        Sorts the cells to ascending or descending order, by value or key
+        '''
+        if byValue and type(self._data) == OrDi:
+            self._data = OrDi( sorted( self._data.iteritems(), key=lambda x: x[1], reverse = not ascending ) )
+        elif not byValue and type(self._data) == OrDi:
+            self._data = OrDi( sorted( self._data.iteritems(), key=lambda x: x[0], reverse = not ascending ) )
+        else:
+            #type == list
+            self._data = sorted( self._data, reverse = not ascending )
 
 #End of Sdfmeta
 
@@ -2036,7 +2190,8 @@ def numify(stri):
     if type(stri) == int:
         return stri
     elif type(stri) == float:
-        if int(stri)-stri == 0:
+        #if int(stri)-stri == 0:
+        if float.is_integer(stri):
             return int(stri)
         else:
             return stri
@@ -2047,7 +2202,10 @@ def numify(stri):
             try:
                 return float(stri)
             except ValueError:
-                return stri
+                if stri.lower() in ('null','none'):
+                    return float('nan')
+                else:
+                    return stri
         except TypeError:
             if type(stri)==list:
                 return map(numify,stri)
@@ -2091,6 +2249,12 @@ def div(num):
             return float(num[0])/numpy.prod(num[1:])
     except ZeroDivisionError:
         return float('inf')
+        
+def mypow(num):
+    if type(num) in (tuple, list):
+        return numpy.power(*num[:2])
+    else:
+        return None
 
 def metajoiner(metas, **params):
     '''
@@ -2485,14 +2649,15 @@ if __name__ == "__main__":
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
 
     arger.add_argument("-ca", "--closestatom", type = str,                  help = "Calculates the closest atom (atom number) to given point. Adds 'Closest_atom' and 'Closest_distance' metafields. Needs coordinates, separated by , or ;")
-    #arger.add_argument("-mc", "--multiclosestatom", type = str,             help = "Calculates the distances from atom number in a given field, multiple atoms in second field. Creates a field <[secondfieldname]_closest_distance> ['Closest_atom,PRIMARY_SOM|Closest_atom,SECONDARY_SOM]")
-    #arger.add_argument("-cb", "--closestbybonds", type = str,               help = "Calculates the closest atom of interest (atom number) from given atom (fieldname) to given atoms (fieldname). Adds '<input3>_atom' and '<input3>_distance' metafields. Needs three fieldnames, separated by ','. Fields are 'from', 'to' and 'newfield'. You can give multiple parameters, separate by '|'")
+    arger.add_argument("-mc", "--multiclosestatom", type = str,             help = "Calculates the distances from atom number in a given field, multiple atoms in second field. Creates a field <[secondfieldname]_closest_distance> ['Closest_atom,PRIMARY_SOM|Closest_atom,SECONDARY_SOM]")
+    arger.add_argument("-cb", "--closestbybonds", type = str,               help = "Calculates the closest atom of interest (atom number) from given atom (fieldname) to given atoms (fieldname). Adds '<input3>_atom' and '<input3>_distance' metafields. Needs three fieldnames, separated by ','. Fields are 'from', 'to' and 'newfield'. You can give multiple parameters, separate by '|'")
     arger.add_argument("-cla", "--closeratoms", type = str,                 help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
     arger.add_argument("-v", "--verbose", action = "store_true" ,           help = "More info on your run.")
     arger.add_argument("-mm", "--mergemeta", type = str,                    help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, join. Takes multiple arguments separated by |")
     arger.add_argument("-cm", "--changemeta", type = str,                   help = "Changes names of metafields. [olname1>newname1|oldname2>newname2]. ")
+    arger.add_argument("-sm", "--sortmeta", type = str,                     help = "Sorts cells of a metafield in ascending [<metaname] or descending [>metaname] order. Additional '+' as the last character sorts by key in dictionary type metas. Takes multiple values separated by |")
     arger.add_argument("-so", "--sortorder", type = str,                    help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first by highest weight first, then by smallest name first")
-    #arger.add_argument("-hg", "--histogram", type = str,                    help = "Plots a 1D or 2D histogram, multiple plots with '|'. 'Xname,Yname,Xtitle=x-akseli,Ytitle=y-akseli,bins=[30,30]'")
+    arger.add_argument("-hg", "--histogram", type = str,                    help = "Plots a 1D or 2D histogram, multiple plots with '|'. 'Xname,Yname,Xtitle=x-akseli,Ytitle=y-akseli,bins=[30,30]'")
     
     
     args = arger.parse_args()
@@ -2663,13 +2828,24 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Sorting done. It took {} seconds.'.format(times[-1]-times[-2])
         
+        if args.sortmeta:
+            sortsies = args.sortmeta.split('|')
+            for sorty in sortsies:
+                sdf1.sortmetas(sorty)
+                if args.verbose:
+                    print 'Sort {} done.'.format(sorty)
+                pass
+            times.append(time.time())
+            if args.verbose:
+                print 'Meta sorting done. It took {} seconds.'.format(times[-1]-times[-2])
+        
         #check :)
         if args.extract:
             logics = args.extract.split('|')
             for logic in logics:
                 sdf1.logicparse(logic.strip())
                 if args.verbose:
-                    print 'After logical chop {}, sdf-file has {} molecules left.'.format(logic,len(sdf1))
+                    print 'After logical chop {}, sdf-file has {} molecules and {} conformations left.'.format(logic,len(sdf1._dictomoles),len(sdf1))
             times.append(time.time())
             if args.verbose:
                 print 'Logical chopping done. It took {} seconds.'.format(times[-1]-times[-2])
