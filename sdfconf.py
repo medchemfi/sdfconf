@@ -545,9 +545,7 @@ class Sdffile(object):
             return None
 
     def mehist(self, Xname, Yname=None, **kwargs):
-        #print "Histograms don't work right now!"
-        #return
-        
+        #Histograms work again!
         #kwargs: title, Xtitle, Ytitle, bins
         newargs = dict()
         titargs = ['Xtitle','Ytitle','title']
@@ -568,19 +566,57 @@ class Sdffile(object):
         
         for mol in self:
             #Xcan = mol.logicgetmeta(Xlevel)
+            metas = tuple( mol.logicgetmeta(level) for level in levels )
+
             try:
-                metas = tuple( mol.logicgetmeta(level) for level in levels )
                 minlen = min( {len(meta) for meta in metas}-{1} ) # shortest list length, ignore singles
-                structs = set([meta._datastruct for meta in metas])-{'single'}
+                #structs = set([meta._datastruct for meta in metas])-{'single'}
                 #ostru = iter(structs).next()
                 #ostru = iter(set(tuple(meta._datastruct for meta in metas))-{'single'}).next() #the other structuretype
             except ValueError:
                 #Only singles
                 minlen = 1
-                structs = {list}
+                #structs = {list}
                 #ostru = list
                 #singles = False
+            structs = set([meta._datastruct for meta in metas])-{'single'}
+            ostru = iter(structs).next()
+                
             
+            
+            if OrDi in structs:
+                keys = None
+                keyorder = None
+                for meta in metas:
+                    if meta._datastruct == OrDi:
+                        if not keys:
+                            keys = set(meta._data.keys())
+                        else:
+                            keys.intersection_update(set(meta._data.keys()))
+                        if not keyorder:
+                            keyorder = meta._data.keys()
+                        if len(keys) == 0:
+                            break
+                keyorder = [key for key in keyorder if key in keys][:minlen]
+            #    print keyorder
+                
+            #if ostru == list:
+            #make lists have the same length
+            #print meta._data
+            for i, meta in enumerate(metas): 
+                if meta._datastruct == 'single':
+                    datas[i].extend(meta._data[:1] * minlen)
+                elif meta._datastruct == list:
+                    datas[i].extend(meta._data[:minlen])
+                elif meta._datastruct == OrDi:
+                    try:
+                        datas[i].extend([meta._data[key] for key in keyorder])
+                    except KeyError:
+                        print mol._name
+                        print meta._data
+                        print keyorder
+                        raise KeyError(str(key))
+            '''
             if len(structs)>1:
                 for i,meta in enumerate(metas):
                     if meta._datastruct == OrDi:
@@ -591,14 +627,18 @@ class Sdffile(object):
                 keys = metas[0]._data.keys()[:minlen]
                 for i, meta in enumerate(metas):
                     for key in keys:
-                        datas[i].append(meta._data[key])
+                        try:
+                            datas[i].append(meta._data[key])
+                        except AttributeError:
+                            datas[i].append(meta._data[0])
             else:
                 for i, meta in enumerate(metas):
                     if len(meta)<minlen:
                         datas[i].extend(meta._data[:1]*minlen)
                     elif meta._datastruct==list:
                         datas[i].extend(meta._data[:minlen])
-        
+            '''
+            
         pylab.figure()
         if not Yname:
             larg=[datas[0]] #[getcolumn(data,Xname)]
