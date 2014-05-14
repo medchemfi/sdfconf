@@ -2263,7 +2263,10 @@ def numitest(string):
             return True
         string = string.strip('0')
         tststr = tststr.strip('0')
-        return  string == tststr and tststr[0] == '.'
+        if len(tststr)==0:
+            return False
+        else:
+            return  string == tststr and tststr[0] == '.'
     else:
         return True
 
