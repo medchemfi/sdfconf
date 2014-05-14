@@ -2,6 +2,7 @@
 # -*- coding: latin-1 -*-
 
 #a test brach similiar to metatolist. Just git-training for myself...
+#test
 
 import os
 import sys
@@ -2828,7 +2829,7 @@ if __name__ == "__main__":
                 if args.verbose:
                     print 'Closest atoms to given atom calculated. It took {} seconds.'.format(times[-1]-times[-2])
         '''
-        
+        '''
         #doesn't work
         if args.closestbybonds:
             for statement in args.closestbybonds.split('|'):
@@ -2837,7 +2838,7 @@ if __name__ == "__main__":
                 times.append(time.time())
                 if args.verbose:
                     print 'Closest atom to given atom by bond calculated. It took {} seconds.'.format(times[-1]-times[-2])
-        
+        '''
         #check
         if args.changemeta:
             for statement in args.changemeta.split('|'):
