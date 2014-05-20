@@ -2200,6 +2200,25 @@ class Sdfmeta(object):
 
 #End of Sdfmeta
 
+class mol2file(object):
+    def __init__(self, path = None):
+        self._molecules = []
+        if path:
+            self.readfile(path)
+    
+    def readself(self, path):
+        with open(path) as f:
+            curflag = None
+            for line in f:
+                if re.match('@<TRIPOS>',line.strip()):
+                    curflag = line[9:].strip()
+                    if curflag == 'MOLECULE':
+                        self._molecules.append(OrDi())
+                    self._molecules[-1][curflag]=[]
+                elif curflag:
+                    self._molecules[-1][curflag].append(line.strip('\n'))
+
+
 def coorder(point):
     coord = numpy.array( map(numify, goodchop.split(point.strip('{[()]}'))) )
     if type(coord) == numpy.ndarray and len(coord) > 1:
