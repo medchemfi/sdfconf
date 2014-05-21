@@ -1074,7 +1074,21 @@ class Sdffile(object):
                     newargs['path'] = onepath
                     onesdf.writer(writetype, **newargs) #TODO
                     
-    
+    def getMol2Data(self, metaname, column, path):
+        mol2 = Mol2File(path)
+        for i, mol in mol2:
+            newdic = mol.pickatomdata(column)
+            self[i].addmeta(metaname, newdic)
+        del(mol2)
+        
+    def injectMol2Data(self, metaname, column, path, defaultValue=0.0, precision=4, outpath = None):
+        mol2 = Mol2File(path)
+        metaname = metaname.strip()
+        for i, mol in mol2:
+            mol.injectatomdata(self[i]._meta[metaname], column, defaultValue, precision)
+        if not outpath:
+            outpath=path
+        mol2.writefile(outpath)
         
 #end of Sdffile
 
@@ -2213,7 +2227,7 @@ class Mol2File(object):
             raise TypeError, "Invalid argument type."
     
     def readfile(self, path):
-        with open(path) as f:
+        with open(path,'r') as f:
             curflag = None
             for line in f:
                 if re.match('@<TRIPOS>',line.strip()):
@@ -2224,6 +2238,15 @@ class Mol2File(object):
                     self._molecules[-1][curflag]=[]
                 elif curflag:
                     self._molecules[-1][curflag].append(line.strip('\n'))
+    
+    
+    def writefile(self, path):
+        with open(path, 'w') as f:
+            for mol in self:
+                for field in mol:
+                    f.write('@<TRIPOS>'+field+'\n')
+                    for line in mol[field]:
+                        f.write(line+'\n')
     
     
 
@@ -2239,10 +2262,15 @@ class Mol2Mol(OrDi):
         for line in self['ATOM']:
             things = re.split( '\s+', line.strip())
             if len(things)>1:
-                newdic[numify(things[0])] = things[column]
+                if len(things[0])==0:
+                    offset = 1
+                else:
+                    offset = 0
+                newdic[numify(things[0+offset])] = things[column+offset]
         return newdic
     
-    def injectatomdata(self, column, data):
+    def injectatomdata(self, data, column, defaultValue=0.0, prec=4):
+        
         if data._datastruct == list:
             offset = -1
         else:
@@ -2250,32 +2278,49 @@ class Mol2Mol(OrDi):
         def findindex(linetab, cols):
             realcols = []
             j=-1
-            for i, item in linetab:
+            for i, item in enumerate(linetab):
                 if len(item.strip())!=0:
                     j+=1
                     if j in cols:
                         realcols.append(i)
                         if len(cols)==len(realcols):
                             return realcols
-            return []
-        
-        atomdata = []
-        
-        toinject = []
-        stachar = []
-        endchar = []
-        dotchar = []
+            #return []
+        form = '{:.' + str(prec) +'f}'
+        injectinfo = []
         for line in self['ATOM']:
             things = re.split( '(\s+)', line)
+            mycol = None
             try:
                 ind, mycol = findindex(things, (0, column))
-                if mycol:
-                    toinject.append( data[things[ind]+offset] )
-                    stachar.append( sum( map(len, things[:ind]) ) )
-                    endchar.append( stachar[-1]+len(things[ind]) )
-                    dotchar.append( stachar[-1]+things[ind].find('.') )
             except ValueError:
-                pass
+                print things
+                continue
+            if mycol:
+                try:
+                    inject = data._data[numify(things[ind])+offset]
+                except KeyError :
+                    inject = defaultValue
+                stachar = sum( map(len, things[:mycol]) )
+                endchar = stachar+len(things[mycol])
+                injectinfo.append( (form.format(inject), stachar, endchar))
+            else:
+                continue
+                #print line
+        
+        #print injectinfo
+        
+        sta = min( [item[1] for item in injectinfo] )
+        end = max( [item[2] for item in injectinfo] )
+        maxlen = max( [ len(item[0]) for item in injectinfo] )
+        
+        for i, line in enumerate(self['ATOM']):
+            #if injectinfo[i][0]:
+            #    putin = injectinfo[i][0]
+            #else:
+            #    putin = defaultValue
+            #self['ATOM'][i] = line[:sta] + form.format(putin) + line[end+1:]
+            self['ATOM'][i] = line[:sta] + (maxlen-len(injectinfo[i][0]))*' ' +  injectinfo[i][0] + line[end+1:]
         
 #End of Mol2Mol
 
@@ -2783,6 +2828,8 @@ if __name__ == "__main__":
     arger.add_argument("-so", "--sortorder", type = str,                    help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first by highest weight first, then by smallest name first")
     arger.add_argument("-hg", "--histogram", type = str,                    help = "Plots a 1D or 2D histogram, multiple plots with '|'. 'Xname,Yname,Xtitle=x-akseli,Ytitle=y-akseli,bins=[30,30]'")
     
+    arger.add_argument("-gm2", "--getmol2", type = str,                     help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata. pathtomol2.mol2, column, metaname.")#meta column path
+    arger.add_argument("-pm2", "--putmol2", type = str,                     help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data. inputmol2.mol2,outputmol2.mol2, column, metaname, default, precision.")#metaname, column, path, defaultValue, precision, outpath
     
     args = arger.parse_args()
     manyfiles = args.input #glob.glob(args.input)
@@ -2882,6 +2929,15 @@ if __name__ == "__main__":
                 if args.verbose:
                     print 'Metadata from csv-file added. It took {} seconds.'.format(times[-1]-times[-2])
         
+        if args.getmol2:
+            for statement in args.getmol2.split('|'):
+                path, column, metaname = re.split('\s*,\s*', statement.strip())
+                sdf1.getMol2Data(metaname, int(column), path)
+                times.append(time.time())
+                if args.verbose:
+                    print 'Metadata from mol2-file added. It took {} seconds.'.format(times[-1]-times[-2])
+        
+        
         #should work
         if args.closestatom:
             for statement in args.closestatom.split('|'):
@@ -2921,6 +2977,7 @@ if __name__ == "__main__":
                 if args.verbose:
                     print 'Closest atom to given atom by bond calculated. It took {} seconds.'.format(times[-1]-times[-2])
         '''
+        
         #check
         if args.changemeta:
             for statement in args.changemeta.split('|'):
@@ -2988,7 +3045,17 @@ if __name__ == "__main__":
                 print 'Non-specified metafields removed. It took {} seconds.'.format(times[-1]-times[-2])
         times.append(time.time())
         
-        #doesn't work
+        if args.putmol2:
+            for statement in args.mergemeta.split('|'):
+                input, output, column, metaname, default, precision = re.split('\s*,\s*', statement)
+                sdf1.injectMol2Data(metaname, int(column), input, default, precision, output)
+                if args.verbose:
+                    print 'New mol2-file with applied meta-data created.'
+            times.append(time.time())
+            if args.verbose:
+                print 'Creating mol2-files done. It took {} seconds.'.format(times[-1]-times[-2])
+        
+        #check
         if args.histogram:
             showflag=True
             plots = args.histogram.split('|')
