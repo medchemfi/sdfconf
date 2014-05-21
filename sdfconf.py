@@ -333,7 +333,8 @@ class Sdffile(object):
         for mol in self:
             newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
             newmeta.pickvalues( numify(value), comps[logicchar] )
-            mol.addmeta(name, newmeta)
+            if len(newmeta)>0:
+                mol.addmeta(name, newmeta)
             
     
     def nametometa(self, meta):
@@ -2162,6 +2163,7 @@ class Sdfmeta(object):
                 datas = [data[:minlen] for data in datas]
         '''
     def pickvalues(self, value, operator):
+        #MAY CREATE METAS WITH LENGT OF 0
         if type( self._data ) == OrDi:
             newdata = OrDi()
             for key in self._data:
