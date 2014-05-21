@@ -313,6 +313,28 @@ class Sdffile(object):
             except TypeError:
                 mol.addmeta(newmeta, [str(oper(map(str,tab)))])
             '''
+    def makenewmetastr(self, string):
+        #Frontend for makenewmeta
+        string = string.strip()
+        comps = ('>=', '<=', '<', '>', '==', '!=', '=' )
+        eqind=string.find('=')
+        name=string[:eqind].strip()
+        ostri = string[eqind+1:].strip()
+        for comp in comps:
+            i = ostri.find(comp)
+            if i>-1:
+                self.makenewmeta(name, ostri[:i].strip(), comp, ostri[i+len(comp):].strip() )
+                break
+        
+    
+    def makenewmeta(self, name, metastatement, logicchar, value):
+        comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
+        level = leveler(metastatement)
+        for mol in self:
+            newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
+            newmeta.pickvalues( numify(value), comps[logicchar] )
+            mol.addmeta(name, newmeta)
+            
     
     def nametometa(self, meta):
         #Adds a metafield including the molecule name
@@ -2139,6 +2161,19 @@ class Sdfmeta(object):
                 minlen = min( map(len, datas) )
                 datas = [data[:minlen] for data in datas]
         '''
+    def pickvalues(self, value, operator):
+        if type( self._data ) == OrDi:
+            newdata = OrDi()
+            for key in self._data:
+                if operator(self._data[key], value):
+                    newdata[key] = self._data[key]
+        else:
+            newdata = []
+            for thing in self._data:
+                if operator(thing, value):
+                    newdata.append(thing)
+        self._data = newdata
+        self._delims = self._delims[:len(self._data)-1]
         
     def slicer(self, sliceorindex, paren):
         #parens = {'(':getpare,'[':getbrac,'{':getcubr}
@@ -2698,7 +2733,8 @@ if __name__ == "__main__":
     #arger.add_argument("-cb", "--closestbybonds", type = str,               help = "Calculates the closest atom of interest (atom number) from given atom (fieldname) to given atoms (fieldname). Adds '<input3>_atom' and '<input3>_distance' metafields. Needs three fieldnames, separated by ','. Fields are 'from', 'to' and 'newfield'. You can give multiple parameters, separate by '|'")
     arger.add_argument("-cla", "--closeratoms", type = str,                 help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
     arger.add_argument("-v", "--verbose", action = "store_true" ,           help = "More info on your run.")
-    arger.add_argument("-mm", "--mergemeta", type = str,                    help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. TakesÂ multiple arguments separated by |")
+    arger.add_argument("-mm", "--mergemeta", type = str,                    help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes multiple arguments separated by |")
+    arger.add_argument("-mnm", "--makenewmeta", type = str,                 help = "Makes a new metafield based on logical statement and value picking inside the metafield. newmeta = meta1 + meta2 < 50. Takes multiple arguments separated by |")
     arger.add_argument("-cm", "--changemeta", type = str,                   help = "Changes names of metafields. [olname1>newname1|oldname2>newname2]. ")
     arger.add_argument("-sm", "--sortmeta", type = str,                     help = "Sorts cells of a metafield in ascending [<metaname] or descending [>metaname] order. Additional '+' as the last character sorts by key in dictionary type metas. Takes multiple values separated by |")
     arger.add_argument("-so", "--sortorder", type = str,                    help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first by highest weight first, then by smallest name first")
@@ -2823,6 +2859,7 @@ if __name__ == "__main__":
                 times.append(time.time())
                 if args.verbose:
                     print 'Atoms closer than {} to point calculated. It took {} seconds.'.format(params[1],times[-1]-times[-2])
+        
         '''deprecation?
         if args.multiclosestatom:
             for statement in args.multiclosestatom.split('|'):
@@ -2860,6 +2897,15 @@ if __name__ == "__main__":
             times.append(time.time())
             if args.verbose:
                 print 'Merging metafields done. It took {} seconds.'.format(times[-1]-times[-2])
+        
+        if args.makenewmeta:
+            for statement in args.makenewmeta.split('|'):
+                sdf1.makenewmetastr(statement.strip())
+                if args.verbose:
+                    print 'New metafield made.'
+            times.append(time.time())
+            if args.verbose:
+                print 'Making new metafields done. It took {} seconds.'.format(times[-1]-times[-2])
         
         #check
         if args.sortorder:
