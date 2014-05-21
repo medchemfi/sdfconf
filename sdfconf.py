@@ -2200,24 +2200,84 @@ class Sdfmeta(object):
 
 #End of Sdfmeta
 
-class mol2file(object):
+class Mol2File(object):
     def __init__(self, path = None):
         self._molecules = []
         if path:
             self.readfile(path)
     
-    def readself(self, path):
+    def __getitem__(self, ind):
+        if isinstance( ind, slice ) or isinstance( ind, int ):
+            return self._molecules[ind]
+        else:
+            raise TypeError, "Invalid argument type."
+    
+    def readfile(self, path):
         with open(path) as f:
             curflag = None
             for line in f:
                 if re.match('@<TRIPOS>',line.strip()):
                     curflag = line[9:].strip()
                     if curflag == 'MOLECULE':
-                        self._molecules.append(OrDi())
+                        #self._molecules.append(OrDi())
+                        self._molecules.append( Mol2Mol() )
                     self._molecules[-1][curflag]=[]
                 elif curflag:
                     self._molecules[-1][curflag].append(line.strip('\n'))
+    
+    
 
+#End of Mol2File
+
+class Mol2Mol(OrDi):
+    def __init__(self, *args, **kwargs):
+        super(Mol2Mol, self).__init__(*args, **kwargs)
+        self._delims = None
+        
+    def pickatomdata(self, column):
+        newdic = OrDi()
+        for line in self['ATOM']:
+            things = re.split( '\s+', line.strip())
+            if len(things)>1:
+                newdic[numify(things[0])] = things[column]
+        return newdic
+    
+    def injectatomdata(self, column, data):
+        if data._datastruct == list:
+            offset = -1
+        else:
+            offset = 0
+        def findindex(linetab, cols):
+            realcols = []
+            j=-1
+            for i, item in linetab:
+                if len(item.strip())!=0:
+                    j+=1
+                    if j in cols:
+                        realcols.append(i)
+                        if len(cols)==len(realcols):
+                            return realcols
+            return []
+        
+        atomdata = []
+        
+        toinject = []
+        stachar = []
+        endchar = []
+        dotchar = []
+        for line in self['ATOM']:
+            things = re.split( '(\s+)', line)
+            try:
+                ind, mycol = findindex(things, (0, column))
+                if mycol:
+                    toinject.append( data[things[ind]+offset] )
+                    stachar.append( sum( map(len, things[:ind]) ) )
+                    endchar.append( stachar[-1]+len(things[ind]) )
+                    dotchar.append( stachar[-1]+things[ind].find('.') )
+            except ValueError:
+                pass
+        
+#End of Mol2Mol
 
 def coorder(point):
     coord = numpy.array( map(numify, goodchop.split(point.strip('{[()]}'))) )
