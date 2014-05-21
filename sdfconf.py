@@ -2931,7 +2931,10 @@ if __name__ == "__main__":
         
         if args.getmol2:
             for statement in args.getmol2.split('|'):
-                path, column, metaname = re.split('\s*,\s*', statement.strip())
+                try:
+                    path, column, metaname = re.split('\s*,\s*', statement.strip())
+                except ValueError:
+                    raise ValueError('Give: path, column, metaname')
                 sdf1.getMol2Data(metaname, int(column), path)
                 times.append(time.time())
                 if args.verbose:
@@ -3047,7 +3050,10 @@ if __name__ == "__main__":
         
         if args.putmol2:
             for statement in args.mergemeta.split('|'):
-                input, output, column, metaname, default, precision = re.split('\s*,\s*', statement)
+                try:
+                    input, output, column, metaname, default, precision = re.split('\s*,\s*', statement)
+                except ValueError:
+                    raise ValueError('Give: input, output, column, metaname, default, precision')
                 sdf1.injectMol2Data(metaname, int(column), input, default, precision, output)
                 if args.verbose:
                     print 'New mol2-file with applied meta-data created.'
