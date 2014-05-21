@@ -1076,7 +1076,7 @@ class Sdffile(object):
                     
     def getMol2Data(self, metaname, column, path):
         mol2 = Mol2File(path)
-        for i, mol in mol2:
+        for i, mol in enumerate(mol2):
             newdic = mol.pickatomdata(column)
             self[i].addmeta(metaname, newdic)
         del(mol2)
@@ -1084,7 +1084,7 @@ class Sdffile(object):
     def injectMol2Data(self, metaname, column, path, defaultValue=0.0, precision=4, outpath = None):
         mol2 = Mol2File(path)
         metaname = metaname.strip()
-        for i, mol in mol2:
+        for i, mol in enumerate(mol2):
             mol.injectatomdata(self[i]._meta[metaname], column, defaultValue, precision)
         if not outpath:
             outpath=path
@@ -2286,6 +2286,7 @@ class Mol2Mol(OrDi):
                         if len(cols)==len(realcols):
                             return realcols
             #return []
+            
         form = '{:.' + str(prec) +'f}'
         injectinfo = []
         for line in self['ATOM']:
@@ -2828,8 +2829,8 @@ if __name__ == "__main__":
     arger.add_argument("-so", "--sortorder", type = str,                    help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first by highest weight first, then by smallest name first")
     arger.add_argument("-hg", "--histogram", type = str,                    help = "Plots a 1D or 2D histogram, multiple plots with '|'. 'Xname,Yname,Xtitle=x-akseli,Ytitle=y-akseli,bins=[30,30]'")
     
-    arger.add_argument("-gm2", "--getmol2", type = str,                     help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata. pathtomol2.mol2, column, metaname.")#meta column path
-    arger.add_argument("-pm2", "--putmol2", type = str,                     help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data. inputmol2.mol2,outputmol2.mol2, column, metaname, default, precision.")#metaname, column, path, defaultValue, precision, outpath
+    arger.add_argument("-gm2", "--getmol2", type = str,                     help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata. pathto.mol2, column, metaname.")#meta column path
+    arger.add_argument("-pm2", "--putmol2", type = str,                     help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data. input.mol2,output.mol2, column, metaname, default, precision.")#metaname, column, path, defaultValue, precision, outpath
     
     args = arger.parse_args()
     manyfiles = args.input #glob.glob(args.input)
@@ -3049,12 +3050,12 @@ if __name__ == "__main__":
         times.append(time.time())
         
         if args.putmol2:
-            for statement in args.mergemeta.split('|'):
+            for statement in args.putmol2.split('|'):
                 try:
                     input, output, column, metaname, default, precision = re.split('\s*,\s*', statement)
                 except ValueError:
                     raise ValueError('Give: input, output, column, metaname, default, precision')
-                sdf1.injectMol2Data(metaname, int(column), input, default, precision, output)
+                sdf1.injectMol2Data(metaname, int(column), input, numify(default), int(precision), output)
                 if args.verbose:
                     print 'New mol2-file with applied meta-data created.'
             times.append(time.time())
