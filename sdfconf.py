@@ -324,18 +324,26 @@ class Sdffile(object):
             i = ostri.find(comp)
             if i>-1:
                 self.makenewmeta(name, ostri[:i].strip(), comp, ostri[i+len(comp):].strip() )
-                break
+                #break
+                return
+        self.makenewmeta(name, ostri.strip(), None, None )
         
     
-    def makenewmeta(self, name, metastatement, logicchar, value):
+    def makenewmeta(self, name, metastatement, logicchar = None, value = None):
         comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
         level = leveler(metastatement)
-        for mol in self:
-            newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
-            newmeta.pickvalues( numify(value), comps[logicchar] )
-            if len(newmeta)>0:
+        if logicchar:
+            for mol in self:
+                newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
+                newmeta.pickvalues( numify(value), comps[logicchar] )
+                if len(newmeta)>0:
+                    mol.addmeta(name, newmeta)
+        else:
+            for mol in self:
+                newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
+                #newmeta.pickvalues( numify(value), comps[logicchar] )
+                #if len(newmeta)>0:
                 mol.addmeta(name, newmeta)
-            
     
     def nametometa(self, meta):
         #Adds a metafield including the molecule name
@@ -2453,13 +2461,13 @@ def div(num):
         if len(num)<2:
             return 1.0/num
         else:
-            return float(num[0])/numpy.prod(num[1:])
+            return numpy.asscalar((num[0])/numpy.prod(num[1:]))
     except ZeroDivisionError:
         return float('inf')
         
 def mypow(num):
     if type(num) in (tuple, list):
-        return numpy.power(*num[:2])
+        return numpy.asscalar(numpy.power(*num[:2]))
     else:
         return None
 
