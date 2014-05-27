@@ -2895,6 +2895,8 @@ if __name__ == "__main__":
     arger.add_argument("-gm2", "--getmol2", type = str,                     help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata. pathto.mol2, column, metaname.")#meta column path
     arger.add_argument("-pm2", "--putmol2", type = str,                     help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data. input.mol2,output.mol2, column, metaname, default, precision.")#metaname, column, path, defaultValue, precision, outpath
     
+    arger.add_argument("-sbm", "--stripbutmeta", type = str,                help = "Removes all atoms from molecules, except for those in given logical statement. Takes multiple parameters separated by '|'")
+    
     args = arger.parse_args()
     manyfiles = args.input #glob.glob(args.input)
     
@@ -3096,6 +3098,15 @@ if __name__ == "__main__":
             times.append(time.time())
             if args.verbose:
                 print 'Meta sorting done. It took {} seconds.'.format(times[-1]-times[-2])
+        
+        if args.stripbutmeta:
+            for statement in args.makenewmeta.split('|'):
+                sdf1.stripbutmeta(statement)
+                if args.verbose:
+                    print 'All atoms, execpt for those in statement '+statement+' removed!'
+            times.append(time.time())
+            if args.verbose:
+                print 'Stripping atoms done. It took {} seconds.'.format(times[-1]-times[-2])
         
         #check :)
         if args.extract:
