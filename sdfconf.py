@@ -612,8 +612,11 @@ class Sdffile(object):
                 #structs = {list}
                 #ostru = list
                 #singles = False
-            structs = set([meta._datastruct for meta in metas])-{'single'}
-            ostru = iter(structs).next()
+            try:
+                structs = set([meta._datastruct for meta in metas])-{'single'}
+                ostru = iter(structs).next()
+            except StopIteration:
+                ostru = list
                 
             
             
@@ -2120,6 +2123,7 @@ class Sdfmeta(object):
             
             #if len(set(structs))==2 and 'single' in structs:
             #singles and (list or OrDi) in structs, extend singles to lists
+            '''Old implementation
             try:
                 minlen = min( {len(meta._data) for meta in workmetas}-{1} ) # shortest list length, ignore singles
                 ostru = iter(set(structs)-{'single'}).next() #the other structuretype
@@ -2129,7 +2133,20 @@ class Sdfmeta(object):
                 minlen = 1
                 ostru = list
                 singles = False
-            
+            '''
+            try:
+                minlen = min( {len(meta._data) for meta in workmetas}-{1} ) # shortest list length, ignore singles
+            except ValueError:
+                minlen = 1
+                
+            try:
+                ostru = iter(set(structs)-{'single'}).next() #the other structuretype
+                singles = True
+            except StopIteration:
+                ostru = list
+                singles = False
+                
+                
             
             if ostru == list:
                 #make lists have the same length
