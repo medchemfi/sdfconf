@@ -3100,7 +3100,7 @@ if __name__ == "__main__":
                 print 'Meta sorting done. It took {} seconds.'.format(times[-1]-times[-2])
         
         if args.stripbutmeta:
-            for statement in args.makenewmeta.split('|'):
+            for statement in args.stripbutmeta.split('|'):
                 sdf1.stripbutmeta(statement)
                 if args.verbose:
                     print 'All atoms, execpt for those in statement '+statement+' removed!'
