@@ -856,11 +856,14 @@ class Sdffile(object):
             falses = []
             for info in self._orderlist:
                 mole = self._dictomoles[info[0]][info[1]]
-                if comps[opera]( mole.logicgetmeta(tocompare[0]), mole.logicgetmeta(tocompare[1]) ):
-                    trues.append(info)
-                else:
-                    falses.append(info)
                 
+                try: # added so comparisons to nonexistent metas won't crash
+                    if comps[opera]( mole.logicgetmeta(tocompare[0]), mole.logicgetmeta(tocompare[1]) ):
+                        trues.append(info)
+                    else:
+                        falses.append(info)
+                except ValueError:
+                    falses.append(info)
                 
         elif len(opesplit)==1:
             tear = leveler(string)
