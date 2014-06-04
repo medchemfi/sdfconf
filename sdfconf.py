@@ -337,13 +337,13 @@ class Sdffile(object):
                 newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
                 newmeta.pickvalues( numify(value), comps[logicchar] )
                 if len(newmeta)>0:
-                    mol.addmeta(name, newmeta)
+                    mol.addmeta(name, newmeta, overwrite=True)
         else:
             for mol in self:
                 newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
                 #newmeta.pickvalues( numify(value), comps[logicchar] )
                 #if len(newmeta)>0:
-                mol.addmeta(name, newmeta)
+                mol.addmeta(name, newmeta, overwrite=True)
     
     def nametometa(self, meta):
         #Adds a metafield including the molecule name
@@ -846,7 +846,7 @@ class Sdffile(object):
             pick = True
         
         #pick = True
-        opesplit=[item.strip() for item in re.split('(>=|<=|<|>|==|=|!=)',string)]
+        opesplit=[item.strip() for item in re.split('(>=|<=|<|>|==|!=|=)',string)]
         comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
         
         if len(opesplit)==3:
@@ -1187,7 +1187,7 @@ class Sdfmole(object):
     
     def initialize(self, strings):
         self._name = strings[0].strip()
-        self._comment = [strings[i].strip() for i in [1,2]]
+        self._comment = [line.strip() for line in strings[1:2]] #[strings[i].strip() for i in [1,2]]
         first = -1
         
         for i, line in enumerate(strings[1:]): #notice index shift: i=0; line=strings[1]
@@ -1732,13 +1732,18 @@ class Sdfmeta(object):
         return self._compare(other,operator.gt)
         
     def __ne__(self, other):
-        return not self._eqcompare(other,operator.ne)
+        return not self._eqcompare(other,operator.eq)
     
     def _compare(self, other, oper):
         if type(other) != Sdfmeta:
             othermeta = Sdfmeta.construct( numify(other))
         else:
             othermeta = other
+        
+        types = (self._datatype, othermeta._datatype)
+        if str in types and len(types)>1:
+            return False
+        
         if type(self._data) == OrDi:
             li1 = self._data.values()
         else:
@@ -1764,6 +1769,11 @@ class Sdfmeta(object):
             othermeta = Sdfmeta.construct( numify(other))
         else:
             othermeta = other
+        
+        types = (self._datatype, othermeta._datatype)
+        if str in types and len(types)>1:
+            return False
+        
         if type(self._data) == OrDi:
             li1 = self._data.values()
         else:
@@ -1816,7 +1826,7 @@ class Sdfmeta(object):
         #if string, it's special
         if dtype == str:
             self._datatype = str
-            self._data = mylines
+            self._data = [line.strip('\n') for line in mylines]
             self._datastruct = list
             self._delims = ['' for line in mylines[:-1]]
             return
@@ -2012,23 +2022,34 @@ class Sdfmeta(object):
         
         
     def getmetastrings(self, length=float('inf')):
+        def floattosting(flo):
+            tst = str(flo)
+            dec = tst.find()
+        stringers = {int:str, float:lambda x: str(round(x,4)), str:str}
+        strifu = stringers[self._datatype]
+        
         dictflag = self._datastruct == OrDi
+        
         if dictflag:
             key = self._data.keys()[0]
-            tmp=[str(key)+':'+str(self._data[key])]
+            #tmp=[str(key)+':'+str(self._data[key])]
+            tmp=[str(key)+':'+strifu(self._data[key])]
             del(key)
             itera = enumerate(self._data.keys()[1:])
+            #itera = iter(self._data.keys()[1:])
         else:
-            tmp=[str(self._data[0])]
+            tmp=[strifu(self._data[0])]
             itera = enumerate(self._data[1:])
+            #itera = iter(self._data[1:])
         l = len(tmp[-1])
         
         strings=[]
         for i, item in itera:
+        #for item in itera:
             if dictflag:
-                stuff = str(item)+':'+str(self._data[item])
+                stuff = str(item)+':'+strifu(self._data[item])
             else:
-                stuff = str(item)
+                stuff = strifu(item)
             #add delimiter
             try:
                 lde = len(self._delims[i])
@@ -2045,7 +2066,7 @@ class Sdfmeta(object):
             tmp.append(self._delims[i])
             #add data
             lda = len(stuff)
-            if l +lda > length:
+            if l +lda > length and lda < length: #FIX_extraline_strings_1
                 strings.append(''.join(tmp))
                 tmp=[]
                 l=0
@@ -2872,7 +2893,7 @@ if __name__ == "__main__":
     choiceremo = arger.add_mutually_exclusive_group()
     choiceremo.add_argument("-rm", "--removemeta", type = str,              help = "Remove metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'")
     choiceremo.add_argument("-pm", "--pickmeta", type = str,                help = "Remove all nonspecified metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'")
-    arger.add_argument("-s", "--split", type = int,                         help = "Split the file into even pieces. Positibe means number of file while negative means number of molecules per file. 0 doesn't apply.")
+    arger.add_argument("-s", "--split", type = int,                         help = "Split the file into even pieces. Positive means number of files while negative means number of molecules per file. 0 doesn't apply.")
     arger.add_argument("-mf", "--makefolder", action = "store_true",        help = "Put outputfile(s) into folder(s).")
     outputtype = arger.add_mutually_exclusive_group()
     outputtype.add_argument("-gc", "--getcsv", type = str ,                 help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','.")
