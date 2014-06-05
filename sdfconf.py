@@ -855,7 +855,10 @@ class Sdffile(object):
             if m:
                 keys = [n]
             else:
-                keys = self._dictomoles[seeker].keys()
+                if seeker in self._dictomoles:
+                    keys = self._dictomoles[seeker].keys()
+                else:
+                    continue
             for key in keys:
                 if key in self._dictomoles[seeker]:
                     mol = self._dictomoles[seeker][key]
@@ -957,9 +960,11 @@ class Sdffile(object):
         
     def injectMol2Data(self, metaname, column, path, defaultValue=0.0, precision=4, outpath = None):
         mol2 = Mol2File(path)
-        metaname = metaname.strip()
+        #metaname = metaname.strip() #No logic meta
+        level = leveler(metaname)
         for i, mol in enumerate(mol2):
-            mol.injectatomdata(self[i]._meta[metaname], column, defaultValue, precision)
+            #mol.injectatomdata(self[i]._meta[metaname], column, defaultValue, precision) #No logic meta
+            mol.injectatomdata(self[i].logicgetmeta(level), column, defaultValue, precision)
         if not outpath:
             outpath=path
         mol2.writefile(outpath)
@@ -1074,7 +1079,8 @@ class Sdfmole(object):
         if ckey in self._meta:
             ans[1] = self._meta[ckey][0]
         if ans[0] and ans[1]:
-            if ans[0]!=str(ans[1]):
+            #if ans[0]!=str(ans[1]):
+            if str(ans[0])!=str(ans[1]):
                 print(self.mes.format(ans[0],ans[1]))
         return ans
         
