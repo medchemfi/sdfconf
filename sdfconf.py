@@ -756,12 +756,16 @@ class Sdffile(object):
             for molec in self._dictomoles:
                 moles = OrDi()
                 for conf in self._dictomoles[molec]:
-                    moles[conf] = self._dictomoles[molec][conf].logicgetmeta(metatab)
+                    moles[conf] = self._dictomoles[molec][conf].logicgetmeta(leveler(metatab))
                 if tear[0]=='max':
                     reverse = True
                 else:
                     reverse = False
+                #kkk =[len(moles), moles.keys()]
                 moles = OrDi(sorted(moles.iteritems(), key= lambda xx: xx[1], reverse = reverse))
+                #kkk.append(len(moles))
+                #kkk.append(moles.keys())
+                #print kkk
                 if per:
                     grab = int(math.ceil(len(moles)*num/100.0))
                 else:
@@ -1453,11 +1457,11 @@ class Sdfmeta(object):
             othermeta = Sdfmeta.construct( numify(other))
         else:
             othermeta = other
-        
+        ''' ordering test
         types = (self._datatype, othermeta._datatype)
         if str in types and len(types)>1:
             return False
-        
+        '''
         if type(self._data) == OrDi:
             li1 = self._data.values()
         else:
@@ -1483,11 +1487,11 @@ class Sdfmeta(object):
             othermeta = Sdfmeta.construct( numify(other))
         else:
             othermeta = other
-        
+        ''' ordering test
         types = (self._datatype, othermeta._datatype)
         if str in types and len(types)>1:
             return False
-        
+        '''
         if type(self._data) == OrDi:
             li1 = self._data.values()
         else:
