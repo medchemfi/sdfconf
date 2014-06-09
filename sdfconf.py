@@ -729,10 +729,28 @@ class Sdffile(object):
         elif len(opesplit)==1:
             tear = leveler(string)
             if len(tear) != 2:
-                raise Error('Weird logic.')
+                raise ValueError('Weird logic.')
             funk = tear[0]
-            matheus = tear[1][1]
             
+            #matheus = tear[1][1]
+            matheus = tabjoin(tear[1][1])
+            #test
+            print matheus
+            #print tear
+            
+            rcomindex = matheus.rfind(',')
+            if rcomindex == -1:
+                raise TypeError('Weird logic. No comma.')
+            
+            #if len(matheus) > 1:
+            #    metatab = matheus
+            #else:
+            metatab = matheus[:rcomindex]
+            
+            numstring = matheus[rcomindex+1:]
+            
+            '''
+            matheus = tear[1][1]
             rcomindex = matheus[-1].rfind(',')
             if rcomindex == -1:
                 raise TypeError('Weird logic. No comma.')
@@ -743,6 +761,7 @@ class Sdffile(object):
                 metatab = matheus[-1][:rcomindex]
             
             numstring = matheus[-1][rcomindex+1:]
+            '''
             
             perindex = numstring.rfind('%')
             if perindex > 0:
@@ -2312,7 +2331,7 @@ def tabjoin(taber):
     for item in taber:
         if isinstance(item, str):
             string.append(item)
-        elif isinstance(item, list):
+        elif isinstance(item, (list,tuple)):
             string.extend([item[0],tabjoin(item[1]),pair[item[0]]])
     return ''.join(string)
     
