@@ -844,7 +844,7 @@ class Sdffile(object):
             else:
                 seeker = csvmol[0]
             if not seeker in self._dictomoles:
-                pass
+                continue
             if m:
                 keys = [n]
             else:
@@ -1911,7 +1911,8 @@ class Sdfmeta(object):
             if paren == '(':
                 if type(self._data) != OrDi:
                     raise TypeError('"(" not applicaple for lists')
-                return Sdfmeta.construct(  OrDi([(i, toget[i]) for i in indexes]) )
+                #return Sdfmeta.construct(  OrDi([(i, toget[i]) for i in indexes]) )
+                return Sdfmeta.construct(  OrDi([(i, toget[i]) for i in indexes if i in toget]) )
             return Sdfmeta.construct(  [toget[i] for i in indexes] )
         
         if paren == '{':
@@ -2673,6 +2674,8 @@ if __name__ == "__main__":
         #check :)
         if args.extract:
             logics = args.extract.split('|')
+            if args.verbose:
+                print 'Initially sdf-file has {} molecules and {} conformations.'.format(len(sdf1._dictomoles),len(sdf1))
             for logic in logics:
                 sdf1.logicparse(logic.strip())
                 if args.verbose:
