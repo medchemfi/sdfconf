@@ -689,13 +689,7 @@ class Sdffile(object):
                 del(self._dictomoles[info[0]][info[1]])
             self._orderlist = picks
             self.dictmaint()
-            '''
-            else:
-                for info in trues:
-                    del(self._dictomoles[info[0]][info[1]])
-                self._orderlist = falses
-                self.dictmaint()
-            '''
+            
         string = string.strip()
         if string[:2] == '+ ':
             pick = True
@@ -734,34 +728,14 @@ class Sdffile(object):
             
             #matheus = tear[1][1]
             matheus = tabjoin(tear[1][1])
-            #test
-            print matheus
-            #print tear
             
             rcomindex = matheus.rfind(',')
             if rcomindex == -1:
                 raise TypeError('Weird logic. No comma.')
             
-            #if len(matheus) > 1:
-            #    metatab = matheus
-            #else:
             metatab = matheus[:rcomindex]
             
             numstring = matheus[rcomindex+1:]
-            
-            '''
-            matheus = tear[1][1]
-            rcomindex = matheus[-1].rfind(',')
-            if rcomindex == -1:
-                raise TypeError('Weird logic. No comma.')
-            
-            if len(matheus) > 1:
-                metatab = matheus[:-1]
-            else:
-                metatab = matheus[-1][:rcomindex]
-            
-            numstring = matheus[-1][rcomindex+1:]
-            '''
             
             perindex = numstring.rfind('%')
             if perindex > 0:
@@ -780,11 +754,7 @@ class Sdffile(object):
                     reverse = True
                 else:
                     reverse = False
-                #kkk =[len(moles), moles.keys()]
                 moles = OrDi(sorted(moles.iteritems(), key= lambda xx: xx[1], reverse = reverse))
-                #kkk.append(len(moles))
-                #kkk.append(moles.keys())
-                #print kkk
                 if per:
                     grab = int(math.ceil(len(moles)*num/100.0))
                 else:
@@ -806,9 +776,9 @@ class Sdffile(object):
         '''
         sortstring=sortstring.strip()
         sortstring=sortstring.strip('\"|\'')
-        if sortstring[0]=='<':
+        if sortstring[0]=='>':
             rever=True
-        elif sortstring[0]=='>':
+        elif sortstring[0]=='<':
             rever=False
         else:
             return self._orderlist
@@ -1047,7 +1017,7 @@ class Sdfmole(object):
     
     def initialize(self, strings):
         self._name = strings[0].strip()
-        self._comment = [line.strip() for line in strings[1:2]] #[strings[i].strip() for i in [1,2]]
+        self._comment = [line.strip() for line in strings[1:3]] #[strings[i].strip() for i in [1,2]]
         first = -1
         
         for i, line in enumerate(strings[1:]): #notice index shift: i=0; line=strings[1]
@@ -2029,6 +1999,7 @@ class Mol2Mol(OrDi):
             offset = -1
         else:
             offset = 0
+        
         def findindex(linetab, cols):
             realcols = []
             j=-1
@@ -2040,7 +2011,7 @@ class Mol2Mol(OrDi):
                         if len(cols)==len(realcols):
                             return realcols
             #return []
-            
+        
         form = '{:.' + str(prec) +'f}'
         injectinfo = []
         for line in self['ATOM']:
@@ -2055,6 +2026,8 @@ class Mol2Mol(OrDi):
                 try:
                     inject = data._data[numify(things[ind])+offset]
                 except KeyError :
+                    inject = defaultValue
+                if math.isnan(inject) or math.isinf(inject):
                     inject = defaultValue
                 stachar = sum( map(len, things[:mycol]) )
                 endchar = stachar+len(things[mycol])
@@ -2498,7 +2471,7 @@ if __name__ == "__main__":
     arger.add_argument("-mnm", "--makenewmeta", type = str,                 help = "Makes a new metafield based on logical statement and value picking inside the metafield. newmeta = meta1 + meta2 < 50. Takes multiple arguments separated by |")
     arger.add_argument("-cm", "--changemeta", type = str,                   help = "Changes names of metafields. [olname1>newname1|oldname2>newname2]. ")
     arger.add_argument("-sm", "--sortmeta", type = str,                     help = "Sorts cells of a metafield in ascending [<metaname] or descending [>metaname] order. Additional '+' as the last character sorts by key in dictionary type metas. Takes multiple values separated by |")
-    arger.add_argument("-so", "--sortorder", type = str,                    help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first by highest weight first, then by smallest name first")
+    arger.add_argument("-so", "--sortorder", type = str,                    help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name")
     arger.add_argument("-hg", "--histogram", type = str,                    help = "Plots a 1D or 2D histogram, multiple plots with '|'. 'Xname,Yname,Xtitle=x-akseli,Ytitle=y-akseli,bins=[30,30]'")
     
     arger.add_argument("-gm2", "--getmol2", type = str,                     help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata. pathto.mol2, column, metaname.")#meta column path
