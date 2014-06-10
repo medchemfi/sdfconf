@@ -312,13 +312,13 @@ class Sdffile(object):
             for mol in self:
                 newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
                 newmeta.pickvalues( numify(value), comps[logicchar] )
-                if len(newmeta)>0:
-                    mol.addmeta(name, newmeta, overwrite=True)
         else:
             for mol in self:
                 newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
-                mol.addmeta(name, newmeta, overwrite=True)
-    
+        if len(newmeta)>0:
+            mol.addmeta(name, newmeta, overwrite=True)
+        
+        
     def nametometa(self, meta):
         #Adds a metafield including the molecule name
         for mol in self:
