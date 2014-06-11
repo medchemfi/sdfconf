@@ -312,11 +312,13 @@ class Sdffile(object):
             for mol in self:
                 newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
                 newmeta.pickvalues( numify(value), comps[logicchar] )
+                if len(newmeta)>0:
+                    mol.addmeta(name, newmeta, overwrite=True)
         else:
             for mol in self:
                 newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
-        if len(newmeta)>0:
-            mol.addmeta(name, newmeta, overwrite=True)
+                if len(newmeta)>0:
+                    mol.addmeta(name, newmeta, overwrite=True)
         
         
     def nametometa(self, meta):
@@ -1174,6 +1176,7 @@ class Sdfmole(object):
         self._meta[metafield] = insert
         self._meta[metafield].cleandelim(True)
         self._meta[metafield].setname(metafield)
+        
         if not metafield in self._metakeys:
             self._metakeys.append(metafield)
         
@@ -1371,7 +1374,8 @@ class Sdfmole(object):
             try:
                 return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
             except ValueError:
-                raise ValueError('Your logic makes no sense...')
+                return Sdfmeta.construct( tab )
+                #raise ValueError('Your logic makes no sense...')
         elif isinstance(tab, Sdfmeta):
             return tab #OR THIS
         else:
@@ -1447,7 +1451,7 @@ class Sdfmeta(object):
         else:
             othermeta = other
         ''' ordering test
-        types = (self._datatype, othermeta._datatype)
+        types = {self._datatype, othermeta._datatype}
         if str in types and len(types)>1:
             return False
         '''
@@ -2321,6 +2325,21 @@ def test(thing, i):
         print ''.join(['  ']*i) + ' '.join(thing.selftolistofstrings())
     elif isinstance(thing, (str,slice)):
         print ''.join(['  ']*i) + str(thing)
+
+def testchopper(sdf, *schops):
+    '''
+    Makes series of chops for a copy of a sdffile, then returns ratio of different molecules between second last and last chop.
+    '''
+    mySDF = copy.deepcopy(sdf)
+    for chop in schops[:-1]:
+        mySDF.logicparse(chop)
+    len1 = len(mySDF._dictomoles)
+    if len1 == 0:
+        return 0
+    mySDF.logicparse(schops[-1])
+    len2 = len(mySDF._dictomoles)
+    del(mySDF)
+    return float(len2)/len1
 
 
     
