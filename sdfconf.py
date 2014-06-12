@@ -241,7 +241,7 @@ class Sdffile(object):
             n = molord[1]
             mol = self._dictomoles[olname][n]
             
-            name = joiner.join(mol._meta[meta].getmetastrings())
+            name = joiner.join(mol.getmeta(meta).getmetastrings())
             mol._name = name
             nn = self.uniconfn(mol)
             self._orderlist[i]=[name,nn]
@@ -277,7 +277,7 @@ class Sdffile(object):
             for meta in metas:
                 meta = meta.strip()
                 if meta in mol._meta:
-                    tab.append(mol._meta[meta]) #add meta instead of number
+                    tab.append(mol.getmeta(meta)) #add meta instead of number
                 else:
                     try:
                         num =  mol.logicgetmeta(leveler(meta)) #numify(meta)
@@ -366,7 +366,7 @@ class Sdffile(object):
             line = []#[mol._name]
             for meta in listofmeta:
                 if meta in mol._meta:
-                    line.append('"'+mol._meta[meta].getmetastr()+'"')
+                    line.append('"'+mol.getmeta(meta).getmetastr()+'"')
                 else:
                     line.append('""')
             csv.append(separator.join(line))
@@ -453,8 +453,8 @@ class Sdffile(object):
     def closestbybonds(self,fromwfield,towfield,newfield):
         for mol in self:
             if towfield in mol._meta and fromwfield in mol._meta:
-                home = mol._meta[fromwfield]
-                target = mol._meta[towfield]
+                home = mol.getmeta(fromwfield)
+                target = mol.getmeta(towfield)
                 targets = [i.strip() for i in re.split('\s',target)]
                 distances = mol.bonddists(home, targets)
                 dists = []
@@ -592,8 +592,8 @@ class Sdffile(object):
     def show(self):
         pylab.show()
         
-   
-       
+    
+    ''' Horror from the ancient past...
     def logicchop(self, string): #This is horrible. Don't even try if you value your sanity...
         exp = '<|>|%|=|~|!' 
         ope = re.findall(exp, string)
@@ -682,6 +682,7 @@ class Sdffile(object):
                 continue
         self.dictmaint()
         
+    '''
     
     def logicparse(self, string):
         
@@ -784,7 +785,7 @@ class Sdffile(object):
             rever=False
         else:
             return self._orderlist
-        return sorted(self._orderlist, key=lambda avain: numify(self._dictomoles[avain[0]][avain[1]]._meta[sortstring[1:]][0]),reverse=rever)
+        return sorted(self._orderlist, key=lambda avain: numify(self._dictomoles[avain[0]][avain[1]].getmeta(sortstring[1:])[0]),reverse=rever)
         
     
     def sortmetas(self, sorty):
@@ -809,7 +810,7 @@ class Sdffile(object):
             byValue = True
         for mol in self:
             if tosort in mol._meta:
-                mol._meta[tosort].sortme(ascending,byValue)
+                mol.getmeta(tosort).sortme(ascending,byValue)
         #return sorted(self._orderlist, key=lambda avain: numify(self._dictomoles[avain[0]][avain[1]]._meta[sorty[1:]][0]),reverse=rever)
     
     def addcsvmeta(self, path, verbose=False):
@@ -862,7 +863,8 @@ class Sdffile(object):
                 for i, newmeta in enumerate(csvmol[1:]):
                     if len(newmeta)!=0:
                         mol.addmeta(header[i+1], newmeta, overwrite=True)
-                        mol._meta[header[i+1]].cleandelim(True)
+                        #mol._meta[header[i+1]].cleandelim(True)
+                        mol.getmeta(header[i+1]).cleandelim(True)
         del(csvdata)
                     
     def removemeta(self, metaliststring, pick = False):
@@ -1036,7 +1038,8 @@ class Sdfmole(object):
                     continue
                 newmeta = Sdfmeta(strings[first+add:first+i+1])
                 add = i+1
-                self._meta[newmeta.getname()] = newmeta
+                #self._meta[newmeta.getname()] = newmeta
+                self.addmeta(newmeta.getname(), newmeta)
                 self._metakeys.append(newmeta.getname())
                 
     def dists(self, point1, ignores=['H']):
@@ -1072,7 +1075,7 @@ class Sdfmole(object):
         if m:
             ans[0] = m.group(0)[2:-2]
         if ckey in self._meta:
-            ans[1] = self._meta[ckey][0]
+            ans[1] = self.getmeta(ckey)[0]
         if ans[0] and ans[1]:
             #if ans[0]!=str(ans[1]):
             if str(ans[0])!=str(ans[1]):
@@ -1115,12 +1118,25 @@ class Sdfmole(object):
     
     def gettype(self, N):
         return self._atoms[N-1][4]
-
+    
+    def hasmeta(self, metaname):
+        return metaname in self._meta
+    
+    def getmeta(self, metaname, **kwargs):
+        if self.hasmeta(metaname):
+            if 'dummy' in kwargs and  kwargs['dummy']:
+                pass
+            else:
+                self._meta[metaname].numerize()
+            return self._meta[metaname]
+        else:
+            return None
+    
     def metacombine(self, othersdfmol,overwrite=False):
         for key in othersdfmol._metakeys:
             if not overwrite and key in self._meta:
                 continue
-            self.addmeta(key,othersdfmol._meta[key],overwrite=True)
+            self.addmeta(key,othersdfmol.getmeta(key,dummy=True),overwrite=True)
                 
     def issame(self, othersdfmol):
         same = [False, False]
@@ -1154,7 +1170,7 @@ class Sdfmole(object):
                 me.append(line + '\n')
         
         for key in self._metakeys:
-            mystrings = [line+'\n' for line in self._meta[key].selftolistofstrings()]
+            mystrings = [line+'\n' for line in self.getmeta(key,dummy=True).selftolistofstrings()]
             me.extend(mystrings)
         me.append('$$$$\n')
         return me
@@ -1174,8 +1190,9 @@ class Sdfmole(object):
         else:
             insert = Sdfmeta.construct(value, name = metafield, **dictarg)
         self._meta[metafield] = insert
-        self._meta[metafield].cleandelim(True)
-        self._meta[metafield].setname(metafield)
+        if not self.getmeta(metafield,dummy=True).isdumb():
+            self.getmeta(metafield).cleandelim(True)
+        self.getmeta(metafield,dummy=True).setname(metafield)
         
         if not metafield in self._metakeys:
             self._metakeys.append(metafield)
@@ -1187,8 +1204,9 @@ class Sdfmole(object):
         if oldname in self._meta:
             i=self._metakeys.index(oldname)
             self._metakeys[i]=newname
-            self._meta[newname]=self._meta[oldname]
-            self._meta[newname].setname(newname)
+            self.addmeta(newname, self.getmeta(oldname, dummy=True))
+            #self._meta[newname]=self._meta[oldname]
+            #self._meta[newname].setname(newname)
             del(self._meta[oldname])
             
     def atomlistdistances(self,metaatom,metalist):
@@ -1199,8 +1217,8 @@ class Sdfmole(object):
         '''
         self.numerize()
         try:
-            atom=numify(self._meta[metaatom])
-            manyatom=self._meta[metalist]
+            atom=numify(self.getmeta(metaatom))
+            manyatom=self.getmeta(metalist)
         except KeyError:
             return None
         atoms = [numify(one) for one in re.split('\s+',manyatom.strip())]
@@ -1220,7 +1238,7 @@ class Sdfmole(object):
     def pointlistdists(self, point, metalist):
         alldists = self.dists(point)
         try:
-            atoms = self._meta[metalist]
+            atoms = self.getmeta(metalist)
         except KeyError:
             return None
         dists = []
@@ -1330,8 +1348,8 @@ class Sdfmole(object):
             
             tab = tab.strip()
             
-            if tab in self._meta:
-                return self._meta[tab]
+            if self.hasmeta(tab):
+                return self.getmeta(tab)
             
             if length==1 and par!=None:
                 return str(tab)
@@ -1404,6 +1422,8 @@ class Sdfmeta(object):
         self._datastruct = None #list, dict, single
         self._data = None #The actual data
         self._delims = []
+        self._dumb = True
+        self._dumbcontent = []
         if listofstrings:
             self.initialize(listofstrings)
         
@@ -1519,6 +1539,9 @@ class Sdfmeta(object):
         else: #             rstrip?
             mylines = [line.strip('\n ') for line in listofstrings[fi:-1] ]
         
+        self._data = mylines
+
+        ''' will be taken to numerize to be handled when needed
         #instead of commented section, merge lines with '' and do whattype
         #if no delimiter or ' ' in the end of line, add ' '
         newlines = []
@@ -1545,7 +1568,46 @@ class Sdfmeta(object):
         else:
             self._datastruct = type(data)
             self._delims = delims
+        '''
     
+    def numerize(self):
+        if self._dumb:
+            
+            #instead of commented section, merge lines with '' and do whattype
+            #if no delimiter or ' ' in the end of line, add ' '
+            mylines = self._data
+            self._data = None
+            
+            newlines = []
+            for line in mylines[:-1]:
+                newlines.append(line)
+                if not re.match('[ ,;\t]',line[-1]):
+                    newlines.append(' ')
+            newlines.append(mylines[-1])
+            (data,dtype,delims) = whattype(''.join(newlines))
+    
+            #if string, it's special
+            if dtype == str:
+                self._datatype = str
+                self._data = [line.strip('\n') for line in mylines]
+                self._datastruct = list
+                self._delims = ['' for line in mylines[:-1]]
+                return
+            #not just string
+            
+            self._data = data
+            self._datatype = dtype
+            if type(data) == list and len(data)==1:
+                self._datastruct = 'single'
+            else:
+                self._datastruct = type(data)
+                self._delims = delims
+            
+            self._dumb = False
+            self._dumbcontent = None
+        else:
+            return
+        
     @staticmethod
     def construct(data, **dictarg): #name, delims, literal
         
@@ -1630,6 +1692,8 @@ class Sdfmeta(object):
         new._datastruct = copy.copy( self._datastruct )
         new._data = copy.copy( self._data )
         new._delims = copy.copy( self._delims )
+        new._dumb = copy.copy( self._dumb )
+        new._dumbcontent = copy.copy( self._dumbcontent )
         return new
         
     def __deepcopy__(self, memo):
@@ -1639,11 +1703,16 @@ class Sdfmeta(object):
         new._datastruct = copy.deepcopy( self._datastruct,memo )
         new._data = copy.deepcopy( self._data,memo )
         new._delims = copy.deepcopy( self._delims,memo )
+        new._dumb = copy.deepcopy( self._dumb )
+        new._dumbcontent = copy.deepcopy( self._dumbcontent )
         return new
     
     def getname(self):
         return self._name[-1]
-        
+    
+    def isdumb(self):
+        return self._dumb
+    
     def setname(self, newname):
         if type(newname) in (list, tuple):
             self._name = list(name[:2])
