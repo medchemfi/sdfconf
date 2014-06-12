@@ -1612,6 +1612,7 @@ class Sdfmeta(object):
     def construct(data, **dictarg): #name, delims, literal
         
         new = Sdfmeta()
+        new._dumb = False
         if 'name' in dictarg:
             name = dictarg['name']
             new.setname(name)
@@ -1847,9 +1848,13 @@ class Sdfmeta(object):
         #Append name
         strings.append('>'+self._name[0]+'<'+self._name[1]+'>')
         
-        #Do other things
-        strings.extend(self.getmetastrings(74))
-        
+        if self.isdumb():
+            #Add data
+            strings.extend(self._data)
+        else:
+            #Do other things
+            strings.extend(self.getmetastrings(74))
+            
         #Apply the last blanck line
         strings.append('')
         return strings
