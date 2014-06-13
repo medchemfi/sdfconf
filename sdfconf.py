@@ -1040,7 +1040,7 @@ class Sdfmole(object):
                 add = i+1
                 #self._meta[newmeta.getname()] = newmeta
                 self.addmeta(newmeta.getname(), newmeta)
-                self._metakeys.append(newmeta.getname())
+                #self._metakeys.append(newmeta.getname())
                 
     def dists(self, point1, ignores=['H']):
         ignores = [item.upper() for item in ignores]
