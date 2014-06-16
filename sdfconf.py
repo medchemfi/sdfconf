@@ -15,6 +15,7 @@ import pylab
 import copy
 import operator
 from collections import OrderedDict as OrDi
+import warnings
 
 #Common regular expressions used.  
 confchop=re.compile('\{\[\d+\]\}') #gets conformation number
@@ -304,7 +305,7 @@ class Sdffile(object):
                 return
         self.makenewmeta(name, ostri.strip(), None, None )
         
-    
+    '''
     def makenewmeta(self, name, metastatement, logicchar = None, value = None):
         comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
         level = leveler(metastatement)
@@ -319,7 +320,34 @@ class Sdffile(object):
                 newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
                 if len(newmeta)>0:
                     mol.addmeta(name, newmeta, overwrite=True)
-        
+    '''
+    
+    def makenewmeta(self, name, metastatement, logicchar = None, value = None):
+        comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
+        level = leveler(metastatement)
+        #if logicchar:
+        nag = False
+        for mol in self:
+            try:
+                newmeta = copy.deepcopy( mol.logicgetmeta(level) )
+            except ValueError:
+                nag = True
+                continue
+            if logicchar: #new
+                newmeta.pickvalues( numify(value), comps[logicchar] )
+            if len(newmeta)>0:
+                mol.addmeta(name, newmeta, overwrite=True)
+            else:
+                nag = True
+        if nag:
+            warnings.warn('Not all new metas were generated',UserWarning)
+
+        '''else:
+            for mol in self:
+                newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
+                if len(newmeta)>0:
+                    mol.addmeta(name, newmeta, overwrite=True)
+        '''
         
     def nametometa(self, meta):
         #Adds a metafield including the molecule name
@@ -524,6 +552,8 @@ class Sdffile(object):
         
         for mol in self:
             metas = tuple( mol.logicgetmeta(level) for level in levels )
+            if 0 in map(len, metas): #skips 0 len metas
+                continue
             try:
                 minlen = min( {len(meta) for meta in metas}-{1} ) # shortest list length, ignore singles
             except ValueError:
@@ -1359,6 +1389,7 @@ class Sdfmole(object):
                     return Sdfmeta.construct(tab)
                 else:
                     raise ValueError('Your logic makes no sense: '+tab)
+                    #return Sdfmeta.construct(tab)
                         
     
     def collapser(self, tab, para=None):
@@ -1392,8 +1423,8 @@ class Sdfmole(object):
             try:
                 return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
             except ValueError:
-                return Sdfmeta.construct( tab )
-                #raise ValueError('Your logic makes no sense...')
+                #return Sdfmeta.construct( tab )
+                raise ValueError('Your logic makes no sense. '+str(tab))
         elif isinstance(tab, Sdfmeta):
             return tab #OR THIS
         else:
@@ -1704,8 +1735,8 @@ class Sdfmeta(object):
         new._datastruct = copy.deepcopy( self._datastruct,memo )
         new._data = copy.deepcopy( self._data,memo )
         new._delims = copy.deepcopy( self._delims,memo )
-        new._dumb = copy.deepcopy( self._dumb )
-        new._dumbcontent = copy.deepcopy( self._dumbcontent )
+        new._dumb = copy.deepcopy( self._dumb, memo )
+        new._dumbcontent = copy.deepcopy( self._dumbcontent, memo )
         return new
     
     def getname(self):
@@ -2407,6 +2438,9 @@ def testchopper(sdf, *schops):
     mySDF = copy.deepcopy(sdf)
     for chop in schops[:-1]:
         mySDF.logicparse(chop)
+        if len(mySDF)==0:
+            #print chop
+            return 0
     len1 = len(mySDF._dictomoles)
     if len1 == 0:
         return 0
