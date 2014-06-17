@@ -28,7 +28,7 @@ goodchop = re.compile('\s*,{0,1}\s*') #CSV-separator
 metaname = re.compile('\>(.*)\<(.+)\>') #Match gets metafield name
 #metadict = re.compile('[;,^]{0,1}\s*(\w+):(\w+)\s*[;,$]{0,1}' #re.compile('\s*[,;]{0,1}\s*(.*):(.*)\s*[,;]{0,1}\s*')
 
-parre = re.compile('[\{\[\(\)\]\}]') #Matches all parentheses
+parre = re.compile('[\{\[\(\)\]\}\"\']') #Matches all parentheses
 
 ckey = "confnum"
 atomcut=[0, 10, 20, 30, 31, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69]
@@ -1329,16 +1329,23 @@ class Sdfmole(object):
         leveled = leveler(string)
         pass
     
+    def logicgetmetastr(self, string):
+        return self.logicgetmeta(leveler(string))
+    
     def logicgetmeta(self, partab):
         return self.collapser(self.levopemap(partab))
         
-    
     def levopemap(self, tab, par=None, length=None):
         '''
         Accepts lists made by leveler method. Maps this list for mathematical operators and metafield names. Also slices.
         '''
         if isinstance(tab, tuple):
-            return (tab[0], self.levopemap(tab[1], tab[0]))
+            #if par and par in ('"',"'"):
+            if tab[0] in ('"',"'"):
+                return Sdfmeta.construct(levjoin(tab[1]))
+                #return levjoin(tab[1])
+            else:
+                return (tab[0], self.levopemap(tab[1], tab[0]))
         elif isinstance(tab, list):
             for j, thing in enumerate(tab):
                 if not isinstance(thing, str):
@@ -2369,7 +2376,7 @@ def allsame(listordict):
 
     
 def leveler(string):
-    pair = {'(':')','[':']','{':'}'}
+    pair = {'"':'"',"'":"'",'(':')','[':']','{':'}'}
     pars = [(item.group(), item.start()) for item in parre.finditer(string)]
     
     tab = []
@@ -2395,14 +2402,14 @@ def leveler(string):
                 if len(addy) > 0:
                     tab.append(addy)
                 backpar = None
-        elif item[0] == curpar[0]:
-            level += 1
-        if item[0] == pair[curpar[0]]:
+        elif item[0] == pair[curpar[0]]:
             level -= 1
             if level == 0:
                 tab.append((curpar[0],leveler(string[curpar[1]+1:item[1]]))) #curpar[1],item[1],
                 curpar = None
                 backpar = item
+        elif item[0] == curpar[0]:
+            level += 1
     endstring = string[pars[-1][1]+1:]
     if len(endstring)>0:
         tab.append(endstring)
@@ -2418,6 +2425,21 @@ def tabjoin(taber):
             string.extend([item[0],tabjoin(item[1]),pair[item[0]]])
     return ''.join(string)
     
+def levjoin(taber):
+    #print taber
+    pair = {'(':')','[':']','{':'}',"'":"'",'"':'"'}
+    string = []
+    for item in taber:
+        if isinstance(item, str):
+            string.append(item)
+        elif isinstance(item, list):
+            string.append(levjoin(item))
+        elif isinstance(item, tuple):
+            if item[0] in pair:
+                string.extend([ item[0], levjoin(item[1]), pair[item[0]] ])
+            else:
+                string.extend([levjoin(item[1][0]), item[0], levjoin(item[1][1]) ])
+    return ''.join(string)
 
 def test(thing, i):
     '''
