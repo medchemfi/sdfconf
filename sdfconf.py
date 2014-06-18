@@ -325,6 +325,8 @@ class Sdffile(object):
     def makenewmeta(self, name, metastatement, logicchar = None, value = None):
         comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
         level = leveler(metastatement)
+        if value:
+            picklevel = leveler(value)
         #if logicchar:
         nag = False
         for mol in self:
@@ -334,7 +336,8 @@ class Sdffile(object):
                 nag = True
                 continue
             if logicchar: #new
-                newmeta.pickvalues( numify(value), comps[logicchar] )
+                #newmeta.pickvalues( numify(value), comps[logicchar] )
+                newmeta.pickvalues( mol.logicgetmeta(picklevel), comps[logicchar] )
             if len(newmeta)>0:
                 mol.addmeta(name, newmeta, overwrite=True)
             else:
@@ -1996,16 +1999,20 @@ class Sdfmeta(object):
             raise ValueError('Non-existent operator ')
         
     def pickvalues(self, value, operator):
+        if type(value)==Sdfmeta:
+            pickvalue=value[0]
+        else:
+            pickvalue=numify(value)
         #MAY CREATE METAS WITH LENGT OF 0
         if type( self._data ) == OrDi:
             newdata = OrDi()
             for key in self._data:
-                if operator(self._data[key], value):
+                if operator(self._data[key], pickvalue):
                     newdata[key] = self._data[key]
         else:
             newdata = []
             for thing in self._data:
-                if operator(thing, value):
+                if operator(thing, pickvalue):
                     newdata.append(thing)
         self._data = newdata
         self._delims = self._delims[:len(self._data)-1]
@@ -2602,7 +2609,7 @@ if __name__ == "__main__":
     choicecut.add_argument("-cu", "--cut", type = str,                      help = "Remove molecules in specified file from original file. Confromations must match.")
     choicecut.add_argument("-acu", "--allcut", type = str,                  help = "Remove molecules in specified file from original file. Names must match. Not tested")
     arger.add_argument("-csv", "--addcsv", type = str,                      help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. Names of molecules must be leftmost. If name includes confnumber, meta is only added molecules with same confnumber.")
-    arger.add_argument("-ex", "--extract", type = str,                      help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5. Takes multiple statements separated with | ")
+    arger.add_argument("-ex", "--extract", type = str,                      help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID='benzene'. Takes multiple statements separated with | ")
     choiceremo = arger.add_mutually_exclusive_group()
     choiceremo.add_argument("-rm", "--removemeta", type = str,              help = "Remove metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'")
     choiceremo.add_argument("-pm", "--pickmeta", type = str,                help = "Remove all nonspecified metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'")
