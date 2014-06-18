@@ -727,6 +727,7 @@ class Sdffile(object):
             self.dictmaint()
             
         string = string.strip()
+        
         if string[:2] == '+ ':
             pick = True
             string = string[2:]
@@ -736,7 +737,6 @@ class Sdffile(object):
         else:
             pick = True
         
-        #pick = True
         opesplit=[item.strip() for item in re.split('(>=|<=|<|>|==|!=|=)',string)]
         comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
         
@@ -782,14 +782,18 @@ class Sdffile(object):
                 per = False
             trues = []
             falses = []
+            
+            if tear[0]=='max':
+                reverse = True
+                #bymole = False
+            elif tear[0]=='min':
+                reverse = False
+                #bymole = False
+                
             for molec in self._dictomoles:
                 moles = OrDi()
                 for conf in self._dictomoles[molec]:
                     moles[conf] = self._dictomoles[molec][conf].logicgetmeta(leveler(metatab))
-                if tear[0]=='max':
-                    reverse = True
-                else:
-                    reverse = False
                 moles = OrDi(sorted(moles.iteritems(), key= lambda xx: xx[1], reverse = reverse))
                 if per:
                     grab = int(math.ceil(len(moles)*num/100.0))
@@ -804,6 +808,44 @@ class Sdffile(object):
             dealer(falses, trues)
             #find min or max
         
+    def getmollogic(self, string):
+        
+        molfunx = { 'max':None,'min':None }
+        confunx = { 'asc':None,'des':None }
+        
+        mylevel = levels(string)
+        metas = dict()
+        precalc = dict()
+        
+        def tabiter(mol, tab, par = None):
+            if isinstance(tab, list):
+                for thing in tab:
+                    if thing in molfunx:
+                        if thing in precalc and mol._name in precalc[thing]:
+                            return precalc[thing][mol._name]
+                        else:
+                            metas = tabiter()
+                    elif thing in confunx:
+                        pass
+                    else:
+                        return tabiter(mol, thing)
+            elif isinstance(tab, tuple):
+                pass
+                #return 
+            elif isinstance(tab, str):
+                pass
+            else:
+                raise TypeError('Bad levels: '+str(tab))
+        
+        def confloop(mol, tab):
+            mymeta=None
+            if not mol._name in metas:
+                metas[mol._name]=dict
+            for confnum in self._dictomoles[mol._name]:
+                pass
+            if len(metas[mol._name])==0:
+                del(metas[mol._name])
+                
         
 
     def sorter(self,sortstring):
@@ -1400,7 +1442,6 @@ class Sdfmole(object):
                 else:
                     raise ValueError('Your logic makes no sense: '+tab)
                     #return Sdfmeta.construct(tab)
-                        
     
     def collapser(self, tab, para=None):
         maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div,'**':mypow}
@@ -2421,6 +2462,58 @@ def leveler(string):
     if len(endstring)>0:
         tab.append(endstring)
     return tab
+
+def dumb_levopemap(tab, par=None, length=None):
+    '''
+    Accepts lists made by leveler method. Maps this list for mathematical operators and metafield names. Doesn't understand local metafields. a dumb version.
+    '''
+    if isinstance(tab, tuple):
+        #if par and par in ('"',"'"):
+        if tab[0] in ('"',"'"):
+            #return Sdfmeta.construct(levjoin(tab[1]))
+            return (tab[0], levjoin(tab[1]))
+        else:
+            return (tab[0], dumb_levopemap(tab[1], tab[0]))
+    elif isinstance(tab, list):
+        for j, thing in enumerate(tab):
+            if not isinstance(thing, str):
+                continue
+            thing = thing.strip()
+            #new
+            sear = re.search('[+-]', thing)
+            if sear:
+                i = sear.start()
+                ie = sear.end()
+            if not sear:
+                sear = re.search('(^|[^\*])[\*/]([^\*]|$)', thing)
+                if sear:
+                    helpse = re.search('[\*/]', thing[sear.start():sear.end()])
+                    i = sear.start()+helpse.start()
+                    ie = sear.start()+helpse.end()
+                    del(helpse)
+            if not sear:
+                sear = re.search('[\*]{2}', thing)
+                if sear:
+                    i = sear.start()
+                    ie = sear.end()
+            if sear:
+                tab1=[]
+                tab1.extend(tab[:j])
+                if i > 0:
+                    tab1.append(thing[:i])
+                if ie < len(thing):
+                    tab2 = [thing[ie:]]
+                else:
+                    tab2 = []
+                tab2.extend(tab[j+1:])
+                return (thing[i:ie],dumb_levopemap(tab1),dumb_levopemap(tab2))
+            #new ends
+        return [dumb_levopemap(item, par,len(tab)) for item in tab]
+    else:
+        return tab.strip()
+
+def levels(string):
+    return dumb_levopemap(leveler(string))
 
 def tabjoin(taber):
     pair = {'(':')','[':']','{':'}'}
