@@ -808,45 +808,234 @@ class Sdffile(object):
             dealer(falses, trues)
             #find min or max
         
+    
+    def mollogicparse(self, string):
+        
+        def dealer(picks, drops):
+            #if pick:
+            for info in drops:
+                del(self._dictomoles[info[0]][info[1]])
+            self._orderlist = picks
+            self.dictmaint()
+            
+        string = string.strip()
+        
+        if string[:2] == '+ ':
+            pick = True
+            string = string[2:]
+        elif string[:2] == '- ':
+            pick = False
+            string = string[2:]
+        else:
+            pick = True
+        
+        opesplit=[item.strip() for item in re.split('(>=|<=|<|>|==|!=|=)',string)]
+        comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
+        
+        if len(opesplit)==3:
+            opera = opesplit[1]
+            #tocompare = [ leveler(opesplit[0]) , leveler(opesplit[2]) ]
+            trues = []
+            falses = []
+            
+            compares = ( self.getmollogic(opesplit[0]), self.getmollogic(opesplit[2]) )
+            
+            for info in self._orderlist:
+                #mole = self._dictomoles[info[0]][info[1]]
+                
+                try: # added so comparisons to nonexistent metas won't crash
+                    #if comps[opera]( mole.logicgetmeta(tocompare[0]), mole.logicgetmeta(tocompare[1]) ):
+                    if comps[opera]( compares[0][info[0]][info[1]], compares[1][info[0]][info[1]] ):
+                        trues.append(info)
+                    else:
+                        falses.append(info)
+                except ValueError:
+                    falses.append(info)
+                
+        elif len(opesplit)==1:
+            tear = leveler(string)
+            if len(tear) != 2:
+                raise ValueError('Weird logic.')
+            funk = tear[0]
+            
+            #matheus = tear[1][1]
+            matheus = tabjoin(tear[1][1])
+            
+            rcomindex = matheus.rfind(',')
+            if rcomindex == -1:
+                raise TypeError('Weird logic. No comma.')
+            
+            metatab = matheus[:rcomindex]
+            
+            numstring = matheus[rcomindex+1:]
+            
+            perindex = numstring.rfind('%')
+            if perindex > 0:
+                num = numify(numstring[:perindex])
+                per = True
+            else:
+                num = numify(numstring)
+                per = False
+            trues = []
+            falses = []
+            
+            if tear[0]=='max':
+                reverse = True
+                #bymole = False
+            elif tear[0]=='min':
+                reverse = False
+                #bymole = False
+            
+            values = self.getmollogic(metatab)
+            for molec in values:
+                #moles = OrDi()
+                #for conf in values[molec]:
+                    #moles[conf] = self._dictomoles[molec][conf].logicgetmeta(leveler(metatab))
+                #moles = OrDi(sorted(moles.iteritems(), key= lambda xx: xx[1], reverse = reverse))
+                moles = OrDi(sorted(values[molec].iteritems(), key= lambda xx: xx[1], reverse = reverse))
+                if per:
+                    grab = int(math.ceil(len(moles)*num/100.0))
+                else:
+                    grab = int(num)
+                trues.extend( [[molec, item] for item in moles.keys()[:grab]] )
+                falses.extend( [[molec, item] for item in moles.keys()[grab:]] )
+            
+            '''
+            for molec in self._dictomoles:
+                moles = OrDi()
+                for conf in self._dictomoles[molec]:
+                    moles[conf] = self._dictomoles[molec][conf].logicgetmeta(leveler(metatab))
+                moles = OrDi(sorted(moles.iteritems(), key= lambda xx: xx[1], reverse = reverse))
+                if per:
+                    grab = int(math.ceil(len(moles)*num/100.0))
+                else:
+                    grab = int(num)
+                trues.extend( [[molec, item] for item in moles.keys()[:grab]] )
+                falses.extend( [[molec, item] for item in moles.keys()[grab:]] )
+            '''
+            
+        if pick:
+            dealer(trues, falses)
+        else:
+            dealer(falses, trues)
+            #find min or max
+    
     def getmollogic(self, string):
         
-        molfunx = { 'max':None,'min':None }
-        confunx = { 'asc':None,'des':None }
+        molfunx = { 'max':lambda mets: max([met[0] for met in mets]), 'min': lambda mets: min([met[0] for met in mets]) }
+        #fuf = lambda mets: max([met[0] for met in mets])
+        sortfunx = { 'asc':True,'des':False }
+        
+        maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div,'**':mypow}
+        pars = ('(','[','{','"',"'")
         
         mylevel = levels(string)
-        metas = dict()
+        metadic = dict()
         precalc = dict()
         
-        def tabiter(mol, tab, par = None):
+        def tabiter(conf, tab, par = None):
+            #print tab
+            molname = conf.getname()
             if isinstance(tab, list):
-                for thing in tab:
-                    if thing in molfunx:
-                        if thing in precalc and mol._name in precalc[thing]:
-                            return precalc[thing][mol._name]
-                        else:
-                            metas = tabiter()
-                    elif thing in confunx:
-                        pass
+                if len(tab)==1: #evaluate
+                    return tabiter(conf, tab[0], par)
+                elif len(tab)==2: #it a slice / asc/max, or something like that
+                    if tab[0] in molfunx:
+                        #do precalc, etc
+                        if not tab[0] in precalc or not molname in precalc[tab[0]]:
+                            metas = []
+                            for confi in self._dictomoles[molname]:
+                                metas.append(tabiter(self._dictomoles[molname][confi],tab[1]))
+                            if not tab[0] in precalc:
+                                precalc[tab[0]] = dict()
+                            precalc[tab[0]][molname] = Sdfmeta.construct( molfunx[tab[0]](metas) ) #molfunx functions not implemented
+                            del(metas)
+                        if tab[0] in precalc and molname in precalc[tab[0]]:
+                            return precalc[tab[0]][molname] #start and end missing
+                    elif tab[0] in sortfunx:
+                        #sort next tuple, etc.
+                        meta = copy.deepcopy( tabiter(conf, tab[1] ) )
+                        meta.sortme(sortfunx[tab[0]])
+                        return meta
                     else:
-                        return tabiter(mol, thing)
+                        #slice
+                        meta = tabiter(conf, tab[0])
+                        sli = tabiter(conf, tab[1][1], tab[1][0]) #assumes tuple
+                        return meta.slicer(sli, tab[1][0])
+                        
+                    '''for i, thing in enumerate(tab):
+                        if thing in molfunx:
+                            if not thing in precalc or not mol._name in precalc[thing]:
+                                metas = []
+                                for confi in self._dictomoles[conf._name]:
+                                    metas.append(tabiter(self._dictomoles[conf._name][confi],tab[i+1:i+2]))
+                                precalc[thing][mol._name] = molfunx['thing'](metas)
+                                del(metas)
+                            if thing in precalc and mol._name in precalc[thing]:
+                                return precalc[thing][mol._name] #start and end missing
+                            
+                        elif thing in sortfunx:
+                            meta = copy.deepcopy( tabiter(conf, tab[i+1:i+2]) )
+                            meta.sortme(confunx[thing])
+                            
+                        else:
+                            return tabiter(mol, thing)
+                    '''
+                else: #len(tab)>2 evaluate first against the last
+                    metaus = tabiter(conf, tab[0])
+                    for item in tab[1:]:
+                        metaus = tabiter(conf, [metaus,item])
+                    return metaus
             elif isinstance(tab, tuple):
-                pass
-                #return 
+                if tab[0] in maths:
+                    #do math
+                    #return Sdfmeta.metaoper(maths[tab[0]],[self.collapser(tab[1]),self.collapser(tab[2])])
+                    return Sdfmeta.metaoper(maths[tab[0]],[tabiter(conf, tab[1]),tabiter(conf, tab[2])])
+                    #pass
+                elif tab[0] in pars:
+                    #do slicing, etc.
+                    #return self.collapser(tab[1], tab[0]) #do not use collapser
+                    return tabiter(conf, tab[1], tab[0]) 
+                    #pass
+                #return something. or not
             elif isinstance(tab, str):
-                pass
+                if par in ('"',"'"):
+                    return Sdfmeta.construct(tab)
+                elif tab in sortfunx or tab in molfunx:
+                    return tab
+                elif conf.hasmeta(tab):
+                    return conf.getmeta(tab)
+                elif par in ('(','[','{'):
+                    trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
+                    if not str in map(type, trytab):
+                        return Sdfmeta.construct( trytab )
+                try:
+                    return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
+                except ValueError:
+                    #return Sdfmeta.construct( tab )
+                    raise ValueError('Your logic makes no sense. '+str(tab))
+            elif isinstance(tab, Sdfmeta):
+                return tab
+            elif tab == None:
+                return None
             else:
                 raise TypeError('Bad levels: '+str(tab))
         
         def confloop(mol, tab):
-            mymeta=None
-            if not mol._name in metas:
-                metas[mol._name]=dict
-            for confnum in self._dictomoles[mol._name]:
-                pass
-            if len(metas[mol._name])==0:
-                del(metas[mol._name])
-                
+            #mymeta=None
+            if not mol in metadic:
+                metadic[mol] = dict()
+            for confnum in self._dictomoles[mol]:
+                metadic[mol][confnum] = tabiter(self._dictomoles[mol][confnum], tab)
+            if len(metadic[mol])==0:
+                del(metadic[mol])
         
+        def molloop():
+            for mol in self._dictomoles:
+                confloop(mol, mylevel)
+        
+        molloop()
+        return metadic
 
     def sorter(self,sortstring):
         '''
@@ -2260,7 +2449,7 @@ def numify(stri):
             if type(stri)==list:
                 return map(numify,stri)
             else:
-                raise TypeError('Wrong type')
+                raise TypeError('Wrong type: {}. {}'.format(str(type(stri)),str(stri)))
 
 def numitest(string):
     tststr = str(numify(string))
@@ -2926,7 +3115,8 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Initially sdf-file has {} molecules and {} conformations.'.format(len(sdf1._dictomoles),len(sdf1))
             for logic in logics:
-                sdf1.logicparse(logic.strip())
+                #sdf1.logicparse(logic.strip())
+                sdf1.mollogicparse(logic.strip())
                 if args.verbose:
                     print 'After logical chop {}, sdf-file has {} molecules and {} conformations left.'.format(logic,len(sdf1._dictomoles),len(sdf1))
             times.append(time.time())
