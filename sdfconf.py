@@ -1899,7 +1899,8 @@ class Sdfmeta(object):
             else:
                 return try1
         
-        stringers = {int:str, float:lambda x: str(round(x,4)), str:str}
+        #stringers = {int:str, float:lambda x: str(round(x,4)), str:str}
+        stringers = {int:str, float:floattosting, str:str}
         strifu = stringers[self._datatype]
         
         dictflag = self._datastruct == OrDi
