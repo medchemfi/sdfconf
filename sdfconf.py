@@ -1893,8 +1893,12 @@ class Sdfmeta(object):
         
     def getmetastrings(self, length=float('inf')):
         def floattosting(flo):
-            tst = str(flo)
-            dec = tst.find()
+            try1 = str(round(flo,4))
+            if try1 == '0.0' and flo != 0:
+                return '{:.4e}'.format(flo)
+            else:
+                return try1
+        
         stringers = {int:str, float:lambda x: str(round(x,4)), str:str}
         strifu = stringers[self._datatype]
         
