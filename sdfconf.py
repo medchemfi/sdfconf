@@ -307,11 +307,12 @@ class Sdffile(object):
     
     def makenewmeta(self, name, metastatement, logicchar = None, value = None):
         comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
-        level = leveler(metastatement)
-        if value:
-            picklevel = leveler(value)
+        #level = leveler(metastatement)
+        #if value:
+        #    picklevel = leveler(value)
         #if logicchar:
-        nag = False
+        #nag = False
+        '''
         for mol in self:
             try:
                 newmeta = copy.deepcopy( mol.logicgetmeta(level) )
@@ -326,6 +327,25 @@ class Sdffile(object):
             else:
                 nag = True
         if nag:
+            warnings.warn('Not all new metas were generated',UserWarning)
+        '''
+        newmetas = self.getmollogic(metastatement)
+        if logicchar:
+            pickvalues = self.getmollogic(value)
+        count = 0
+        for molname in newmetas:
+            #count += len(newmetas[molname])
+            for confn in newmetas[molname]:
+                if logicchar:
+                    try:
+                        newmetas[molname][confn].pickvalues( pickvalues[molname][confn], comps[logicchar] )
+                        count += 1
+                    except KeyError:
+                        continue
+                else:
+                    count += 1
+                self._dictomoles[molname][confn].addmeta(name, newmetas[molname][confn], overwrite=True)
+        if count<len(self):
             warnings.warn('Not all new metas were generated',UserWarning)
         
     def nametometa(self, meta):
@@ -512,6 +532,7 @@ class Sdffile(object):
             return None
 
     def mehist(self, Xname, Yname=None, **kwargs):
+        #import pylab
         #Histograms work again!
         #kwargs: title, Xtitle, Ytitle, bins
         newargs = dict()
@@ -854,11 +875,15 @@ class Sdffile(object):
                     trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
                     if not str in map(type, trytab):
                         return Sdfmeta.construct( trytab )
-                try:
-                    return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
-                except ValueError:
-                    #return Sdfmeta.construct( tab )
-                    raise ValueError('Your logic makes no sense. '+str(tab))
+                    try:
+                        return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
+                    except ValueError:
+                        #return Sdfmeta.construct( tab )
+                        raise ValueError('Your logic makes no sense. '+str(tab))
+                else:
+                    trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
+                    if not str in map(type, trytab):
+                        return Sdfmeta.construct( trytab )
             elif isinstance(tab, Sdfmeta):
                 return tab
             elif tab == None:
