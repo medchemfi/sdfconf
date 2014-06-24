@@ -288,8 +288,9 @@ class Sdffile(object):
                     if type(num) == Sdfmeta:
                         tab.append(num)
             newmet = Sdfmeta.metaoper(oper, tab)
-            newmet.cleandelim(True)
-            mol.addmeta(newmetaname, newmet)
+            if newmet:
+                newmet.cleandelim(True)
+                mol.addmeta(newmetaname, newmet)
     
     def makenewmetastr(self, string):
         #Frontend for makenewmeta
@@ -2288,7 +2289,11 @@ def numify(stri):
                 raise TypeError('Wrong type: {}. {}'.format(str(type(stri)),str(stri)))
 
 def numitest(string):
-    tststr = str(numify(string))
+    num = numify(string)
+    if type(num)==float:
+        return True
+    tststr = str(num)
+    del(num)
     if tststr != string:
         tststr = tststr.rstrip('0')
         string = string.rstrip('0')
