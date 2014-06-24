@@ -304,23 +304,6 @@ class Sdffile(object):
                 self.makenewmeta(name, ostri[:i].strip(), comp, ostri[i+len(comp):].strip() )
                 return
         self.makenewmeta(name, ostri.strip(), None, None )
-        
-    '''
-    def makenewmeta(self, name, metastatement, logicchar = None, value = None):
-        comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
-        level = leveler(metastatement)
-        if logicchar:
-            for mol in self:
-                newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
-                newmeta.pickvalues( numify(value), comps[logicchar] )
-                if len(newmeta)>0:
-                    mol.addmeta(name, newmeta, overwrite=True)
-        else:
-            for mol in self:
-                newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
-                if len(newmeta)>0:
-                    mol.addmeta(name, newmeta, overwrite=True)
-    '''
     
     def makenewmeta(self, name, metastatement, logicchar = None, value = None):
         comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
@@ -344,13 +327,6 @@ class Sdffile(object):
                 nag = True
         if nag:
             warnings.warn('Not all new metas were generated',UserWarning)
-
-        '''else:
-            for mol in self:
-                newmeta = copy.deepcopy( mol.logicgetmeta(level) )  #\FIXME
-                if len(newmeta)>0:
-                    mol.addmeta(name, newmeta, overwrite=True)
-        '''
         
     def nametometa(self, meta):
         #Adds a metafield including the molecule name
@@ -625,100 +601,7 @@ class Sdffile(object):
     def show(self):
         pylab.show()
         
-    
-    ''' Horror from the ancient past...
-    def logicchop(self, string): #This is horrible. Don't even try if you value your sanity...
-        exp = '<|>|%|=|~|!' 
-        ope = re.findall(exp, string)
-        things = re.split(exp, string)
-        foreach = None
-       
-        if len(ope)==1:
-            if ope[0]!='!':
-                value = numify(things[1].strip())
-        elif len(ope)==2:
-            foreach = dict()
-            for mol in self:
-                name = mol.getname()
-                if not name in foreach:
-                    foreach[name] = list()
-                foreach[name].append(numify(mol._meta[things[0]]))
-            if ope[1] =='%':
-                if things[2].upper() == 'T':
-                    fu = max
-                elif things[2].upper() == 'B':
-                    fu = min
-                elif things[2].upper() == 'A':
-                    fu = avg
-                elif re.match('M|N',things[2].upper()): #things[2].upper() == 'M':
-                    if ope[0] == '<':
-                        reve=False
-                    elif ope[0] == '>':
-                        reve=True
-                    for key in foreach:
-                        values = foreach[key]#[numify(mol._meta[things[0]]) for mol in foreach[key]]
-                        if things[2].upper() == 'M':
-                            N = int(ceil(len(values)*float(things[1])/100.0))
-                        else:
-                            N = int(things[1])
-                        try:
-                            foreach[key] = sorted(values,reverse=reve)[N]
-                        except IndexError:
-                            if len(values)<2:
-                                if reve:
-                                    foreach[key] = values[0]-1
-                                else:
-                                    foreach[key] = values[0]+1
-                            else:
-                                foreach[key] = sorted(values,reverse=reve)[-1]
-                else:
-                    print 'Invalid statement. End with [T]op, [B]ottom or [A]verage'
-            try:
-                for key in foreach:
-                    foreach[key]=fu(foreach[key])*(numify(things[1])/100)
-            except UnboundLocalError:
-                pass
-        deles = []
-        for i, inf in reversed(list(enumerate(self._orderlist))):
-            try:
-                meta = numify(self._dictomoles[inf[0]][inf[1]]._meta[things[0].strip()].strip())
-                if foreach:
-                    value = foreach[inf[0]]
-                if ope[0] == '<':
-                    if not meta < value:
-                        deles.append(inf)
-                elif ope[0] == '~':
-                    if not re.search('(^|\s|,|;)'+re.escape(self._dictomoles[inf[0]][inf[1]]._meta[things[1]])+'($|\s|,|;)', str(meta)):
-                        deles.append(inf)
-                elif ope[0] == '=':
-                    if not re.search('(^|\s|,|;)'+re.escape(str(things[1]).strip())+'($|\s|,|;)', str(meta)):
-                        deles.append(inf)
-                elif ope[0] == '>':
-                    if not meta > value:
-                        deles.append(inf)
-                elif ope[0] == '!':
-                    #l=len(self)
-                    for j in range(0,i):#leaves the first one intact #for j in range(i+1,l): #Leaves the last one in place!
-                        meinf = self._orderlist[j]
-                        if inf[0]!=meinf[0]:
-                            continue
-                        if meta == numify(self._dictomoles[meinf[0]][meinf[1]]._meta[things[0].strip()].strip()):
-                            deles.append(inf)
-                            break
-            except KeyError:
-                deles.append(inf)
-        for key in deles:
-            try:
-                self.remove(key[0],key[1])
-            except KeyError:
-                print key
-                continue
-        self.dictmaint()
-        
-    '''
-    
     def logicparse(self, string):
-        
         def dealer(picks, drops):
             #if pick:
             for info in drops:
@@ -888,10 +771,6 @@ class Sdffile(object):
             
             values = self.getmollogic(metatab)
             for molec in values:
-                #moles = OrDi()
-                #for conf in values[molec]:
-                    #moles[conf] = self._dictomoles[molec][conf].logicgetmeta(leveler(metatab))
-                #moles = OrDi(sorted(moles.iteritems(), key= lambda xx: xx[1], reverse = reverse))
                 moles = OrDi(sorted(values[molec].iteritems(), key= lambda xx: xx[1], reverse = reverse))
                 if per:
                     grab = int(math.ceil(len(moles)*num/100.0))
@@ -899,21 +778,6 @@ class Sdffile(object):
                     grab = int(num)
                 trues.extend( [[molec, item] for item in moles.keys()[:grab]] )
                 falses.extend( [[molec, item] for item in moles.keys()[grab:]] )
-            
-            '''
-            for molec in self._dictomoles:
-                moles = OrDi()
-                for conf in self._dictomoles[molec]:
-                    moles[conf] = self._dictomoles[molec][conf].logicgetmeta(leveler(metatab))
-                moles = OrDi(sorted(moles.iteritems(), key= lambda xx: xx[1], reverse = reverse))
-                if per:
-                    grab = int(math.ceil(len(moles)*num/100.0))
-                else:
-                    grab = int(num)
-                trues.extend( [[molec, item] for item in moles.keys()[:grab]] )
-                falses.extend( [[molec, item] for item in moles.keys()[grab:]] )
-            '''
-            
         if pick:
             dealer(trues, falses)
         else:
@@ -962,25 +826,6 @@ class Sdffile(object):
                         meta = tabiter(conf, tab[0])
                         sli = tabiter(conf, tab[1][1], tab[1][0]) #assumes tuple
                         return meta.slicer(sli, tab[1][0])
-                        
-                    '''for i, thing in enumerate(tab):
-                        if thing in molfunx:
-                            if not thing in precalc or not mol._name in precalc[thing]:
-                                metas = []
-                                for confi in self._dictomoles[conf._name]:
-                                    metas.append(tabiter(self._dictomoles[conf._name][confi],tab[i+1:i+2]))
-                                precalc[thing][mol._name] = molfunx['thing'](metas)
-                                del(metas)
-                            if thing in precalc and mol._name in precalc[thing]:
-                                return precalc[thing][mol._name] #start and end missing
-                            
-                        elif thing in sortfunx:
-                            meta = copy.deepcopy( tabiter(conf, tab[i+1:i+2]) )
-                            meta.sortme(confunx[thing])
-                            
-                        else:
-                            return tabiter(mol, thing)
-                    '''
                 else: #len(tab)>2 evaluate first against the last
                     metaus = tabiter(conf, tab[0])
                     for item in tab[1:]:
@@ -1510,10 +1355,6 @@ class Sdfmole(object):
             dists.append(alldists[oneatom-1])
         return (atoms,dists)
     
-    '''deprecated?
-    def disttopoint(self, atom1, point):
-        return sum((self.getatomloc(atom1)-point)**2)**0.5
-    '''
     
     def bonddists(self, atom1, intrests=None):
         #dijikstra algorithm for finding path length to all atoms, or to list of intresting atoms
@@ -1809,37 +1650,7 @@ class Sdfmeta(object):
             return
         else: #             rstrip?
             mylines = [line.strip('\n ') for line in listofstrings[fi:-1] ]
-        
         self._data = mylines
-
-        ''' will be taken to numerize to be handled when needed
-        #instead of commented section, merge lines with '' and do whattype
-        #if no delimiter or ' ' in the end of line, add ' '
-        newlines = []
-        for line in mylines[:-1]:
-            newlines.append(line)
-            if not re.match('[ ,;\t]',line[-1]):
-                newlines.append(' ')
-        newlines.append(mylines[-1])
-        (data,dtype,delims) = whattype(''.join(newlines))
-
-        #if string, it's special
-        if dtype == str:
-            self._datatype = str
-            self._data = [line.strip('\n') for line in mylines]
-            self._datastruct = list
-            self._delims = ['' for line in mylines[:-1]]
-            return
-        #not just string
-        
-        self._data = data
-        self._datatype = dtype
-        if type(data) == list and len(data)==1:
-            self._datastruct = 'single'
-        else:
-            self._datastruct = type(data)
-            self._delims = delims
-        '''
     
     def numerize(self):
         if self._dumb:
@@ -2879,30 +2690,37 @@ if __name__ == "__main__":
     choicewrite = arger.add_mutually_exclusive_group()
     choicewrite.add_argument("-out", "--output", type = str, default=None,  help = "Specify output file.")
     choicewrite.add_argument("-o", "--overwrite", action='store_true',      help = "overwrite. you don't need to specify output file")
+    
     arger.add_argument("-cf", "--tofield", action = "store_true",           help = "add conformation number to metadata from name. if number in name doesn't exist, make a new one.")
     arger.add_argument("-cn", "--toname",  action = "store_true",           help = "add conformation number to name from metadata. if number in metadata doesn't exist, make a new one.")
     arger.add_argument("-mtn", "--metatoname",  type = str,                 help = "Change the name of molecule to the data in given metafield")
     arger.add_argument("-ntm", "--nametometa",  type = str,                 help = "Copy the name of molecule into given metafield")
     arger.add_argument("-rc", "--remove",  type = int,                      help = "remove conformation number from 1=metadata, 2=name, 3=both. if number doesn't exist, do nothing")
+    
     choicecombi = arger.add_mutually_exclusive_group()
     choicecombi.add_argument("-co", "--combine", type = str,                help = "Combine metadata from specified file to the data of original file. Confromationr_epik_Ionization_Penaltys must match.")
     choicecombi.add_argument("-aco", "--allcombine", type = str,            help = "Combine metadata from specified file to the data of original file. Names must match.")
+    
     choicecut = arger.add_mutually_exclusive_group()
     choicecut.add_argument("-cu", "--cut", type = str,                      help = "Remove molecules in specified file from original file. Confromations must match.")
     choicecut.add_argument("-acu", "--allcut", type = str,                  help = "Remove molecules in specified file from original file. Names must match. Not tested")
+    
     arger.add_argument("-csv", "--addcsv", type = str,                      help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. Names of molecules must be leftmost. If name includes confnumber, meta is only added molecules with same confnumber.")
     arger.add_argument("-ex", "--extract", type = str,                      help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID='benzene'. Takes multiple statements separated with | ")
+    
     choiceremo = arger.add_mutually_exclusive_group()
     choiceremo.add_argument("-rm", "--removemeta", type = str,              help = "Remove metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'")
     choiceremo.add_argument("-pm", "--pickmeta", type = str,                help = "Remove all nonspecified metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'")
+    
     arger.add_argument("-s", "--split", type = int,                         help = "Split the file into even pieces. Positive means number of files while negative means number of molecules per file. 0 doesn't apply.")
     arger.add_argument("-mf", "--makefolder", action = "store_true",        help = "Put outputfile(s) into folder(s).")
+    
     outputtype = arger.add_mutually_exclusive_group()
     outputtype.add_argument("-gc", "--getcsv", type = str ,                 help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','.")
     outputtype.add_argument("-ml", "--metalist", action = "store_true",     help = "Writes a list of metafields.")
     outputtype.add_argument("-nm", "--counts", type = int,                  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
-
+    
     arger.add_argument("-ca", "--closestatom", type = str,                  help = "Calculates the closest atoms (distances by atom number) to given point. Adds 'Closest_atoms' metafield with optional prefix. Needs either coordinates separated by ',' or or single atom number")
     arger.add_argument("-cla", "--closeratoms", type = str,                 help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
     arger.add_argument("-v", "--verbose", action = "store_true" ,           help = "More info on your run.")
