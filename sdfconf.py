@@ -340,12 +340,11 @@ class Sdffile(object):
                 if logicchar:
                     try:
                         newmetas[molname][confn].pickvalues( pickvalues[molname][confn], comps[logicchar] )
-                        count += 1
                     except KeyError:
                         continue
-                else:
+                if len(newmetas[molname][confn])>0:
                     count += 1
-                self._dictomoles[molname][confn].addmeta(name, newmetas[molname][confn], overwrite=True)
+                    self._dictomoles[molname][confn].addmeta(name, newmetas[molname][confn], overwrite=True)
         if count<len(self):
             warnings.warn('Not all new metas were generated',UserWarning)
         
