@@ -723,21 +723,7 @@ class Sdffile(object):
             self._orderlist = picks
             self.dictmaint()
             
-        string = string.strip()
-        
-        if string[:2] == '+ ':
-            pick = True
-            string = string[2:]
-        elif string[:2] == '- ':
-            pick = False
-            string = string[2:]
-        else:
-            pick = True
-        
-        opesplit=[item.strip() for item in re.split('(>=|<=|<|>|==|!=|=)',string)]
-        comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
-        
-        if len(opesplit)==3:
+        def compar( opesplit ):
             opera = opesplit[1]
             #tocompare = [ leveler(opesplit[0]) , leveler(opesplit[2]) ]
             trues = []
@@ -756,14 +742,15 @@ class Sdffile(object):
                         falses.append(info)
                 except ValueError:
                     falses.append(info)
-                
-        elif len(opesplit)==1:
+            return (trues, falses)
+        
+        def mima( string ):
+            #string = opesplit[0]
             tear = leveler(string)
             if len(tear) != 2:
                 raise ValueError('Weird logic.')
             funk = tear[0]
             
-            #matheus = tear[1][1]
             matheus = tabjoin(tear[1][1])
             
             rcomindex = matheus.rfind(',')
@@ -800,6 +787,36 @@ class Sdffile(object):
                     grab = int(num)
                 trues.extend( [[molec, item] for item in moles.keys()[:grab]] )
                 falses.extend( [[molec, item] for item in moles.keys()[grab:]] )
+            return (trues, falses)
+        
+        def uniqu( string ):
+            string = string[1:]
+            pass
+        #end of functions
+        
+        string = string.strip()
+        
+        if string[:2] == '+ ':
+            pick = True
+            string = string[2:]
+        elif string[:2] == '- ':
+            pick = False
+            string = string[2:]
+        else:
+            pick = True
+        
+        opesplit=[item.strip() for item in re.split('(>=|<=|<|>|==|!=|=)',string)]
+        comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
+        
+        if len(opesplit)==3:
+            trues, falses = compar( opesplit )
+                
+        elif len(opesplit)==1:
+            if opesplit[0][0] == '!':
+                trues, falses = uniqu( opesplit[0] )
+            else:
+                trues, falses = mima( opesplit[0] )
+            
         if pick:
             dealer(trues, falses)
         else:
@@ -808,9 +825,14 @@ class Sdffile(object):
     
     def getmollogic(self, string):
         
-        molfunx = { 'max':lambda mets: max([met[0] for met in mets]), 'min': lambda mets: min([met[0] for met in mets]) }
+        molfunx = { 'max':lambda mets: max([met[0] for met in mets]), 'min': lambda mets: min([met[0] for met in mets]), 'avg': lambda mets: avg([met[0] for met in mets]) }
         #fuf = lambda mets: max([met[0] for met in mets])
         sortfunx = { 'asc':True,'des':False }
+        
+        metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta))}
+        
+        #def sorto(dire):
+        #    pass
         
         maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div,'**':mypow}
         pars = ('(','[','{','"',"'")
@@ -826,23 +848,26 @@ class Sdffile(object):
                 if len(tab)==1: #evaluate
                     return tabiter(conf, tab[0], par)
                 elif len(tab)==2: #it a slice / asc/max, or something like that
-                    if tab[0] in molfunx:
-                        #do precalc, etc
-                        if not tab[0] in precalc or not molname in precalc[tab[0]]:
-                            metas = []
-                            for confi in self._dictomoles[molname]:
-                                metas.append(tabiter(self._dictomoles[molname][confi],tab[1]))
-                            if not tab[0] in precalc:
-                                precalc[tab[0]] = dict()
-                            precalc[tab[0]][molname] = Sdfmeta.construct( molfunx[tab[0]](metas) ) #molfunx functions not implemented
-                            del(metas)
-                        if tab[0] in precalc and molname in precalc[tab[0]]:
-                            return precalc[tab[0]][molname] #start and end missing
-                    elif tab[0] in sortfunx:
-                        #sort next tuple, etc.
-                        meta = copy.deepcopy( tabiter(conf, tab[1] ) )
-                        meta.sortme(sortfunx[tab[0]])
-                        return meta
+                    if type(tab[0])==str:
+                        if tab[0] in molfunx:
+                            #do precalc, etc
+                            if not tab[0] in precalc or not molname in precalc[tab[0]]:
+                                metas = []
+                                for confi in self._dictomoles[molname]:
+                                    metas.append(tabiter(self._dictomoles[molname][confi],tab[1]))
+                                if not tab[0] in precalc:
+                                    precalc[tab[0]] = dict()
+                                precalc[tab[0]][molname] = Sdfmeta.construct( molfunx[tab[0]](metas) ) #molfunx functions not implemented
+                                del(metas)
+                            if tab[0] in precalc and molname in precalc[tab[0]]:
+                                return precalc[tab[0]][molname] #start and end missing
+                        elif tab[0] in sortfunx:
+                            #sort next tuple, etc.
+                            meta = tabiter(conf, tab[1] )
+                            meta.sortme(sortfunx[tab[0]])
+                            return meta
+                        elif tab[0] in metafunx:
+                            return Sdfmeta.construct( metafunx[tab[0]](tabiter(conf, tab[1] )) )
                     else:
                         #slice
                         meta = tabiter(conf, tab[0])
@@ -871,7 +896,7 @@ class Sdffile(object):
                 elif tab in sortfunx or tab in molfunx:
                     return tab
                 elif conf.hasmeta(tab):
-                    return conf.getmeta(tab)
+                    return copy.deepcopy(conf.getmeta(tab))
                 elif par in ('(','[','{'):
                     trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
                     if not str in map(type, trytab):
@@ -2594,14 +2619,14 @@ def testchopper(sdf, *schops):
     '''
     mySDF = copy.deepcopy(sdf)
     for chop in schops[:-1]:
-        mySDF.logicparse(chop)
+        mySDF.mollogicparse(chop)
         if len(mySDF)==0:
             #print chop
             return 0
     len1 = len(mySDF._dictomoles)
     if len1 == 0:
         return 0
-    mySDF.logicparse(schops[-1])
+    mySDF.mollogicparse(schops[-1])
     len2 = len(mySDF._dictomoles)
     del(mySDF)
     return float(len2)/len1
