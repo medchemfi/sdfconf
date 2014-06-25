@@ -739,7 +739,7 @@ class Sdffile(object):
                         trues.append(info)
                     else:
                         falses.append(info)
-                except ValueError:
+                except (ValueError, KeyError):
                     falses.append(info)
             return (trues, falses)
         
@@ -869,8 +869,10 @@ class Sdffile(object):
                             return Sdfmeta.construct( metafunx[tab[0]](tabiter(conf, tab[1] )) )
                     #slice
                     meta = tabiter(conf, tab[0])
-                    sli = tabiter(conf, tab[1][1], tab[1][0]) #assumes tuple
-                    return meta.slicer(sli, tab[1][0])
+                    if meta:
+                        sli = tabiter(conf, tab[1][1], tab[1][0]) #assumes tuple
+                        return meta.slicer(sli, tab[1][0])
+                    else: return None
                 else: #len(tab)>2 evaluate first against the last
                     metaus = tabiter(conf, tab[0])
                     for item in tab[1:]:
@@ -908,6 +910,7 @@ class Sdffile(object):
                     trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
                     if not str in map(type, trytab):
                         return Sdfmeta.construct( trytab )
+                    #else: return None
             elif isinstance(tab, Sdfmeta):
                 return tab
             elif tab == None:
@@ -920,7 +923,9 @@ class Sdffile(object):
             if not mol in metadic:
                 metadic[mol] = dict()
             for confnum in self._dictomoles[mol]:
-                metadic[mol][confnum] = tabiter(self._dictomoles[mol][confnum], tab)
+                newmet = tabiter(self._dictomoles[mol][confnum], tab)
+                if newmet:
+                    metadic[mol][confnum] = newmet
             if len(metadic[mol])==0:
                 del(metadic[mol])
         
