@@ -728,14 +728,15 @@ class Sdffile(object):
             for info in drops:
                 del(self._dictomoles[info[0]][info[1]])
                 #self._orderlist.remove(info)
+            
             if len(picks)!=len(self):
                 warnings.warn('Number of picked ones doesn\'t match number of remaining ones.')
-            neworder=[]
-            for info in self._orderlist:
-                if info in picks:
-                    neworder.append(info)
-            self._orderlist = neworder
-            #self._orderlist = picks
+            #neworder=[]
+            #for info in self._orderlist:
+            #    if info in picks:
+            #        neworder.append(info)
+            #self._orderlist = neworder
+            self._orderlist = picks
             self.dictmaint()
             
         def compar( opesplit ):
@@ -874,8 +875,11 @@ class Sdffile(object):
                         elif tab[0] in sortfunx:
                             #sort next tuple, etc.
                             meta = tabiter(conf, tab[1] )
-                            meta.sortme(sortfunx[tab[0]])
-                            return meta
+                            if meta:
+                                meta.sortme(sortfunx[tab[0]])
+                                return meta
+                            else:
+                                return None
                         elif tab[0] in metafunx:
                             return Sdfmeta.construct( metafunx[tab[0]](tabiter(conf, tab[1] )) )
                     #slice
@@ -948,7 +952,7 @@ class Sdffile(object):
                 metadic[mol] = dict()
             for confnum in self._dictomoles[mol]:
                 newmet = tabiter(self._dictomoles[mol][confnum], tab)
-                if newmet:
+                if newmet and len(newmet)>0:
                     metadic[mol][confnum] = newmet
             if len(metadic[mol])==0:
                 del(metadic[mol])
@@ -2160,7 +2164,8 @@ class Sdfmeta(object):
                     raise TypeError('"(" not applicaple for lists')
                 #return Sdfmeta.construct(  OrDi([(i, toget[i]) for i in indexes]) )
                 return Sdfmeta.construct(  OrDi([(i, toget[i]) for i in indexes if i in toget]) )
-            return Sdfmeta.construct(  [toget[i] for i in indexes] )
+            le = len(toget)
+            return Sdfmeta.construct(  [toget[i] for i in indexes if i < le ] )
         
         if paren == '{':
             toget = self._data.keys()
