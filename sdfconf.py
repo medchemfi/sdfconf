@@ -16,6 +16,7 @@ import copy
 import operator
 from collections import OrderedDict as OrDi
 import warnings
+from types import NoneType
 
 #Common regular expressions used.  
 confchop=re.compile('\{\[\d+\]\}') #gets conformation number
@@ -545,13 +546,22 @@ class Sdffile(object):
         
         #New implementation
         datas = [[]]
-        levels = [leveler(Xname)]
+        #levels = [leveler(Xname)]
+        almetas = [self.getmollogic(Xname)]
         if Yname:
             datas.append([])
-            levels.append(leveler(Yname))
+            almetas.append(self.getmollogic(Yname))
+        #    levels.append(leveler(Yname))
         
         for mol in self:
-            metas = tuple( mol.logicgetmeta(level) for level in levels )
+            #metas = tuple( mol.logicgetmeta(level) for level in levels )
+            molname = mol.getname()
+            confn = mol.getconfn()
+            
+            try:
+                metas = tuple( almeta[molname][confn] for almeta in almetas )
+            except KeyError:
+                continue
             if 0 in map(len, metas): #skips 0 len metas
                 continue
             try:
@@ -719,7 +729,13 @@ class Sdffile(object):
             #if pick:
             for info in drops:
                 del(self._dictomoles[info[0]][info[1]])
-            self._orderlist = picks
+                self._orderlist.remove(info)
+            #for info in self._orderlist:
+            #    if 
+            #neworder=[]
+            #self._orderlist = picks
+            if len(picks)!=len(self._orderlist):
+                warnings.warn('Number of picked ones doesn\'t match number of remaining ones.')
             self.dictmaint()
             
         def compar( opesplit ):
@@ -749,17 +765,12 @@ class Sdffile(object):
             if len(tear) != 2:
                 raise ValueError('Weird logic.')
             funk = tear[0]
-            
             matheus = tabjoin(tear[1][1])
-            
             rcomindex = matheus.rfind(',')
             if rcomindex == -1:
                 raise TypeError('Weird logic. No comma.')
-            
             metatab = matheus[:rcomindex]
-            
             numstring = matheus[rcomindex+1:]
-            
             perindex = numstring.rfind('%')
             if perindex > 0:
                 num = numify(numstring[:perindex])
@@ -769,14 +780,12 @@ class Sdffile(object):
                 per = False
             trues = []
             falses = []
-            
             if tear[0]=='max':
                 reverse = True
                 #bymole = False
             elif tear[0]=='min':
                 reverse = False
                 #bymole = False
-            
             values = self.getmollogic(metatab)
             for molec in values:
                 moles = OrDi(sorted(values[molec].iteritems(), key= lambda xx: xx[1], reverse = reverse))
@@ -843,7 +852,8 @@ class Sdffile(object):
         def tabiter(conf, tab, par = None):
             #print tab
             molname = conf.getname()
-            if isinstance(tab, list):
+            
+            def listope(conf,tab,par=None):
                 if len(tab)==1: #evaluate
                     return tabiter(conf, tab[0], par)
                 elif len(tab)==2: #it a slice / asc/max, or something like that
@@ -870,7 +880,8 @@ class Sdffile(object):
                     #slice
                     meta = tabiter(conf, tab[0])
                     if meta:
-                        sli = tabiter(conf, tab[1][1], tab[1][0]) #assumes tuple
+                        #sli = tabiter(conf, tab[1][1], tab[1][0]) #assumes tuple
+                        sli = tabiter(conf, tab[1]) #assumes tuple
                         return meta.slicer(sli, tab[1][0])
                     else: return None
                 else: #len(tab)>2 evaluate first against the last
@@ -878,7 +889,8 @@ class Sdffile(object):
                     for item in tab[1:]:
                         metaus = tabiter(conf, [metaus,item])
                     return metaus
-            elif isinstance(tab, tuple):
+                
+            def tuplope(conf,tab,par=None):
                 if tab[0] in maths:
                     #do math
                     #return Sdfmeta.metaoper(maths[tab[0]],[self.collapser(tab[1]),self.collapser(tab[2])])
@@ -890,7 +902,8 @@ class Sdffile(object):
                     return tabiter(conf, tab[1], tab[0]) 
                     #pass
                 #return something. or not
-            elif isinstance(tab, str):
+                
+            def striope(conf,tab,par=None):
                 if par in ('"',"'"):
                     return Sdfmeta.construct(tab)
                 elif tab in sortfunx or tab in molfunx:
@@ -911,12 +924,22 @@ class Sdffile(object):
                     if not str in map(type, trytab):
                         return Sdfmeta.construct( trytab )
                     #else: return None
-            elif isinstance(tab, Sdfmeta):
-                return tab
+                    
+            def raiser(conf, tab, par=None):
+                raise TypeError('Bad levels: '+str(tab))
+            
+            '''def sdfmope(tab):
+                if len(tab)>0:
+                    return tab
+                else:
+                    return None
             elif tab == None:
                 return None
             else:
-                raise TypeError('Bad levels: '+str(tab))
+                raise TypeError('Bad levels: '+str(tab))'''
+            
+            testdi = {list: listope, tuple: tuplope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, NoneType : None }
+            return testdi.get(type(tab), raiser )(conf, tab, par)
         
         def confloop(mol, tab):
             #mymeta=None
@@ -2147,7 +2170,7 @@ class Sdfmeta(object):
         
         if not type(toget) in (list, OrDi):
             raise TypeError('There is something wrong with our toget going to slicer') 
-        slices = {Sdfmeta:itsmeta, slice:itsslice}
+        slices = {Sdfmeta:itsmeta, slice:itsslice, NoneType: lambda toget, sliceorindex: None }
         return slices[type(sliceorindex)](toget, sliceorindex)
         
     def sortme(self, ascending=True, byValue = True):
