@@ -868,11 +868,10 @@ class Sdffile(object):
                             return meta
                         elif tab[0] in metafunx:
                             return Sdfmeta.construct( metafunx[tab[0]](tabiter(conf, tab[1] )) )
-                    else:
-                        #slice
-                        meta = tabiter(conf, tab[0])
-                        sli = tabiter(conf, tab[1][1], tab[1][0]) #assumes tuple
-                        return meta.slicer(sli, tab[1][0])
+                    #slice
+                    meta = tabiter(conf, tab[0])
+                    sli = tabiter(conf, tab[1][1], tab[1][0]) #assumes tuple
+                    return meta.slicer(sli, tab[1][0])
                 else: #len(tab)>2 evaluate first against the last
                     metaus = tabiter(conf, tab[0])
                     for item in tab[1:]:
