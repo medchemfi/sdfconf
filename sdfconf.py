@@ -657,8 +657,6 @@ class Sdffile(object):
         if len(opesplit)==3:
             opera = opesplit[1]
             tocompare = [ leveler(opesplit[0]) , leveler(opesplit[2]) ]
-            trues = []
-            falses = []
             for info in self._orderlist:
                 mole = self._dictomoles[info[0]][info[1]]
                 
@@ -729,13 +727,15 @@ class Sdffile(object):
             #if pick:
             for info in drops:
                 del(self._dictomoles[info[0]][info[1]])
-                self._orderlist.remove(info)
-            #for info in self._orderlist:
-            #    if 
-            #neworder=[]
-            #self._orderlist = picks
-            if len(picks)!=len(self._orderlist):
+                #self._orderlist.remove(info)
+            if len(picks)!=len(self):
                 warnings.warn('Number of picked ones doesn\'t match number of remaining ones.')
+            neworder=[]
+            for info in self._orderlist:
+                if info in picks:
+                    neworder.append(info)
+            self._orderlist = neworder
+            #self._orderlist = picks
             self.dictmaint()
             
         def compar( opesplit ):
@@ -780,6 +780,7 @@ class Sdffile(object):
                 per = False
             trues = []
             falses = []
+            
             if tear[0]=='max':
                 reverse = True
                 #bymole = False
