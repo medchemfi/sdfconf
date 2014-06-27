@@ -413,7 +413,8 @@ class Sdffile(object):
         #Get counts of different conformations and molecules
         counts = []
         for mol in self._dictomoles:
-            counts.append('{}\t{}'.format(mol,len(self._dictomoles[mol])))
+            #counts.append('{}\t{}'.format(mol,len(self._dictomoles[mol])))
+            counts.append((mol,len(self._dictomoles[mol])))
         return counts
     
     #should work
@@ -525,7 +526,7 @@ class Sdffile(object):
             if kwargs['counts']==0 or kwargs['counts']==2:
                 towrite = ['Total {}\t{}'.format(len(self._dictomoles),len(self))]
             if kwargs['counts']==1 or kwargs['counts']==2:
-                towrite.extend(self.counts())
+                towrite.extend(('\t'.join(map(str, count)) for count in self.counts()))
             return '\n'.join(towrite)+'\n'
         elif output=='sdf':
             return str(self)
@@ -729,15 +730,16 @@ class Sdffile(object):
                 del(self._dictomoles[info[0]][info[1]])
                 #self._orderlist.remove(info)
             
+            
+            neworder=[]
+            for info in self._orderlist:
+                if info in picks:
+                    neworder.append(info)
+            self._orderlist = neworder
+            #self._orderlist = picks
+            self.dictmaint()
             if len(picks)!=len(self):
                 warnings.warn('Number of picked ones doesn\'t match number of remaining ones.')
-            #neworder=[]
-            #for info in self._orderlist:
-            #    if info in picks:
-            #        neworder.append(info)
-            #self._orderlist = neworder
-            self._orderlist = picks
-            self.dictmaint()
             
         def compar( opesplit ):
             opera = opesplit[1]
@@ -789,14 +791,21 @@ class Sdffile(object):
                 reverse = False
                 #bymole = False
             values = self.getmollogic(metatab)
-            for molec in values:
-                moles = OrDi(sorted(values[molec].iteritems(), key= lambda xx: xx[1], reverse = reverse))
+            #for molec in values:
+            for mol in self._dictomoles:
+                try:
+                    molec = values[mol]
+                except KeyError:
+                    falses.extend([[mol, moln] for moln in self._dictomoles[mol]])
+                    warnings.warn(mol + ' deleted for not having necesary metafield.')
+                    continue
+                moles = OrDi(sorted(molec.iteritems(), key= lambda xx: xx[1], reverse = reverse))
                 if per:
                     grab = int(math.ceil(len(moles)*num/100.0))
                 else:
                     grab = int(num)
-                trues.extend( [[molec, item] for item in moles.keys()[:grab]] )
-                falses.extend( [[molec, item] for item in moles.keys()[grab:]] )
+                trues.extend( [[mol, item] for item in moles.keys()[:grab]] )
+                falses.extend( [[mol, item] for item in moles.keys()[grab:]] )
             return (trues, falses)
         
         def uniqu( string ):
@@ -951,7 +960,10 @@ class Sdffile(object):
             if not mol in metadic:
                 metadic[mol] = dict()
             for confnum in self._dictomoles[mol]:
-                newmet = tabiter(self._dictomoles[mol][confnum], tab)
+                try:
+                    newmet = tabiter(self._dictomoles[mol][confnum], tab)
+                except ValueError:
+                    newmet = None
                 if newmet and len(newmet)>0:
                     metadic[mol][confnum] = newmet
             if len(metadic[mol])==0:
