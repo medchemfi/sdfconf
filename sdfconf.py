@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 
-#a test brach similiar to metatolist. Just git-training for myself...
-#test
-
+#imports
 import os
 import sys
 import re
@@ -25,40 +23,46 @@ molchop = re.compile('^\${4}') #Separates molecules in file
 stapa=re.compile('\{|\[|\(') #Starting parentesis
 endpa=re.compile('\}|\]|\)') #Ending parenthesis
 goodchop = re.compile('\s*,{0,1}\s*') #CSV-separator
-
 metaname = re.compile('\>(.*)\<(.+)\>') #Match gets metafield name
-#metadict = re.compile('[;,^]{0,1}\s*(\w+):(\w+)\s*[;,$]{0,1}' #re.compile('\s*[,;]{0,1}\s*(.*):(.*)\s*[,;]{0,1}\s*')
-
 parre = re.compile('[\{\[\(\)\]\}\"\']') #Matches all parentheses
 
 ckey = "confnum"
-atomcut=[0, 10, 20, 30, 31, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69]
-
-
-#Parsing a slice from string
-#slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (':3'.split(':') + ['', '', ''])[:3]])
-
+atomcut=(0, 10, 20, 30, 31, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69)
 
 class Sdffile(object):
+    '''
+    Class that represents one .sdf-file. Includes all molecules in nested dictionaries, first by molecule name, then by conformation number.
+    Order of molecules (in the .sdf-file) is represented by a list containing cells with molecule name and conformation number.
+    '''
     def __init__(self, path=''):
+        #Initianilizes an empty file.
         self._dictomoles = dict() # {'aspirin':{1:aspi1, 2:aspi2, ...}, 'bentzene':{1:benz1, 2:benz2, ...}}
         self._orderlist = list()
         if path != '':
             self.readself(path)
-            
+    
     def __copy__(self):
+        #Shallow copy function used by copy.copy()
         new = Sdffile()
-        new._dictomoles = copy.copy(self._dictomoles)
+        #new._dictomoles = copy.copy(self._dictomoles)
+        new._dictomoles = dict()
+        for key in self._dictomoles:
+            new._dictomoles[key] = copy.copy( self._dictomoles[key] )
         new._orderlist = copy.copy(self._orderlist)
         return new
-        
+    
     def __deepcopy__(self,memo):
+        #Deep copy function used by copy.deepcopy()
         new = Sdffile()
         new._dictomoles = copy.deepcopy(self._dictomoles,memo)
         new._orderlist = copy.deepcopy(self._orderlist,memo)
         return new
-
-    def __iter__(self): #iterator returns actual objects! not copies
+    
+    def __iter__(self): 
+        '''
+        function used by iter() function. Initializes an iteration for the object and returns the object itself.
+        iterator returns actual objects! not copies
+        '''
         self.iteone = iter(self._dictomoles)
         try:
             self.itehelpone = self.iteone.next()    #CRASHES IF dictomoles is empty. Try-except takes care of it... this is awful
@@ -66,9 +70,10 @@ class Sdffile(object):
             return iter([])
         self.itetwo = iter(self._dictomoles[self.itehelpone])
         return self
-        
-
+    
+    
     def next(self):
+        #next function for iterating the file. Iterates molecule at a time, not in the order of .sdf-file.
         try:
             self.itehelptwo = self.itetwo.next()
             return self._dictomoles[self.itehelpone][self.itehelptwo]
@@ -79,12 +84,13 @@ class Sdffile(object):
             self.itehelptwo = self.itetwo.next()
             return self._dictomoles[self.itehelpone][self.itehelptwo]
             #return (self.itehelpone, self.itehelptwo, self._dictomoles[self.itehelpone][self.itehelptwo]) #tuple with two keys
-
+    
     def __len__(self):
+        #Return total number of conformations in file.
         return len(self._orderlist)
-
-
+    
     def __str__(self):
+        #Return a single string representing the .sdf-file
         tab = []
         for molinfo in self._orderlist:
             for line in self._dictomoles[molinfo[0]][molinfo[1]].selftolist():
@@ -92,6 +98,10 @@ class Sdffile(object):
         return ''.join(tab)
         
     def __getitem__(self, ind):
+        '''
+        return conformation(s) as from a list
+        molecules in the same order as in represented file
+        '''
         if isinstance( ind, slice ) :
             mols = self._orderlist[ind]
             return [self._dictomoles[inf[0]][inf[1]] for inf in mols]
@@ -104,6 +114,11 @@ class Sdffile(object):
         
 
     def sdfseparator(self, strings):
+        '''
+        Separates a list of strings (as in .sdf-file) into list of lists of strings.
+        lists of strings represent single conformations
+        return list of lists of strings
+        '''
         #Hajoittaa .sdf tiedoston listaksi listoja, joista yksi sisaltaa yhden tiedoston molekyyleista
         _moles = []
         _lines = []
@@ -117,25 +132,30 @@ class Sdffile(object):
         return _moles
     
     def add(self, stringsofone):
-        #Add a molecule
+        '''
+        Adds a molecule to datastructure. 
+        stringsofone is a list of strings representing a single conformation
+        '''
         new = Sdfmole(stringsofone)
         name = new.getname()
-
+        
         if not name in self._dictomoles:
             self._dictomoles[name]=dict()
         n = self.tempconfn(new, self._dictomoles[name])
             
         self._dictomoles[name][n] = new
         self._orderlist.append([name,n])
-        
+    
     def remove(self, name, confn):
-        #Remove a molecule
+        #Remove a molecule by name and conformation number.
         del(self._dictomoles[name][str(confn)])
         self._orderlist.remove([name,confn])
-
-                        
+    
     def sdfmetacombi(self, other, bolist=[True, True], overwrite=False):
-        #Combine metadata from another sdf-file.
+        '''
+        Combine metadata to current file from another sdf-file.
+        bolist = [require same name, require same confnumber]
+        '''
         for omol in other:
             melist = []
             if bolist[0]:
@@ -160,7 +180,10 @@ class Sdffile(object):
                 mol.metacombine(omol, overwrite)
                         
     def sdflistremove(self, other, sameconf=True):
-        #Remove that are present in the other file. Cut operator.
+        '''
+        Cut operator.
+        Remove conformations from current file that are present in the other file.
+        ''' 
         for omol in other:
             oname = omol.getname()
             if sameconf:
@@ -181,16 +204,17 @@ class Sdffile(object):
     def stripbutmeta(self, metalogic):
         '''
         removes all atoms from the file, except for those defined in the given logical meta statement.
+        reads numbers from metastatement and keeps same atomnumbers in conformations.
+        Indexing starts from 1
         '''
         levels = leveler(metalogic)
         for mol in self:
             mol.stripbutmeta(levels)
-        
     
     #conformation numbers
     
     def tempconfn(self, mol, dictomol=None):
-        #Returns a temporary conformation number
+        #Returns a temporary conformation number for given molecule.
         n = mol.getconfn()
         if not n:
             i=-1
@@ -202,9 +226,9 @@ class Sdffile(object):
                     i -= 1
             n = str(i)
         return n
-        
+    
     def uniconfn(self, mol, n='-1'):
-        #Returns a unique conformation number
+        #Returns a unique conformation number for given molecule.
         n=abs(int(n))
         try:
             moli = self._dictomoles[mol.getname()]
@@ -215,8 +239,12 @@ class Sdffile(object):
                     return str(n)
         except KeyError:
             return '1'
-
+    
     def addconfs(self, bolist = [True, False]):
+        '''
+        add unique conformation numbers to conformations
+        bolist=(toName,toMeta confnum)
+        ''' 
         for i, molinfo in enumerate(self._orderlist):
             mol = self._dictomoles[molinfo[0]][molinfo[1]]
             c = mol.getconfn()
@@ -228,11 +256,15 @@ class Sdffile(object):
             self._orderlist[i]=[molinfo[0],c]
             
     def remconfs(self, bolist = [True, True]):
+        '''
+        remove conformation numbers
+        bolist=(fromName,fromMeta confnum)
+        '''
         for mol in self:#self._dictomoles:
             mol.remconf(bolist)
-            
+    
     #misc
-
+    
     def metatoname(self, meta, joiner='_'):
         '''
         Changes the name of molecules to whatever found in given metafield.
@@ -252,10 +284,11 @@ class Sdffile(object):
                 self._dictomoles[name] = dict()
             self._dictomoles[name][nn] = mol
         self.dictmaint()
-
+    
     def metamerger(self, string):
         '''
-        Method to merge multiple metafields into one. Comes with a few operations. Frontend to mergenewmeta
+        Method to merge multiple metafields into one. Comes with a few operations. Frontend to mergenewmeta.
+        All but join can also be made with makenewmeta()
         '''
         [newmeta, task] = re.split('\s*=\s*',string)
         funki = task.find('(')
@@ -308,29 +341,10 @@ class Sdffile(object):
         self.makenewmeta(name, ostri.strip(), None, None )
     
     def makenewmeta(self, name, metastatement, logicchar = None, value = None):
+        '''
+        make a new metafield by metastatement and pick only those fullfilling given logical statement
+        '''
         comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
-        #level = leveler(metastatement)
-        #if value:
-        #    picklevel = leveler(value)
-        #if logicchar:
-        #nag = False
-        '''
-        for mol in self:
-            try:
-                newmeta = copy.deepcopy( mol.logicgetmeta(level) )
-            except ValueError:
-                nag = True
-                continue
-            if logicchar: #new
-                #newmeta.pickvalues( numify(value), comps[logicchar] )
-                newmeta.pickvalues( mol.logicgetmeta(picklevel), comps[logicchar] )
-            if len(newmeta)>0:
-                mol.addmeta(name, newmeta, overwrite=True)
-            else:
-                nag = True
-        if nag:
-            warnings.warn('Not all new metas were generated',UserWarning)
-        '''
         newmetas = self.getmollogic(metastatement)
         if logicchar:
             pickvalues = self.getmollogic(value)
@@ -632,7 +646,8 @@ class Sdffile(object):
     
     def show(self):
         pylab.show()
-        
+    
+    '''
     def logicparse(self, string):
         def dealer(picks, drops):
             #if pick:
@@ -720,28 +735,50 @@ class Sdffile(object):
         else:
             dealer(falses, trues)
             #find min or max
-        
+    '''
     
     def mollogicparse(self, string):
+        '''
+        remove conformations not fullfilling given meta comparison
+        '''
+        self.dealer(*self.mollogic(string))
+    
+    def propor(self, string):
+        '''
+        return ratios of molecules and conformations fulfilling given metacomparison
+        '''
+        (trues, falses) = self.mollogic(string)
+        porconf = float(len(trues))/len(trues+falses)
+        pormols = float(len(set((info[0] for info in trues))))/len(set((info[0] for info in trues+falses)))
+        return (pormols, porconf)
         
-        def dealer(picks, drops):
-            #if pick:
-            for info in drops:
-                del(self._dictomoles[info[0]][info[1]])
-                #self._orderlist.remove(info)
-            
-            
-            neworder=[]
-            for info in self._orderlist:
-                if info in picks:
-                    neworder.append(info)
-            self._orderlist = neworder
-            #self._orderlist = picks
-            self.dictmaint()
-            if len(picks)!=len(self):
-                warnings.warn('Number of picked ones doesn\'t match number of remaining ones.')
-            
+    def dealer(self, picks, drops):
+        '''
+        picks and drops with same format as _orderlist
+        remove molecules in drops and keep those in picks
+        '''
+        #if pick:
+        for info in drops:
+            del(self._dictomoles[info[0]][info[1]])
+            #self._orderlist.remove(info)
+        neworder=[]
+        for info in self._orderlist:
+            if info in picks:
+                neworder.append(info)
+        self._orderlist = neworder
+        #self._orderlist = picks
+        self.dictmaint()
+        if len(picks)!=len(self):
+            warnings.warn('Number of picked ones doesn\'t match number of remaining ones.')
+    
+    def mollogic(self, string):
+        '''
+        return lists of trues and falses for meta comparison in given string
+        '''
         def compar( opesplit ):
+            '''
+            basic logical comparison meta1 > meta2, etc. true if statement is true
+            '''
             opera = opesplit[1]
             #tocompare = [ leveler(opesplit[0]) , leveler(opesplit[2]) ]
             trues = []
@@ -763,6 +800,10 @@ class Sdffile(object):
             return (trues, falses)
         
         def mima( string ):
+            '''
+            pick number, or percentage of conformations for all molecules.
+            smalles or gratest of meta for conformations
+            '''
             #string = opesplit[0]
             tear = leveler(string)
             if len(tear) != 2:
@@ -797,7 +838,7 @@ class Sdffile(object):
                     molec = values[mol]
                 except KeyError:
                     falses.extend([[mol, moln] for moln in self._dictomoles[mol]])
-                    warnings.warn(mol + ' deleted for not having necesary metafield.')
+                    warnings.warn(mol + ' marked false for not having necesary metafield.')
                     continue
                 moles = OrDi(sorted(molec.iteritems(), key= lambda xx: xx[1], reverse = reverse))
                 if per:
@@ -809,9 +850,13 @@ class Sdffile(object):
             return (trues, falses)
         
         def uniqu( string ):
+            '''
+            not implemented
+            will remove duplicates of conformations by given meta expression
+            '''
             string = string[1:]
             pass
-        #end of functions
+        #end of internal functions
         
         string = string.strip()
         
@@ -829,21 +874,22 @@ class Sdffile(object):
         
         if len(opesplit)==3:
             trues, falses = compar( opesplit )
-                
         elif len(opesplit)==1:
             if opesplit[0][0] == '!':
                 trues, falses = uniqu( opesplit[0] )
             else:
                 trues, falses = mima( opesplit[0] )
-            
+        
         if pick:
-            dealer(trues, falses)
+            return (trues, falses)
         else:
-            dealer(falses, trues)
-            #find min or max
+            return (falses, trues)
     
     def getmollogic(self, string):
-        
+        '''
+        return single meta for all conformations inside a nested dict like _dictomoles
+        meta is made from meta expression in given string
+        '''
         molfunx = { 'max':lambda mets: max([met[0] for met in mets]), 'min': lambda mets: min([met[0] for met in mets]), 'avg': lambda mets: avg([met[0] for met in mets]) }
         #fuf = lambda mets: max([met[0] for met in mets])
         sortfunx = { 'asc':True,'des':False }
@@ -861,10 +907,12 @@ class Sdffile(object):
         precalc = dict()
         
         def tabiter(conf, tab, par = None):
-            #print tab
+            '''
+            collapse given levels tab generated from some meta expression into a single Sdfmeta or None
+            '''
             molname = conf.getname()
-            
             def listope(conf,tab,par=None):
+                #Work with lists in given structures
                 if len(tab)==1: #evaluate
                     return tabiter(conf, tab[0], par)
                 elif len(tab)==2: #it a slice / asc/max, or something like that
@@ -905,6 +953,7 @@ class Sdffile(object):
                     return metaus
                 
             def tuplope(conf,tab,par=None):
+                #Work with tuples in given structure
                 if tab[0] in maths:
                     #do math
                     #return Sdfmeta.metaoper(maths[tab[0]],[self.collapser(tab[1]),self.collapser(tab[2])])
@@ -918,6 +967,7 @@ class Sdffile(object):
                 #return something. or not
                 
             def striope(conf,tab,par=None):
+                #Work with strings in given structure
                 if par in ('"',"'"):
                     return Sdfmeta.construct(tab)
                 elif tab in sortfunx or tab in molfunx:
@@ -940,6 +990,7 @@ class Sdffile(object):
                     #else: return None
                     
             def raiser(conf, tab, par=None):
+                #function for raising error
                 raise TypeError('Bad levels: '+str(tab))
             
             '''def sdfmope(tab):
@@ -952,11 +1003,11 @@ class Sdffile(object):
             else:
                 raise TypeError('Bad levels: '+str(tab))'''
             
-            testdi = {list: listope, tuple: tuplope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, NoneType : None }
+            testdi = {list: listope, tuple: tuplope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, NoneType : lambda conf, me, par=None : None }
             return testdi.get(type(tab), raiser )(conf, tab, par)
         
         def confloop(mol, tab):
-            #mymeta=None
+            #Loop through conformations of single type  molecule
             if not mol in metadic:
                 metadic[mol] = dict()
             for confnum in self._dictomoles[mol]:
@@ -970,6 +1021,7 @@ class Sdffile(object):
                 del(metadic[mol])
         
         def molloop():
+            #Loop through types of molecules
             for mol in self._dictomoles:
                 confloop(mol, mylevel)
         
@@ -978,7 +1030,7 @@ class Sdffile(object):
 
     def sorter(self,sortstring):
         '''
-        if datastructure has more than 1 entry, picks the 1st.
+        if datastructure defining the sort has more than 1 entry, picks the 1st.
         '''
         sortstring=sortstring.strip()
         sortstring=sortstring.strip('\"|\'')
@@ -988,8 +1040,13 @@ class Sdffile(object):
             rever=False
         else:
             return self._orderlist
-        return sorted(self._orderlist, key=lambda avain: numify(self._dictomoles[avain[0]][avain[1]].getmeta(sortstring[1:])[0]),reverse=rever)
+        return sorted(self._orderlist, key=lambda avain: numify(self._dictomoles[avain[0]][avain[1]].getmeta(sortstring[1:])[0]) if self._dictomoles[avain[0]][avain[1]].hasmeta(sortstring[1:]) else None, reverse=rever)
         
+    def sortme(self,sortstring):
+        '''
+        frontend for sorter
+        '''
+        self._orderlist = self.sorter(sortstring)
     
     def sortmetas(self, sorty):
         '''
@@ -1017,6 +1074,9 @@ class Sdffile(object):
         #return sorted(self._orderlist, key=lambda avain: numify(self._dictomoles[avain[0]][avain[1]]._meta[sorty[1:]][0]),reverse=rever)
     
     def addcsvmeta(self, path, verbose=False):
+        '''
+        Add metadata from given csv-file path
+        '''
         f = open(path)
         chop = re.compile('\s*[;,\t]\s*')
         csvdata = [[cell.strip('\n ') for cell in chop.split(line)] for line in f.readlines()] #lukee tiedoston, splittaa pilkuista ja poistaa alkioista rivinvaihdot
@@ -1069,8 +1129,9 @@ class Sdffile(object):
                         #mol._meta[header[i+1]].cleandelim(True)
                         mol.getmeta(header[i+1]).cleandelim(True)
         del(csvdata)
-                    
+    
     def removemeta(self, metaliststring, pick = False):
+        #Remove metafields given in list of metanames
         remoli = re.split('\s*,|;\s*',metaliststring)
         if pick:    #keep selected metafields
             for mol in self:
@@ -1111,6 +1172,9 @@ class Sdffile(object):
         
         
     def writer(self, writetype, **kwargs):#path=None, split=False, makefolder=False): #new way of writing things
+        '''
+        Chaotic writer function that puts wanted result in a file/files or standard output
+        '''
         newargs = dict(kwargs)
         if writetype=='none':
             return
@@ -1152,6 +1216,9 @@ class Sdffile(object):
                     onesdf.writer(writetype, **newargs) #TODO
                     
     def getMol2Data(self, metaname, column, path):
+        '''
+        Get atomwise information from wanted column in given .mol2-file and add it as metadata to current .sdf-file
+        '''
         mol2 = Mol2File(path)
         for i, mol in enumerate(mol2):
             newdic = mol.pickatomdata(column)
@@ -1159,6 +1226,9 @@ class Sdffile(object):
         del(mol2)
         
     def injectMol2Data(self, metaname, column, path, defaultValue=0.0, precision=4, outpath = None):
+        '''
+        Inject atomwise information from current .sdf-file metadata to given wanted column in .mol2-file and make wanted output file.
+        '''
         mol2 = Mol2File(path)
         #metaname = metaname.strip() #No logic meta
         level = leveler(metaname)
@@ -1172,9 +1242,16 @@ class Sdffile(object):
 #end of Sdffile
 
 class Sdfmole(object):
+    '''
+    Class containing all information concerning a single conformation
+    '''
     mes='Conformation number mismatch! {} vs {}'
     
     def __init__(self, stringsofone=None):
+        '''
+        Initialize an empty molecule with no data at all
+        Adds data if list of strings containing lines of sdf-file describing single molecule is given
+        '''
         self._name = '' #nimi, ei ID
         self._meta = dict() #sisältää metadatan
         self._metakeys = list() #sisältää metadatan avaimet ja pitää niille järjestyksen
@@ -1186,9 +1263,15 @@ class Sdfmole(object):
             self.initialize(stringsofone)
             
     def __str__(self):
+        '''
+        Turns the object into a single string as in .sdf-file 
+        '''
         return ''.join(selftolist())
     
     def __copy__(self):
+        '''
+        Shallow copy method
+        '''
         new = Sdfmole()
         new._name           = copy.copy(self._name)
         new._meta           = copy.copy(dicself._meta)
@@ -1206,6 +1289,9 @@ class Sdfmole(object):
         return new
         
     def __deepcopy__(self,memo):
+        '''
+        Deep copy method
+        '''
         new = Sdfmole()
         new._name           = copy.deepcopy(self._name,memo)
         new._meta           = copy.deepcopy(self._meta,memo)
@@ -1223,6 +1309,9 @@ class Sdfmole(object):
         return new
     
     def initialize(self, strings):
+        '''
+        Add data to molecule from list of strings as in .sdf-file
+        '''
         self._name = strings[0].strip()
         self._comment = [line.strip() for line in strings[1:3]] #[strings[i].strip() for i in [1,2]]
         first = -1
@@ -1246,6 +1335,10 @@ class Sdfmole(object):
                 #self._metakeys.append(newmeta.getname())
                 
     def dists(self, point1, ignores=['H']):
+        '''
+        return list of distances and atom numbers. single line describes distance of an atom in molecule to given point.
+        Atom types in ignores are omitted.
+        '''
         ignores = [item.upper() for item in ignores]
         self.numerize()
         coord1 = coorder(point1)
@@ -1257,12 +1350,16 @@ class Sdfmole(object):
             if self.gettype(i+1).strip() in ignores:
                 continue
             
-            coord2 = numpy.array(self.getcoord(i+1)) #numpy.array([float(c) for c in atom[0:3]])
+            #coord2 = numpy.array(self.getcoord(i+1)) #numpy.array([float(c) for c in atom[0:3]])
+            coord2 = self.getatomloc(i+1)
             dist = sum((coord1-coord2)**2)**0.5
             alist.append([float(dist),i+1])
         return alist
 
     def numerize(self):
+        '''
+        Turn initial textual format of the atomblock to listlike and numerical format.
+        '''
         if not self._numeric:
             self._counts = [self._other[2][i:i+3].strip() for i in range(33)[::3]]+[self._other[2][33:39].strip()]
             blockdiv = [3,3+int(self._counts[0]),3+int(self._counts[0])+int(self._counts[1])]
@@ -1273,6 +1370,9 @@ class Sdfmole(object):
             self._numeric = True
         
     def getconf(self):
+        '''
+        return conformation number in the name and meta for the conformation
+        '''
         ans = [None, None]
         m = confchop.search(self._name)
         if m:
@@ -1286,10 +1386,17 @@ class Sdfmole(object):
         return ans
         
     def getconfn(self):
+        '''
+        Return single conformationnumber
+        '''
         a = self.getconf()
         return a[0] or a[1]
         
     def addconf(self, conf, bolist = [True, True]):
+        '''
+        add given conformation number
+        bolist =(toName, toMeta confnum)
+        '''
         conf = str(conf)
         already =  self.getconf() 
         if bolist[1]:
@@ -1306,6 +1413,10 @@ class Sdfmole(object):
                 self._name = self._name + '{[' + conf + ']}'
                 
     def remconf(self, bolist = [True, True]):
+        '''
+        remove conformation number
+        bolist =(fromName, fromMeta confnum)
+        '''
         already = self.getconf()
         if bolist[0] and already[0]:
             self._name = confchop.sub('',self._name)
@@ -1314,18 +1425,36 @@ class Sdfmole(object):
             self._meta.pop(ckey)
             
     def getname(self):
+        '''
+        return name of molecule without possible conformation number
+        '''
         return confchop.sub('', self._name)
     
+    ''' deprecated and replaced by getatomloc 
     def getcoord(self, N):
+        #return coordinates of given atom
+        #Indexing from 1
         return numify(self._atoms[N-1][:3])
+    '''
     
     def gettype(self, N):
+        '''
+        return atom type of given atom
+        Indexing from 1
+        '''
         return self._atoms[N-1][4]
     
     def hasmeta(self, metaname):
+        '''
+        return boolean value if conformation has given metafield
+        '''
         return metaname in self._meta
     
     def getmeta(self, metaname, **kwargs):
+        '''
+        return Sdfmeta with given metaname.
+        wont numerize meta if argument "dummy" is given
+        '''
         if self.hasmeta(metaname):
             if 'dummy' in kwargs and  kwargs['dummy']:
                 pass
@@ -1336,20 +1465,31 @@ class Sdfmole(object):
             return None
     
     def metacombine(self, othersdfmol,overwrite=False):
+        '''
+        Add all Sdfmeta from another Sdfmole
+        '''
         for key in othersdfmol._metakeys:
             if not overwrite and key in self._meta:
                 continue
             self.addmeta(key,othersdfmol.getmeta(key,dummy=True),overwrite=True)
                 
     def issame(self, othersdfmol):
-        same = [False, False]
+        '''
+        return boolean values if molecule names and conformation numbers are same
+        '''
+        '''same = [False, False]
         if confchop.sub('', self._name) == confchop.sub('', othersdfmol._name):
             same[0]=True
         if self.getconfn() == othersdfmol.getconfn():
             same[1]=True
+        '''
+        same = [confchop.sub('', self._name) == confchop.sub('', othersdfmol._name), self.getconfn() == othersdfmol.getconfn()]
         return same
     
     def make_other(self):
+        '''
+        return reconstructed atomblock from numerized molecule
+        '''
         other = []
         for line in self._comment:
             other.append(line + '\n')
@@ -1363,6 +1503,9 @@ class Sdfmole(object):
         return other
     
     def selftolist(self):
+        '''
+        return constructed list of strings describing the conformation as in .sdf-file
+        '''
         me=[]
         me.append(self._name + '\n')
         
@@ -1380,6 +1523,9 @@ class Sdfmole(object):
         
     #def addmeta(self,metafield, value, overwrite = True):
     def addmeta(self,metafield, value, **dictarg): #overwrite, literal
+        '''
+        Create a new Sdfmeta with given name and value and add it to the conformation
+        '''
         if 'overwrite' in dictarg and dictarg['overwrite']:
             overwrite = True
             del(dictarg['overwrite'])
@@ -1401,9 +1547,15 @@ class Sdfmole(object):
             self._metakeys.append(metafield)
         
     def metasort(self, reverse=False):
+        '''
+        Sort the order of metafields appearing in .sdf-file
+        '''
         self._metakeys.sort(reverse, key=lambda meta: meta.lower())
         
     def changemetaname(self, oldname, newname):
+        '''
+        Change name of given Sdfmeta
+        '''
         if oldname in self._meta:
             i=self._metakeys.index(oldname)
             self._metakeys[i]=newname
@@ -1431,14 +1583,23 @@ class Sdfmole(object):
         return (atoms,dists)
         
     def getatomloc(self,n):
+        '''
+        return coordinates of given atom
+        '''
         self.numerize()
         return numpy.array([numify(coord) for coord in self._atoms[n-1][0:3]])
     
     def atomdist(self, atom1, atom2):
+        '''
+        return distance between 2 atoms
+        '''
         self.numerize()
         return sum((self.getatomloc(atom1)-self.getatomloc(atom2))**2)**0.5
     
     def pointlistdists(self, point, metalist):
+        '''
+        return lists of atoms and distances from given point to atoms in given metalist
+        '''
         alldists = self.dists(point)
         try:
             atoms = self.getmeta(metalist)
@@ -1451,7 +1612,10 @@ class Sdfmole(object):
     
     
     def bonddists(self, atom1, intrests=None):
+        '''
+        Doesn't work right now
         #dijikstra algorithm for finding path length to all atoms, or to list of intresting atoms
+        '''
         self.numerize()
         n=len(self._atoms)
         visited = list(numpy.zeros(n,dtype=bool))
@@ -1492,20 +1656,39 @@ class Sdfmole(object):
             else:
                 atom=nextone
         return distances
-        
+    
+    def pickmetavalues(self, meta, value, operator,copyme=False):
+        '''
+        Removes entries in single Sdfmeta that won't fullfill given comparison
+        '''
+        if self.hasmeta(meta):
+            if type(value)==str:
+                comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
+                operator == comps.get(operator.strip())
+            newmeta = self.getmeta(meta)
+            if copyme:
+                newmeta = copy.copy(newmeta)
+            newmeta.pickvalues(value, operator)
+            self._meta[meta] = newmeta
+    
+    '''
     def stringtoownmeta(self,string):
         #find parens, test if same
         leveled = leveler(string)
         pass
+    '''
     
     def logicgetmetastr(self, string):
+        #return meta defined in given meta expression
         return self.logicgetmeta(leveler(string))
     
     def logicgetmeta(self, partab):
+        #return meta defined in given list structure
         return self.collapser(self.levopemap(partab))
         
     def levopemap(self, tab, par=None, length=None):
         '''
+        partly deprecated
         Accepts lists made by leveler method. Maps this list for mathematical operators and metafield names. Also slices.
         '''
         if isinstance(tab, tuple):
@@ -1568,6 +1751,10 @@ class Sdfmole(object):
                     #return Sdfmeta.construct(tab)
     
     def collapser(self, tab, para=None):
+        '''
+        deprecated
+        collapses given structure to single Sdfmeta
+        '''
         maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div,'**':mypow}
         pars = ('(','[','{')
         if isinstance(tab,list):
@@ -1607,6 +1794,9 @@ class Sdfmole(object):
             
     
     def stripbutmeta(self, levemeta):
+        '''
+        Remove atoms except those defined in given liststructure
+        '''
         self.numerize()
         atoms = self.logicgetmeta(levemeta)
         newatoms = []
@@ -1620,9 +1810,14 @@ class Sdfmole(object):
 #end of Sdfmole
 
 class Sdfmeta(object):
-    
+    '''
+    Class including information in single metafield
+    '''
     def __init__(self, listofstrings=None):
-        
+        '''
+        Initializes an empty metafield
+        If listofstrings is given (a single metafield in .sdf-file) adds that data
+        '''
         self._name = [None,None] #Metafield name
         self._datatype = None #int, float, str
         self._datastruct = None #list, dict, single
@@ -1634,6 +1829,9 @@ class Sdfmeta(object):
             self.initialize(listofstrings)
         
     def __getitem__(self, ind):
+        '''
+        get a slice from list or dict Sdfmeta
+        '''
         if self._datastruct == OrDi:
             mylist = self._data.values()
         else:
@@ -1644,34 +1842,48 @@ class Sdfmeta(object):
             raise TypeError, "Invalid argument type."
             
     def __iter__(self):
+        '''
+        initializes an iterator to loop data in Sdfmeta
+        returns the iterator
+        '''
         if type(self._data) == OrDi:
             return iter(self._data.values())
         else:
             return iter(self._data)
             
     def __len__(self):
+        #number of entries in Sdfmeta
         return len(self._data)
             
     #comparisons
     def __lt__(self, other):
+        #less than
         return self._compare(other,operator.lt)
         
     def __le__(self, other):
+        #less or equal
         return self._compare(other,operator.le)
         
     def __eq__(self, other):
+        #equal
         return self._eqcompare(other,operator.eq)
         
     def __ge__(self, other):
+        #greater or equal
         return self._compare(other,operator.ge)
         
     def __gt__(self, other):
+        #greater than
         return self._compare(other,operator.gt)
         
     def __ne__(self, other):
+        #not equal
         return not self._eqcompare(other,operator.eq)
     
     def _compare(self, other, oper):
+        '''
+        method to actually do given comparisons from example __gt__
+        '''
         if type(other) != Sdfmeta:
             othermeta = Sdfmeta.construct( numify(other))
         else:
@@ -1702,6 +1914,9 @@ class Sdfmeta(object):
         return False
     
     def _eqcompare(self, other, oper):
+        '''
+        same as _compare but for eq and ne
+        '''
         if type(other) != Sdfmeta:
             othermeta = Sdfmeta.construct( numify(other))
         else:
@@ -1728,7 +1943,9 @@ class Sdfmeta(object):
         return False
         
     def initialize(self, listofstrings):
-        '''parse the metadata'''
+        '''
+        parse the metadata from list of strings
+        '''
         #get name of metafield
         if listofstrings[0][0] != '>' :
             self._name = ['  ','']
@@ -1747,6 +1964,9 @@ class Sdfmeta(object):
         self._data = mylines
     
     def numerize(self):
+        '''
+        Metas are initially stored in dumb-form (text). This method does the actual parsing/numerizing
+        '''
         if self._dumb:
             
             #instead of commented section, merge lines with '' and do whattype
@@ -1786,7 +2006,9 @@ class Sdfmeta(object):
         
     @staticmethod
     def construct(data, **dictarg): #name, delims, literal
-        
+        '''
+        return a new Sdfmeta from actual data (list, Ordered dict, string, int, float, ....
+        '''
         new = Sdfmeta()
         new._dumb = False
         if 'name' in dictarg:
@@ -1863,6 +2085,9 @@ class Sdfmeta(object):
             
             
     def __copy__(self):
+        '''
+        Shallow copy method
+        '''
         new = Sdfmeta()
         new._name = copy.copy( self._name )
         new._datatype = copy.copy( self._datatype )
@@ -1874,6 +2099,9 @@ class Sdfmeta(object):
         return new
         
     def __deepcopy__(self, memo):
+        '''
+        Deep copy method
+        '''
         new = Sdfmeta()
         new._name = copy.deepcopy( self._name,memo)
         new._datatype = copy.deepcopy( self._datatype,memo)
@@ -1885,12 +2113,21 @@ class Sdfmeta(object):
         return new
     
     def getname(self):
+        '''
+        return name of Sdfmeta
+        '''
         return self._name[-1]
     
     def isdumb(self):
+        '''
+        Has Sdfmeta been numerized yet
+        '''
         return self._dumb
     
     def setname(self, newname):
+        '''
+        Change the name of Sdfmeta
+        '''
         if type(newname) in (list, tuple):
             self._name = list(name[:2])
         elif type(newname) == str:
@@ -2334,8 +2571,10 @@ def atomtostring(tab):
 def listtostring(tab, fill):
     return ''.join([('{:>'+str(fill)+'}').format(i) for i in tab])
     
+'''
 def nestfind(alist, subindex, tofind):
     return next((i for i, sublist in  enumerate(alist) if sublist[subindex]==tofind),-1)
+'''
     
 def numify(stri):
     if type(stri) == int:
@@ -2811,6 +3050,7 @@ if __name__ == "__main__":
     
     arger.add_argument("-csv", "--addcsv", type = str,                      help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. Names of molecules must be leftmost. If name includes confnumber, meta is only added molecules with same confnumber.")
     arger.add_argument("-ex", "--extract", type = str,                      help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID='benzene'. Takes multiple statements separated with | ")
+    arger.add_argument("-pro", "--proportion", type = str,                  help = "Takes one exctract-like metastatement and prints proportion of molecules and conformations fulfilling it after every chop, if you are on verbose mode.")
     
     choiceremo = arger.add_mutually_exclusive_group()
     choiceremo.add_argument("-rm", "--removemeta", type = str,              help = "Remove metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'")
@@ -3003,7 +3243,8 @@ if __name__ == "__main__":
         if args.sortorder:
             sortsies = args.sortorder.split('|')
             for sorty in sortsies:
-                sdf1._orderlist=sdf1.sorter(sorty)
+                #sdf1._orderlist=sdf1.sorter(sorty)
+                sdf1.sortme(sorty)
                 if args.verbose:
                     print 'Sort {} done.'.format(sorty)
                 pass
@@ -3036,11 +3277,17 @@ if __name__ == "__main__":
             logics = args.extract.split('|')
             if args.verbose:
                 print 'Initially sdf-file has {} molecules and {} conformations.'.format(len(sdf1._dictomoles),len(sdf1))
+                if args.proportion:
+                    (molp, confp) = sdf1.propor(args.proportion.strip())
+                    print '{:.1f}% of molecules and {:.1f}% of conformation fulfill the statement {}.'.format(molp*100, confp*100, args.proportion.strip())
             for logic in logics:
                 #sdf1.logicparse(logic.strip())
                 sdf1.mollogicparse(logic.strip())
                 if args.verbose:
                     print 'After logical chop {}, sdf-file has {} molecules and {} conformations left.'.format(logic,len(sdf1._dictomoles),len(sdf1))
+                    if args.proportion:
+                        (molp, confp) = sdf1.propor(args.proportion.strip())
+                        print '{:.1f}% of molecules and {:.1f}% of conformation fulfill the statement {}.'.format(molp*100, confp*100, args.proportion.strip())
             times.append(time.time())
             if args.verbose:
                 print 'Logical chopping done. It took {} seconds.'.format(times[-1]-times[-2])
