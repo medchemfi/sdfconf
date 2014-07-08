@@ -1920,7 +1920,7 @@ class Sdfmeta(object):
         same as _compare but for eq and ne
         '''
         if self.isdumb():
-            self.numerize(
+            self.numerize()
         if type(other) != Sdfmeta:
             othermeta = Sdfmeta.construct( numify(other))
         else:
