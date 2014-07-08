@@ -840,7 +840,7 @@ class Sdffile(object):
                     falses.extend([[mol, moln] for moln in self._dictomoles[mol]])
                     warnings.warn(mol + ' marked false for not having necesary metafield.')
                     continue
-                if len(set(map(len,[mole[1] for mole in molec])) - {0,1})>0:
+                if len(set(map(len,[mole[1] for mole in molec.iteritems()])) - {0,1})>0:
                     warnings.warn('Comparing lists, might lead to weird results.',UserWarning)
                 moles = OrDi(sorted(molec.iteritems(), key= lambda xx: xx[1], reverse = reverse))
                 if per:
