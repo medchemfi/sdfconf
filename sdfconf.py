@@ -802,7 +802,7 @@ class Sdffile(object):
         def mima( string ):
             '''
             pick number, or percentage of conformations for all molecules.
-            smalles or gratest of meta for conformations
+            smallest or greatest of meta for conformations
             '''
             #string = opesplit[0]
             tear = leveler(string)
@@ -840,6 +840,8 @@ class Sdffile(object):
                     falses.extend([[mol, moln] for moln in self._dictomoles[mol]])
                     warnings.warn(mol + ' marked false for not having necesary metafield.')
                     continue
+                if len(set(map(len,[mole[1] for mole in molec])) - {0,1})>0:
+                    warnings.warn('Comparing lists, might lead to weird results.',UserWarning)
                 moles = OrDi(sorted(molec.iteritems(), key= lambda xx: xx[1], reverse = reverse))
                 if per:
                     grab = int(math.ceil(len(moles)*num/100.0))
