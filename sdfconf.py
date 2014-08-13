@@ -17,7 +17,7 @@ import warnings
 from types import NoneType
 
 #Common regular expressions used.  
-confchop=re.compile('\{\[\d+\]\}') #gets conformation number
+confchop= re.compile('\{\[.+\]\}') #re.compile('\{\[\d+\]\}') #gets conformation number #changed from number to everything
 molchop = re.compile('^\${4}') #Separates molecules in file
 #metachop = re.compile('>\s+<') #Detects beginning of metafield name
 stapa=re.compile('\{|\[|\(') #Starting parentesis
@@ -388,15 +388,23 @@ class Sdffile(object):
                 delkeys.append(key)
         for key in delkeys:
             del(self._dictomoles[key])
+            
+    def copymetalist(self):
+        '''
+        Runs metanewdict for all molecules.
+        '''
+        for mol in self:
+            mol.metanewdict()
     
     def sametest(self, bolist, samelist):
         #Test wether molecules are "the same" as described in bolist.
         return (bolist[0] <= samelist[0]) and (bolist[1] <= samelist[1])
         
-    def makecsv(self,stringofmetas,separator=';\t'):
+    def makecsv(self,stringofmetas,separator='\t'):
         #Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields
         listofmeta = [met.strip() for met in re.split('\s*,|;\s*',stringofmetas)]
-        if listofmeta[0]=='?':
+        #if listofmeta[0]=='?':
+        if '?' in listofmeta:
             metalist = self.listmetas()
             for meta in listofmeta[1:]:
                 metalist.remove(meta)
@@ -408,7 +416,12 @@ class Sdffile(object):
             line = []#[mol._name]
             for meta in listofmeta:
                 if meta in mol._meta:
-                    line.append('"'+mol.getmeta(meta).getmetastr()+'"')
+                    memeta = mol.getmeta(meta) #.getmetastr()
+                    if memeta._datastruct != 'single' or  memeta.dtype() == str:
+                        line.append('"'+memeta.getmetastr()+'"')
+                    else:
+                        line.append(mol.getmeta(meta).getmetastr())
+                    #line.append('"'+mol.getmeta(meta).getmetastr()+'"')
                 else:
                     line.append('""')
             csv.append(separator.join(line))
@@ -1565,6 +1578,20 @@ class Sdfmole(object):
             #self._meta[newname]=self._meta[oldname]
             #self._meta[newname].setname(newname)
             del(self._meta[oldname])
+            
+    def metanewdict(self):
+        '''
+        Makes a copy of dict holding the metadata. Assists in case you have multiple sdffiles and want to make new metas with same names.
+        '''
+        #newdic = dict()
+        #newlist = list()
+        #for key in self._metakeys:
+        #    newdic[key] = self._meta[key]
+        #    newlist.append(key)
+        #self._meta = newdic
+        #self._metakeys = newlist
+        self._meta = dict(self._meta)
+        self._metakeys = list(self._metakeys)
             
     def atomlistdistances(self,metaatom,metalist):
         '''
