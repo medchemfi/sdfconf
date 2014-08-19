@@ -427,6 +427,63 @@ class Sdffile(object):
             csv.append(separator.join(line))
         return csv
         
+    
+    def makeatomiccsv(self,stringofmetas,separator='\t'):
+        #Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields
+        listofmeta = [met.strip() for met in re.split('\s*,|;\s*',stringofmetas)]
+        #if listofmeta[0]=='?':
+        if '?' in listofmeta:
+            metalist = self.listmetas()
+            for meta in listofmeta[1:]:
+                metalist.remove(meta)
+            listofmeta = metalist
+        csv = [separator.join(['atom_number'] + listofmeta)]
+        for info in self._orderlist:
+            mol = self._dictomoles[info[0]][info[1]]
+            
+            keys=set()
+            for meta in listofmeta:
+                if not meta in mol._meta:
+                    continue
+                elif mol.getmeta( meta )._datastruct == OrDi:
+                    
+                    for key in mol.getmeta( meta )._data.keys():
+                        keys.add(key)
+            #if len(keys)==0:
+                #return self.makecsv(stringofmetas, separator)
+            for key in keys:
+                newline = [str(key)]
+                
+                for meta in listofmeta:
+                    if not meta in mol._meta:
+                        newline.append("NA")
+                    elif mol.getmeta(meta)._datastruct == OrDi:
+                        tmpmeta = mol.getmeta(meta)
+                        if not key in tmpmeta._data.keys():
+                            newline.append("NaN")
+                        else:
+                            newline.append(str(tmpmeta._data[key]))
+                    else:
+                        newline.append(mol.getmeta(meta).getmetastr())
+                csv.append(separator.join(newline))
+            
+            '''
+            for meta in listofmeta:
+                
+                
+                if meta in mol._meta:
+                    memeta = mol.getmeta(meta) #.getmetastr()
+                    if memeta._datastruct != 'single' or  memeta.dtype() == str:
+                        line.append('"'+memeta.getmetastr()+'"')
+                    else:
+                        line.append(mol.getmeta(meta).getmetastr())
+                    #line.append('"'+mol.getmeta(meta).getmetastr()+'"')
+                else:
+                    line.append('""')
+            csv.append(separator.join(line))
+            '''
+        return csv
+        
     def listmetas(self):
         #Make a list of all metafields present in the file.
         metas = []
@@ -546,6 +603,8 @@ class Sdffile(object):
     def selftostring(self, output, **kwargs):
         if output=='getcsv':
             return '\n'.join(self.makecsv(kwargs['csv']))+'\n'
+        elif output=='getatomcsv':
+            return '\n'.join(self.makeatomiccsv(kwargs['atomcsv']))+'\n'
         elif output=='metalist':
             return '\n'.join(self.listmetas())+'\n'
         elif output=='counts':
@@ -1233,11 +1292,26 @@ class Sdffile(object):
     def getMol2Data(self, metaname, column, path):
         '''
         Get atomwise information from wanted column in given .mol2-file and add it as metadata to current .sdf-file
+        If name in mol2 includes sdfconf-compatible confum, data is added conformation wise. Otherwise by complete molecule names.
         '''
         mol2 = Mol2File(path)
         for i, mol in enumerate(mol2):
             newdic = mol.pickatomdata(column)
-            self[i].addmeta(metaname, newdic)
+            name = confchop.sub('',  mol['MOLECULE'][0])
+            if name != mol['MOLECULE'][0] :
+                conf = confchop.search(mol['MOLECULE'][0]).group().strip('{[]}')
+            else:
+                conf = None
+            mols = []
+            if name in self._dictomoles:
+                if conf and conf in self._dictomoles[name]:
+                    mols.append(self._dictomoles[name][conf])
+                elif not conf:
+                    for key in self._dictomoles[name] :
+                        mols.append(self._dictomoles[name][key])
+            for sdfmol in mols:
+                sdfmol.addmeta(metaname, newdic)
+            #self[i].addmeta(metaname, newdic)
         del(mol2)
         
     def injectMol2Data(self, metaname, column, path, defaultValue=0.0, precision=4, outpath = None):
@@ -3094,6 +3168,7 @@ if __name__ == "__main__":
     
     outputtype = arger.add_mutually_exclusive_group()
     outputtype.add_argument("-gc", "--getcsv", type = str ,                 help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','.")
+    outputtype.add_argument("-gac", "--getatomcsv", type = str ,            help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','. Writes dictionaries to separate lines")
     outputtype.add_argument("-ml", "--metalist", action = "store_true",     help = "Writes a list of metafields.")
     outputtype.add_argument("-nm", "--counts", type = int,                  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
@@ -3396,6 +3471,10 @@ if __name__ == "__main__":
         if args.getcsv:
             writetype='getcsv'
             wriarg['csv']=args.getcsv
+        elif args.getatomcsv:
+            writetype='getatomcsv'
+            wriarg['atomcsv']=args.getatomcsv
+        
         elif args.metalist:
             writetype='metalist'
         elif args.counts!=None:
