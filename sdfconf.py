@@ -458,11 +458,12 @@ class Sdffile(object):
                     if not meta in mol._meta:
                         newline.append("NA")
                     elif mol.getmeta(meta)._datastruct == OrDi:
-                        tmpmeta = mol.getmeta(meta)
-                        if not key in tmpmeta._data.keys():
-                            newline.append("NaN")
-                        else:
-                            newline.append(str(tmpmeta._data[key]))
+                        newline.append(str(mol.getmeta(meta)._data.get(key,"NA")))
+                        #tmpmeta = mol.getmeta(meta)
+                        #if not key in tmpmeta._data.keys():
+                        #    newline.append("NaN")
+                        #else:
+                        #    newline.append(str(tmpmeta._data[key]))
                     else:
                         newline.append(mol.getmeta(meta).getmetastr())
                 csv.append(separator.join(newline))
@@ -1956,7 +1957,10 @@ class Sdfmeta(object):
             
     def __len__(self):
         #number of entries in Sdfmeta
-        return len(self._data)
+        if self._data:
+            return len(self._data)
+        else:
+            return 0
             
     #comparisons
     def __lt__(self, other):
@@ -2090,7 +2094,7 @@ class Sdfmeta(object):
             (data,dtype,delims) = whattype(''.join(newlines))
     
             #if string, it's special
-            if dtype == str:
+            if dtype == str and type(data) != OrDi:
                 self._datatype = str
                 self._data = [line.strip('\n') for line in mylines]
                 self._datastruct = list
@@ -2263,6 +2267,8 @@ class Sdfmeta(object):
             self._datastruct = copy.deepcopy( other._datastruct )
             self._datatype =   copy.deepcopy( other._datatype )
             self._delims =     copy.deepcopy( other._delims )
+            self._dumb =       copy.deepcopy( other._dumb )
+            self._dumbcontent =copy.deepcopy( other._dumbcontent )
             return
             
         floatflag = False
@@ -2293,9 +2299,10 @@ class Sdfmeta(object):
             self._delims.append(self._delims[-1])
             self._delims.extend(other._delims)
         except IndexError:
-            self._delims = [', ']*(len(self._data))
-            self._delims.extend(other._delims)
-            
+            if self._data:
+                self._delims = [', ']*(len(self._data))
+                self._delims.extend(other._delims)
+                
         if floatflag:
             if self._datastruct == list:
                 self._data = map(float, self._data)
@@ -2391,7 +2398,8 @@ class Sdfmeta(object):
     def cleandelim(self, unify=False):
         '''Clean excess whitespaces from delimiters'''
         if len(self._delims) == 0:
-            self._delims = [', ']*(len(self._data)-1)
+            if self._data:
+                self._delims = [', ']*(len(self._data)-1)
             return
         
         for i in range(len(self._delims)):
