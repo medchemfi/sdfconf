@@ -207,9 +207,12 @@ class Sdffile(object):
         reads numbers from metastatement and keeps same atomnumbers in conformations.
         Indexing starts from 1
         '''
-        levels = leveler(metalogic)
-        for mol in self:
-            mol.stripbutmeta(levels)
+        #levels = leveler(metalogic)
+        metas = self.getmollogic(metalogic)
+        #for mol in self:
+        #    mol.stripbutmeta(levels)
+        for molinfo in self._orderlist:
+            self._dictomoles[molinfo[0]][molinfo[1]].stripbutmeta(metas[molinfo[0]][molinfo[1]])
     
     #conformation numbers
     
@@ -621,6 +624,12 @@ class Sdffile(object):
             return None
 
     def mehist(self, Xname, Yname=None, **kwargs):
+        if 'ex' in kwargs:
+            sdf = copy.copy(self)
+            sdf.mollogicparse(kwargs['ex'])
+            del(kwargs['ex'])
+        else:
+            sdf = self
         #import pylab
         #Histograms work again!
         #kwargs: title, Xtitle, Ytitle, bins
@@ -635,13 +644,13 @@ class Sdffile(object):
         #New implementation
         datas = [[]]
         #levels = [leveler(Xname)]
-        almetas = [self.getmollogic(Xname)]
+        almetas = [sdf.getmollogic(Xname)]
         if Yname:
             datas.append([])
-            almetas.append(self.getmollogic(Yname))
+            almetas.append(sdf.getmollogic(Yname))
         #    levels.append(leveler(Yname))
         
-        for mol in self:
+        for mol in sdf:
             #metas = tuple( mol.logicgetmeta(level) for level in levels )
             molname = mol.getname()
             confn = mol.getconfn()
@@ -1007,6 +1016,11 @@ class Sdffile(object):
                         elif tab[0] in sortfunx:
                             #sort next tuple, etc.
                             meta = tabiter(conf, tab[1] )
+                            #test start
+                            '''
+                            sortfunx = { 'asc': meta.sortme(True), 'des': meta.sortme(False) }
+                            '''
+                            #test end
                             if meta:
                                 meta.sortme(sortfunx[tab[0]])
                                 return meta
@@ -1897,12 +1911,14 @@ class Sdfmole(object):
             raise TypeError('Unknown logic')
             
     
-    def stripbutmeta(self, levemeta):
+    #def stripbutmeta(self, levemeta):
+    def stripbutmeta(self, metaobj):
         '''
         Remove atoms except those defined in given liststructure
         '''
         self.numerize()
-        atoms = self.logicgetmeta(levemeta)
+        #atoms = self.logicgetmeta(levemeta)
+        atoms = metaobj
         newatoms = []
         for n in atoms._data:
             newatoms.append(self._atoms[n-1])
