@@ -3172,7 +3172,8 @@ if __name__ == "__main__":
     arger.add_argument("-cn", "--toname",  action = "store_true",           help = "add conformation number to name from metadata. if number in metadata doesn't exist, make a new one.")
     arger.add_argument("-mtn", "--metatoname",  type = str,                 help = "Change the name of molecule to the data in given metafield")
     arger.add_argument("-ntm", "--nametometa",  type = str,                 help = "Copy the name of molecule into given metafield")
-    arger.add_argument("-rc", "--remove",  type = int, default=3,           help = "remove conformation number from 1=metadata, 2=name, 3=both. if number doesn't exist, do nothing. Default=3. 1 deletes metafield 'confnum'. ")
+    arger.add_argument("-rcn", "--removeconfname",  action="store_true",    help = "remove conformation number from name.")
+    arger.add_argument("-rcm", "--removeconfmeta",  action="store_true",    help = "remove conformation number from metafield 'confnum'.")
     
     choicecombi = arger.add_mutually_exclusive_group()
     choicecombi.add_argument("-co", "--combine", type = str, nargs = '+',   help = "Combine metadata from specified file to the data of original file. Confromation numbers must match.")
@@ -3217,6 +3218,7 @@ if __name__ == "__main__":
     
     args = arger.parse_args()
     manyfiles = args.input
+    options = vars(args) #FIXME #not used yet
     
     def main(inputfile):
         times = [time.time()]
@@ -3226,34 +3228,48 @@ if __name__ == "__main__":
         if args.verbose:
             print 'Reading file done. It took {} seconds.'.format(times[-1]-times[-2])
         
-        #check
+        #parameterless
         if args.tofield:
             sdf1.addconfs([False,True])
             times.append(time.time())
             if args.verbose:
                 print 'Conformation numbers added to metadata. It took {} seconds.'.format(times[-1]-times[-2])
         
-        #check
+        #parameterless
         if args.toname:
             sdf1.addconfs([True,False])
             times.append(time.time())
             if args.verbose:
                 print 'Conformation numbers added to names. It took {} seconds.'.format(times[-1]-times[-2])
         
-        #check
+        # #FIXME
         if args.nametometa:
             sdf1.nametometa(args.nametometa)
             times.append(time.time())
             if args.verbose:
                 print 'Name written to metafieldfield '+args.nametometa+'. It took {} seconds.'.format(times[-1]-times[-2])
         
+        #parameterless
+        if args.removeconfname:
+            sdf1.remconfs([True, False])
+            times.append(time.time())
+            if args.verbose:
+                print 'Conformation numbers removed from names. It took {} seconds.'.format(times[-1]-times[-2])
+        
+        #parameterless
+        if args.removeconfmeta:
+            sdf1.remconfs([True, False])
+            times.append(time.time())
+            if args.verbose:
+                print 'Conformation numbers removed from matafield \'confnum\'. It took {} seconds.'.format(times[-1]-times[-2])
+        
+        '''
         if args.remove:
             sdf1.remconfs({2:[True,False],1:[False,True],3:[True,True]}.get(args.remove))
             times.append(time.time())
             if args.verbose:
                 print 'Conformation numbers removed from ' + {1:'metafields',2:'names',3:'names and metafields'} + '. It took {} seconds.'.format(times[-1]-times[-2])
-            
-        '''
+        
         #check
         if args.remove==2:
             sdf1.remconfs([True, False])
@@ -3536,10 +3552,32 @@ if __name__ == "__main__":
     for onefile in manyfiles:
         main(onefile)
 
-class runner():
+class Runner(object):
     order = ('input','tofield','toname','nametometa','remove','cut','allcut','combine','allcombine','addcsv','getmol2','closestatom','closeratom',
              'chagemeta','mergemeta','makenewmeta','sortmeta','stripbutmeta','extract','removemeta','pickmeta','putmol2','histogram','overwrite','output','getcsv','getatomcsv',
              'metalist','counts','donotprint','split','makefolder')
     
+    
     #also verbose, propor
+    
+    def __init__(self, inputfile, options):
+        self.options = options
+        self.times = [time.time()]
+        self.sdf = Sdffile(inputfile)
+        self.times.append(time.time())
+        self.verbose = options.get('verbose',False)
+        self.propor = options.get('propor',False)
+        
+    def funcselector(self,option,params):
+        simples = {'tofield':(sdf.addconfs, (False,True)), 'toname':(sdf.addconfs,(True,False)),'removeconfname':(sdf.removeconfname,(True,False)),'removeconfmeta':(sdf.removeconfmeta,(True,False))}
+        
+        
+    def funcGeneric(self, option, params):
+        #check
+        #if args.tofield:
+        self.sdf.option(params)
+        self.times.append(time.time())
+        if self.verbose:
+            print 'Conformation numbers added to metadata. It took {} seconds.'.format(self.times[-1]-self.times[-2])
+
     #look http://parezcoydigo.wordpress.com/2012/08/04/from-argparse-to-dictionary-in-python-2-7/
