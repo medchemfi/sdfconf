@@ -3158,6 +3158,8 @@ def singleoper(oper, metas):
 
 if __name__ == "__main__":
     
+    #main should only collect arguments...
+    
     arger = argparse.ArgumentParser(description= 'Some bad-ass manipulation of SDF-files. Notice that documentation is not up to date.' )
     
     arger.add_argument("input", metavar = 'path', nargs='+', type = str,               help="Specify the input file")
@@ -3166,21 +3168,22 @@ if __name__ == "__main__":
     choicewrite.add_argument("-o", "--overwrite", action='store_true',      help = "overwrite. you don't need to specify output file")
     
     arger.add_argument("-cf", "--tofield", action = "store_true",           help = "add conformation number to metadata from name. if number in name doesn't exist, make a new one.")
+    
     arger.add_argument("-cn", "--toname",  action = "store_true",           help = "add conformation number to name from metadata. if number in metadata doesn't exist, make a new one.")
     arger.add_argument("-mtn", "--metatoname",  type = str,                 help = "Change the name of molecule to the data in given metafield")
     arger.add_argument("-ntm", "--nametometa",  type = str,                 help = "Copy the name of molecule into given metafield")
-    arger.add_argument("-rc", "--remove",  type = int,                      help = "remove conformation number from 1=metadata, 2=name, 3=both. if number doesn't exist, do nothing")
+    arger.add_argument("-rc", "--remove",  type = int, default=3,           help = "remove conformation number from 1=metadata, 2=name, 3=both. if number doesn't exist, do nothing. Default=3. 1 deletes metafield 'confnum'. ")
     
     choicecombi = arger.add_mutually_exclusive_group()
-    choicecombi.add_argument("-co", "--combine", type = str,                help = "Combine metadata from specified file to the data of original file. Confromationr_epik_Ionization_Penaltys must match.")
-    choicecombi.add_argument("-aco", "--allcombine", type = str,            help = "Combine metadata from specified file to the data of original file. Names must match.")
+    choicecombi.add_argument("-co", "--combine", type = str, nargs = '+',   help = "Combine metadata from specified file to the data of original file. Confromation numbers must match.")
+    choicecombi.add_argument("-aco", "--allcombine", type = str, nargs = '+', help = "Combine metadata from specified file to the data of original file. Names must match.")
     
     choicecut = arger.add_mutually_exclusive_group()
-    choicecut.add_argument("-cu", "--cut", type = str,                      help = "Remove molecules in specified file from original file. Confromations must match.")
-    choicecut.add_argument("-acu", "--allcut", type = str,                  help = "Remove molecules in specified file from original file. Names must match. Not tested")
+    choicecut.add_argument("-cu", "--cut", type = str, nargs = '+',         help = "Remove molecules in specified file from original file. Confromations must match.")
+    choicecut.add_argument("-acu", "--allcut", type = str, nargs = '+',     help = "Remove molecules in specified file from original file. Names must match. Not tested")
     
-    arger.add_argument("-csv", "--addcsv", type = str,                      help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. Names of molecules must be leftmost. If name includes confnumber, meta is only added molecules with same confnumber.")
-    arger.add_argument("-ex", "--extract", type = str,                      help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID='benzene'. Takes multiple statements separated with | ")
+    arger.add_argument("-csv", "--addcsv", type = str, nargs = '+',         help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. Names of molecules must be leftmost. If name includes confnumber, meta is only added molecules with same confnumber.")
+    arger.add_argument("-ex", "--extract", type = str, nargs = '+',         help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID='benzene'. Takes multiple statements separated with | ")
     arger.add_argument("-pro", "--proportion", type = str,                  help = "Takes one exctract-like metastatement and prints proportion of molecules and conformations fulfilling it after every chop, if you are on verbose mode.")
     
     choiceremo = arger.add_mutually_exclusive_group()
@@ -3194,7 +3197,7 @@ if __name__ == "__main__":
     outputtype.add_argument("-gc", "--getcsv", type = str ,                 help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','.")
     outputtype.add_argument("-gac", "--getatomcsv", type = str ,            help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','. Writes dictionaries to separate lines")
     outputtype.add_argument("-ml", "--metalist", action = "store_true",     help = "Writes a list of metafields.")
-    outputtype.add_argument("-nm", "--counts", type = int,                  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both")
+    outputtype.add_argument("-nm", "--counts", type = int, default = 0,     help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
     
     arger.add_argument("-ca", "--closestatom", type = str,                  help = "Calculates the closest atoms (distances by atom number) to given point. Adds 'Closest_atoms' metafield with optional prefix. Needs either coordinates separated by ',' or or single atom number")
@@ -3213,7 +3216,7 @@ if __name__ == "__main__":
     arger.add_argument("-sbm", "--stripbutmeta", type = str,                help = "Removes all atoms from molecules, except for those in given logical statement. Takes multiple parameters separated by '|'")
     
     args = arger.parse_args()
-    manyfiles = args.input #glob.glob(args.input)
+    manyfiles = args.input
     
     def main(inputfile):
         times = [time.time()]
@@ -3244,6 +3247,13 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Name written to metafieldfield '+args.nametometa+'. It took {} seconds.'.format(times[-1]-times[-2])
         
+        if args.remove:
+            sdf1.remconfs({2:[True,False],1:[False,True],3:[True,True]}.get(args.remove))
+            times.append(time.time())
+            if args.verbose:
+                print 'Conformation numbers removed from ' + {1:'metafields',2:'names',3:'names and metafields'} + '. It took {} seconds.'.format(times[-1]-times[-2])
+            
+        '''
         #check
         if args.remove==2:
             sdf1.remconfs([True, False])
@@ -3264,10 +3274,10 @@ if __name__ == "__main__":
             times.append(time.time())
             if args.verbose:
                 print 'Conformation numbers from names and metafields. It took {} seconds.'.format(times[-1]-times[-2])
-        
+        '''
         
         if args.cut:
-            for statement in args.cut.split('|'):
+            for statement in args.cut:
                 sdf2 = Sdffile(statement.strip())
                 sdf1.sdflistremove(sdf2,True) #sdf1.metacombi(sdf2)
                 del(sdf2)
@@ -3276,7 +3286,7 @@ if __name__ == "__main__":
                     print 'Removing molecules complete. It took {} seconds.'.format(times[-1]-times[-2])
         
         elif args.allcut:
-            for statement in args.allcut.split('|'):
+            for statement in args.allcut:
                 sdf2 = Sdffile(statement.strip())
                 sdf1.sdflistremove(sdf2,False) #sdf1.metacombi(sdf2)
                 del(sdf2)
@@ -3286,25 +3296,27 @@ if __name__ == "__main__":
         
         #should work, allcombine tested
         if args.combine:
-            sdf2 = Sdffile(args.combine)
-            sdf1.sdfmetacombi(sdf2,[True, True]) #sdf1.metacombi(sdf2)
-            del(sdf2)
-            times.append(time.time())
-            if args.verbose:
-                print 'sdf-file metadata combination complete. It took {} seconds.'.format(times[-1]-times[-2])
-        
+            for name in args.combine:
+                sdf2 = Sdffile(name)
+                sdf1.sdfmetacombi(sdf2,[True, True]) #sdf1.metacombi(sdf2)
+                del(sdf2)
+                times.append(time.time())
+                if args.verbose:
+                    print 'sdf-file metadata combination complete. It took {} seconds.'.format(times[-1]-times[-2])
+            
         #check
         elif args.allcombine:
-            sdf2 = Sdffile(args.allcombine)
-            sdf1.sdfmetacombi(sdf2,[True, False]) #metacombi(sdf2)
-            del(sdf2)
-            times.append(time.time())
-            if args.verbose:
-                print 'sdf-file metadata combination complete. It took {} seconds.'.format(times[-1]-times[-2])
-        
+            for name in args.combine:
+                sdf2 = Sdffile(name)
+                sdf1.sdfmetacombi(sdf2,[True, False]) #metacombi(sdf2)
+                del(sdf2)
+                times.append(time.time())
+                if args.verbose:
+                    print 'sdf-file metadata combination complete. It took {} seconds.'.format(times[-1]-times[-2])
+            
         #check
         if args.addcsv:
-            for statement in args.addcsv.split('|'):
+            for statement in args.addcsv:
                 sdf1.addcsvmeta(statement.strip(), args.verbose)
                 times.append(time.time())
                 if args.verbose:
@@ -3406,13 +3418,13 @@ if __name__ == "__main__":
         
         #check :)
         if args.extract:
-            logics = args.extract.split('|')
+            #logics = args.extract
             if args.verbose:
                 print 'Initially sdf-file has {} molecules and {} conformations.'.format(len(sdf1._dictomoles),len(sdf1))
                 if args.proportion:
                     (molp, confp) = sdf1.propor(args.proportion.strip())
                     print '{:.1f}% of molecules and {:.1f}% of conformation fulfill the statement {}.'.format(molp*100, confp*100, args.proportion.strip())
-            for logic in logics:
+            for logic in args.extract:
                 #sdf1.logicparse(logic.strip())
                 sdf1.mollogicparse(logic.strip())
                 if args.verbose:
@@ -3492,6 +3504,7 @@ if __name__ == "__main__":
             wriarg['path']=inputfile
         elif args.output:
             wriarg['path']=args.output
+        
         if args.getcsv:
             writetype='getcsv'
             wriarg['csv']=args.getcsv
@@ -3522,3 +3535,11 @@ if __name__ == "__main__":
     
     for onefile in manyfiles:
         main(onefile)
+
+class runner():
+    order = ('input','tofield','toname','nametometa','remove','cut','allcut','combine','allcombine','addcsv','getmol2','closestatom','closeratom',
+             'chagemeta','mergemeta','makenewmeta','sortmeta','stripbutmeta','extract','removemeta','pickmeta','putmol2','histogram','overwrite','output','getcsv','getatomcsv',
+             'metalist','counts','donotprint','split','makefolder')
+    
+    #also verbose, propor
+    #look http://parezcoydigo.wordpress.com/2012/08/04/from-argparse-to-dictionary-in-python-2-7/
