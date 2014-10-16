@@ -505,6 +505,13 @@ class Sdffile(object):
             counts.append((mol,len(self._dictomoles[mol])))
         return counts
     
+    def closestStr(self, string):
+        argus = splitter(string)
+        if len(argus)==1:
+            self.closest(argus[0])
+        elif len(argus)==2:
+            self.closest(argus[0], name=argus[1])
+    
     #should work
     def closest(self, point, **varargdict): #name, intrests, num
         if not 'name' in varargdict:
@@ -1303,7 +1310,14 @@ class Sdffile(object):
                         ensure_dir(onepath)
                     newargs['path'] = onepath
                     onesdf.writer(writetype, **newargs) #TODO
-                    
+    
+    def getMol2DataStr(self, string):
+        try:
+            path, column, metaname = re.split('\s*,\s*', string.strip())
+        except ValueError:
+            raise ValueError('Give: path, column, metaname')
+        self.getMol2Data(metaname, int(column), path)
+    
     def getMol2Data(self, metaname, column, path):
         '''
         Get atomwise information from wanted column in given .mol2-file and add it as metadata to current .sdf-file
@@ -1343,6 +1357,13 @@ class Sdffile(object):
             outpath=path
         mol2.writefile(outpath)
         
+    def injectMol2DataStr(self, string):
+        try:
+            input, output, column, metaname, default, precision = re.split('\s*,\s*', string)
+        except ValueError:
+            raise ValueError('Give: input, output, column, metaname, default, precision')
+        self.injectMol2Data(metaname, int(column), input, numify(default), int(precision), output)
+    
 #end of Sdffile
 
 class Sdfmole(object):
@@ -3176,15 +3197,15 @@ if __name__ == "__main__":
     arger.add_argument("-rcm", "--removeconfmeta",  action="store_true",    help = "remove conformation number from metafield 'confnum'.")
     
     choicecombi = arger.add_mutually_exclusive_group()
-    choicecombi.add_argument("-co", "--combine", type = str, nargs = '+',   help = "Combine metadata from specified file to the data of original file. Confromation numbers must match.")
-    choicecombi.add_argument("-aco", "--allcombine", type = str, nargs = '+', help = "Combine metadata from specified file to the data of original file. Names must match.")
+    choicecombi.add_argument("-co", "--combine", type = str, nargs='+',     help = "Combine metadata from specified file to the data of original file. Confromation numbers must match.")
+    choicecombi.add_argument("-aco", "--allcombine", type = str, nargs='+', help = "Combine metadata from specified file to the data of original file. Names must match.")
     
     choicecut = arger.add_mutually_exclusive_group()
-    choicecut.add_argument("-cu", "--cut", type = str, nargs = '+',         help = "Remove molecules in specified file from original file. Confromations must match.")
-    choicecut.add_argument("-acu", "--allcut", type = str, nargs = '+',     help = "Remove molecules in specified file from original file. Names must match. Not tested")
+    choicecut.add_argument("-cu", "--cut", type = str, nargs='+',           help = "Remove molecules in specified file from original file. Confromations must match.")
+    choicecut.add_argument("-acu", "--allcut", type = str, nargs='+',       help = "Remove molecules in specified file from original file. Names must match. Not tested")
     
-    arger.add_argument("-csv", "--addcsv", type = str, nargs = '+',         help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. Names of molecules must be leftmost. If name includes confnumber, meta is only added molecules with same confnumber.")
-    arger.add_argument("-ex", "--extract", type = str, nargs = '+',         help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID='benzene'. Takes multiple statements separated with | ")
+    arger.add_argument("-csv", "--addcsv", type = str, nargs='+',           help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. Names of molecules must be leftmost. If name includes confnumber, meta is only added molecules with same confnumber.")
+    arger.add_argument("-ex", "--extract", type = str, nargs='+',           help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID='benzene'. Takes multiple statements separated with | ")
     arger.add_argument("-pro", "--proportion", type = str,                  help = "Takes one exctract-like metastatement and prints proportion of molecules and conformations fulfilling it after every chop, if you are on verbose mode.")
     
     choiceremo = arger.add_mutually_exclusive_group()
@@ -3202,25 +3223,25 @@ if __name__ == "__main__":
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
     
     arger.add_argument("-ca", "--closestatom", type = str,                  help = "Calculates the closest atoms (distances by atom number) to given point. Adds 'Closest_atoms' metafield with optional prefix. Needs either coordinates separated by ',' or or single atom number")
-    arger.add_argument("-cla", "--closeratoms", type = str,                 help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
+    arger.add_argument("-cla", "--closeratoms", type = str, nargs='+',      help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
     arger.add_argument("-v", "--verbose", action = "store_true" ,           help = "More info on your run.")
-    arger.add_argument("-mm", "--mergemeta", type = str,                    help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes multiple arguments separated by |")
-    arger.add_argument("-mnm", "--makenewmeta", type = str,                 help = "Makes a new metafield based on logical statement and value picking inside the metafield. newmeta = meta1 + meta2 < 50. Takes multiple arguments separated by |")
-    arger.add_argument("-cm", "--changemeta", type = str,                   help = "Changes names of metafields. [olname1>newname1|oldname2>newname2]. ")
-    arger.add_argument("-sm", "--sortmeta", type = str,                     help = "Sorts cells of a metafield in ascending [<metaname] or descending [>metaname] order. Additional '+' as the last character sorts by key in dictionary type metas. Takes multiple values separated by |")
-    arger.add_argument("-so", "--sortorder", type = str,                    help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name")
-    arger.add_argument("-hg", "--histogram", type = str,                    help = "Plots a 1D or 2D histogram, multiple plots with '|'. 'Xname,Yname,Xtitle=x-akseli,Ytitle=y-akseli,bins=[30,30]'")
+    arger.add_argument("-mm", "--mergemeta", type = str, nargs='+',         help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes multiple arguments separated by |")
+    arger.add_argument("-mnm", "--makenewmeta", type = str, nargs='+',      help = "Makes a new metafield based on logical statement and value picking inside the metafield. newmeta = meta1 + meta2 < 50. Takes multiple arguments separated by |")
+    arger.add_argument("-cm", "--changemeta", type = str, nargs='+',        help = "Changes names of metafields. [olname1>newname1|oldname2>newname2]. ")
+    arger.add_argument("-sm", "--sortmeta", type = str, nargs='+',          help = "Sorts cells of a metafield in ascending [<metaname] or descending [>metaname] order. Additional '+' as the last character sorts by key in dictionary type metas. Takes multiple values separated by |")
+    arger.add_argument("-so", "--sortorder", type = str, nargs='+',         help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name")
+    arger.add_argument("-hg", "--histogram", type = str, nargs='+',         help = "Plots a 1D or 2D histogram, multiple plots with '|'. 'Xname,Yname,Xtitle=x-akseli,Ytitle=y-akseli,bins=[30,30]'")
     
-    arger.add_argument("-gm2", "--getmol2", type = str,                     help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata. pathto.mol2, column, metaname.")#meta column path
-    arger.add_argument("-pm2", "--putmol2", type = str,                     help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data. input.mol2,output.mol2, column, metaname, default, precision.")#metaname, column, path, defaultValue, precision, outpath
+    arger.add_argument("-gm2", "--getmol2", type = str, nargs='+',          help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata. pathto.mol2, column, metaname.")#meta column path
+    arger.add_argument("-pm2", "--putmol2", type = str, nargs='+',          help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data. input.mol2,output.mol2, column, metaname, default, precision.")#metaname, column, path, defaultValue, precision, outpath
     
-    arger.add_argument("-sbm", "--stripbutmeta", type = str,                help = "Removes all atoms from molecules, except for those in given logical statement. Takes multiple parameters separated by '|'")
+    arger.add_argument("-sbm", "--stripbutmeta", type = str, nargs='+',     help = "Removes all atoms from molecules, except for those in given logical statement. Takes multiple parameters separated by '|'")
     
     args = arger.parse_args()
     manyfiles = args.input
     options = vars(args) #FIXME #not used yet
     
-    def main(inputfile):
+    def main(inputfile, options):
         times = [time.time()]
         sdf1 = Sdffile(inputfile)
         times.append(time.time())
@@ -3228,6 +3249,7 @@ if __name__ == "__main__":
         if args.verbose:
             print 'Reading file done. It took {} seconds.'.format(times[-1]-times[-2])
         
+        '''
         #parameterless
         if args.tofield:
             sdf1.addconfs([False,True])
@@ -3242,12 +3264,13 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Conformation numbers added to names. It took {} seconds.'.format(times[-1]-times[-2])
         
-        # #FIXME
+        #parameter
         if args.nametometa:
             sdf1.nametometa(args.nametometa)
             times.append(time.time())
             if args.verbose:
                 print 'Name written to metafieldfield '+args.nametometa+'. It took {} seconds.'.format(times[-1]-times[-2])
+        
         
         #parameterless
         if args.removeconfname:
@@ -3263,7 +3286,7 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Conformation numbers removed from matafield \'confnum\'. It took {} seconds.'.format(times[-1]-times[-2])
         
-        '''
+        #\'''
         if args.remove:
             sdf1.remconfs({2:[True,False],1:[False,True],3:[True,True]}.get(args.remove))
             times.append(time.time())
@@ -3290,8 +3313,9 @@ if __name__ == "__main__":
             times.append(time.time())
             if args.verbose:
                 print 'Conformation numbers from names and metafields. It took {} seconds.'.format(times[-1]-times[-2])
-        '''
+        #\'''
         
+        #simpleloops
         if args.cut:
             for statement in args.cut:
                 sdf2 = Sdffile(statement.strip())
@@ -3301,6 +3325,8 @@ if __name__ == "__main__":
                 if args.verbose:
                     print 'Removing molecules complete. It took {} seconds.'.format(times[-1]-times[-2])
         
+        
+        #simpleloops
         elif args.allcut:
             for statement in args.allcut:
                 sdf2 = Sdffile(statement.strip())
@@ -3310,7 +3336,7 @@ if __name__ == "__main__":
                 if args.verbose:
                     print 'Removing molecules complete. It took {} seconds.'.format(times[-1]-times[-2])
         
-        #should work, allcombine tested
+        #simpleloops
         if args.combine:
             for name in args.combine:
                 sdf2 = Sdffile(name)
@@ -3320,7 +3346,7 @@ if __name__ == "__main__":
                 if args.verbose:
                     print 'sdf-file metadata combination complete. It took {} seconds.'.format(times[-1]-times[-2])
             
-        #check
+        #simpleloops
         elif args.allcombine:
             for name in args.combine:
                 sdf2 = Sdffile(name)
@@ -3329,8 +3355,8 @@ if __name__ == "__main__":
                 times.append(time.time())
                 if args.verbose:
                     print 'sdf-file metadata combination complete. It took {} seconds.'.format(times[-1]-times[-2])
-            
-        #check
+        
+        #simpleloops
         if args.addcsv:
             for statement in args.addcsv:
                 sdf1.addcsvmeta(statement.strip(), args.verbose)
@@ -3338,8 +3364,9 @@ if __name__ == "__main__":
                 if args.verbose:
                     print 'Metadata from csv-file added. It took {} seconds.'.format(times[-1]-times[-2])
         
+        #simple with caller
         if args.getmol2:
-            for statement in args.getmol2.split('|'):
+            for statement in args.getmol2:
                 try:
                     path, column, metaname = re.split('\s*,\s*', statement.strip())
                 except ValueError:
@@ -3349,8 +3376,7 @@ if __name__ == "__main__":
                 if args.verbose:
                     print 'Metadata from mol2-file added. It took {} seconds.'.format(times[-1]-times[-2])
         
-        
-        #should work
+        #simple with caller
         if args.closestatom:
             for statement in args.closestatom.split('|'):
                 argus = splitter(statement)
@@ -3362,7 +3388,7 @@ if __name__ == "__main__":
                 if args.verbose:
                     print 'Closest atoms to point calculated. It took {} seconds.'.format(times[-1]-times[-2])
         
-        #should work
+        #simple
         if args.closeratoms:
             for statement in args.closeratoms.split('|'):
                 params =  splitter(statement) #re.split('\s*,|;\s*',statement)
@@ -3371,7 +3397,7 @@ if __name__ == "__main__":
                 if args.verbose:
                     print 'Atoms closer than {} to point calculated. It took {} seconds.'.format(params[1],times[-1]-times[-2])
         
-        #check
+        #simple
         if args.changemeta:
             for statement in args.changemeta.split('|'):
                 argtmp = statement.split('>')
@@ -3380,7 +3406,7 @@ if __name__ == "__main__":
                 if args.verbose:
                     print 'Changing metafield name {} to {} done. It took {} seconds.'.format(argtmp[0].strip(),argtmp[1].strip(),times[-1]-times[-2])
         
-        #check
+        #simple, end message lacking
         if args.mergemeta:
             for statement in args.mergemeta.split('|'):
                 sdf1.metamerger(statement.strip())
@@ -3390,6 +3416,7 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Merging metafields done. It took {} seconds.'.format(times[-1]-times[-2])
         
+        #simple, end message lacking
         if args.makenewmeta:
             for statement in args.makenewmeta.split('|'):
                 sdf1.makenewmetastr(statement.strip())
@@ -3399,7 +3426,7 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Making new metafields done. It took {} seconds.'.format(times[-1]-times[-2])
         
-        #check
+        #simple, end message lacking
         if args.sortorder:
             sortsies = args.sortorder.split('|')
             for sorty in sortsies:
@@ -3412,6 +3439,7 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Sorting done. It took {} seconds.'.format(times[-1]-times[-2])
         
+        #simple, end message lacking
         if args.sortmeta:
             sortsies = args.sortmeta.split('|')
             for sorty in sortsies:
@@ -3423,6 +3451,7 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Meta sorting done. It took {} seconds.'.format(times[-1]-times[-2])
         
+        #simple, end message lacking
         if args.stripbutmeta:
             for statement in args.stripbutmeta.split('|'):
                 sdf1.stripbutmeta(statement)
@@ -3432,7 +3461,9 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Stripping atoms done. It took {} seconds.'.format(times[-1]-times[-2])
         
+        
         #check :)
+        #simple, initial and end messages lacking, propor not working
         if args.extract:
             #logics = args.extract
             if args.verbose:
@@ -3452,20 +3483,25 @@ if __name__ == "__main__":
             if args.verbose:
                 print 'Logical chopping done. It took {} seconds.'.format(times[-1]-times[-2])
         
-        #check
+        #parameter
         if args.removemeta:
             sdf1.removemeta(args.removemeta, False)
             times.append(time.time())
             if args.verbose:
                 print 'Given metafields removed. It took {} seconds.'.format(times[-1]-times[-2])
-        #check
+            times.append(time.time())
+        
+        #parameter
         elif args.pickmeta!=None:
             sdf1.removemeta(args.pickmeta, True)
             times.append(time.time())
             if args.verbose:
                 print 'Non-specified metafields removed. It took {} seconds.'.format(times[-1]-times[-2])
-        times.append(time.time())
+            times.append(time.time())
+                
         
+        
+        #simple, with caller, end message lacking
         if args.putmol2:
             for statement in args.putmol2.split('|'):
                 try:
@@ -3478,8 +3514,9 @@ if __name__ == "__main__":
             times.append(time.time())
             if args.verbose:
                 print 'Creating mol2-files done. It took {} seconds.'.format(times[-1]-times[-2])
+        '''
         
-        #check
+        #FIXME #Not working due to looping problem
         if args.histogram:
             showflag=True
             plots = args.histogram.split('|')
@@ -3550,34 +3587,145 @@ if __name__ == "__main__":
         times.append(time.time())
     
     for onefile in manyfiles:
-        main(onefile)
+        main(onefile, options)
 
 class Runner(object):
-    order = ('input','tofield','toname','nametometa','remove','cut','allcut','combine','allcombine','addcsv','getmol2','closestatom','closeratom',
-             'chagemeta','mergemeta','makenewmeta','sortmeta','stripbutmeta','extract','removemeta','pickmeta','putmol2','histogram','overwrite','output','getcsv','getatomcsv',
-             'metalist','counts','donotprint','split','makefolder')
+    order = ('input', 'tofield', 'toname', 'nametometa', 'remove', 'cut', 
+             'allcut', 'combine', 'allcombine', 'addcsv', 'getmol2', 
+             'closestatom', 'closeratom', 'chagemeta', 'mergemeta', 
+             'makenewmeta', 'sortmeta', 'stripbutmeta', 'extract', 
+             'removemeta', 'pickmeta', 'putmol2', 'histogram', 
+             'overwrite', 'output', 'getcsv', 'getatomcsv', 'metalist', 
+             'counts', 'donotprint', 'split', 'makefolder')
+    
+    simplelist = ('tofield', 'toname', 'removeconfname', 'removeconfmeta', 
+                  'nametometa', 'removemeta', 'pickmeta')
+    simpleloops = ('getmol2', 'closestatoms', 'closeratoms', 'changemeta', 
+                  'changemeta', 'mergemeta', 'sortorder', 'sortmeta', 
+                  'stripbutmeta', 'extract')
     
     
     #also verbose, propor
     
-    def __init__(self, inputfile, options):
-        self.options = options
+    def __init__(self, inputfile, options=None):
+        self.options = options if options else dict()
         self.times = [time.time()]
-        self.sdf = Sdffile(inputfile)
+        self.sdf = Sdffile(inputfile) 
         self.times.append(time.time())
-        self.verbose = options.get('verbose',False)
-        self.propor = options.get('propor',False)
+        #pop vs get
+        self.config = options.pop('config', None)
+        self.verbose = options.pop('verbose', False)
+        self.propor = options.pop('propor', False)
         
-    def funcselector(self,option,params):
-        simples = {'tofield':(sdf.addconfs, (False,True)), 'toname':(sdf.addconfs,(True,False)),'removeconfname':(sdf.removeconfname,(True,False)),'removeconfmeta':(sdf.removeconfmeta,(True,False))}
-        
-        
-    def funcGeneric(self, option, params):
-        #check
-        #if args.tofield:
-        self.sdf.option(params)
-        self.times.append(time.time())
-        if self.verbose:
-            print 'Conformation numbers added to metadata. It took {} seconds.'.format(self.times[-1]-self.times[-2])
+    def runOptions(self):
+        if not self.config:
+            for option in order:
+                if option in options:
+                    self.funcselector(option, options[option])
+        else:
+            pass
+    
+    def taskLib(self,task,option,param=None):
+        #          'task'           :(function,                 (parameters), (loopformat, loopdata), (initialformat, initialdata), (finalformat, finaldata))
+        tasks =   {'tofield'        :(self.sdf.addconfs,        ((False,True)),(None,None)), 
+                   'toname'         :(self.sdf.addconfs,        ((True,False)),(None,None)),
+                   'removeconfname' :(self.sdf.remconfs,        ((True,False)),(None,None)),
+                   'removeconfmeta' :(self.sdf.remconfs,        ((True,False)),(None,None)),
+                   'nametometa'     :(self.sdf.nametometa,      (param),('Name written to metafieldfield {}. It took {} seconds.',(param,self.times[-1]-self.times[-2]))),
+                   'removemeta'     :(self.sdf.removemeta,      (param,False),('',())),
+                   'pickmeta'       :(self.sdf.pickmeta,        (param,True),('',())),
+                   'getmol2'        :(self.sdf.getMol2DataStr,  (param),('',())),
+                   'closestatoms'   :(self.closest,             (param),('',())),
+                   'closeratoms'    :(self.sdf.closer,          tuple(splitter(param)),('',())),
+                   'changemeta'     :(self.sdf.changemetaname,  tuple([item.strip() for item in param.split('>')]),('',())),
+                   'mergemeta'      :(self.sdf.metamerger,      (param),('New metafield merged',None)),
+                   'sortorder'      :(self.sdf.sortme,          (param),('Sort {} done.',(param))),
+                   'sortmeta'       :(self.sdf.sortmetas,       (param),('Sort {} done.',(param))),
+                   'stripbutmeta'   :(self.sdf.stripbutmeta,    (param),('All atoms, execpt for those in statement {} removed!',(param))),
+                   'extract'        :(self.sdf.mollogicparse,   (param),('After logical chop {}, sdf-file has {} molecules and {} conformations left.',(param,len(sdf._dictomoles),len(sdf)))),
+                   }
+        selector = {'func':0,'param':1,'loop':2,'initial':3,'final':4}
+        try:
+            return tasks.get(option)[selector.get()]
+        except KeyError:
+            raise KeyError('Wrong task or option.')
 
+    
+    def funcselector(self,option,params,):
+        
+        '''
+        messages = {
+                   'tofield'        :(None, None, 'Conformation numbers added to metadata. It took {} seconds.', (self.times[-1]-self.times[-2])), 
+                   'toname'         :(None, None, 'Conformation numbers added to names. It took {} seconds.', (self.times[-1]-self.times[-2])), 
+                   'removeconfname' :(None, None, ),
+                   'removeconfmeta' :(None, None, ),
+                   'nametometa'     :(),
+                   'removemeta'     :(),
+                   'pickmeta'       :(),
+                   'getmol2'        :(),
+                   'closestatoms'   :(),
+                   'closeratoms'    :(),
+                   'changemeta'     :(),
+                   'mergemeta'      :(),
+                   'sortorder'      :(),
+                   'sortmeta'       :(),
+                   'stripbutmeta'   :(),
+                   'extract'        :(),
+                   }
+        '''
+        #fixthese
+        
+        #Initial message
+        if option in simplelist:
+            params = tuple(params)
+            #self.funcGeneric(option, params)
+        #elif option in simpleloops:
+        
+        for oneparam in params:
+            (func,paramtup,loopmes,initmes,finmes) = tasks.get(option)
+            func(*paramtup)
+            self.times.append(time.time())
+            if self.verbose and loopmes:
+                print formatString.format(*formatTuple)
+            #self.funcGeneric(option, oneparam)
+        
+        #Final message
+    
+    #
+    #//TODO #TODO #handle initial and final messages for looped items...
+    #
+    
+    '''
+    def funcGeneric(self, option, params):
+        tasks =   {'tofield'        :(self.sdf.addconfs,        ((False,True)),None,None), 
+                   'toname'         :(self.sdf.addconfs,        ((True,False)),None,None),
+                   'removeconfname' :(self.sdf.removeconfname,  ((True,False)),None,None),
+                   'removeconfmeta' :(self.sdf.removeconfmeta,  ((True,False)),None,None),
+                   'nametometa'     :(self.sdf.nametometa,      (params),'Name written to metafieldfield {}. It took {} seconds.',(params,self.times[-1]-self.times[-2])),
+                   'removemeta'     :(self.sdf.removemeta,      (params,False),'',()),
+                   'pickmeta'       :(self.sdf.pickmeta,        (params,True),'',()),
+                   'getmol2'        :(self.sdf.getMol2DataStr,  (params),'',()),
+                   'closestatoms'   :(self.closest,             (params),'',()),
+                   'closeratoms'    :(self.sdf.closer,          tuple(splitter(params)),'',()),
+                   'changemeta'     :(self.sdf.changemetaname,  tuple([item.strip() for item in params.split('>')]),'',()),
+                   'mergemeta'      :(self.sdf.metamerger,      (params),'New metafield merged',None),
+                   'sortorder'      :(self.sdf.sortme,          (params),'Sort {} done.',(params)),
+                   'sortmeta'       :(self.sdf.sortmetas,       (params),'Sort {} done.',(params)),
+                   'stripbutmeta'   :(self.sdf.stripbutmeta,    (params),'All atoms, execpt for those in statement {} removed!',(params)),
+                   'extract'        :(self.sdf.mollogicparse,   (params),'After logical chop {}, sdf-file has {} molecules and {} conformations left.',(params,len(sdf._dictomoles),len(sdf))),
+                   #propor on extract broken
+                   }
+        
+        #'':(sdf.self., (), '',())
+        
+        (func,paramtup,formatString,formatTuple) = tasks.get(option)
+        func(*paramtup)
+        #self.sdf.option(*paramstuple)
+        self.times.append(time.time())
+        if self.verbose and formatString and formatTuple:
+            print formatString.format(*formatTuple)
+            #print formatString.format(self.times[-1]-self.times[-2])
+            #print 'Conformation numbers added to metadata. It took {} seconds.'.format(self.times[-1]-self.times[-2])
+    '''
+    
     #look http://parezcoydigo.wordpress.com/2012/08/04/from-argparse-to-dictionary-in-python-2-7/
