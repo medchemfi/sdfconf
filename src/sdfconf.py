@@ -9,7 +9,10 @@ import math
 import argparse
 import numpy
 import time
-import pylab
+#import pylab
+#import matplotlib.pyplot as pylab
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 import copy
 import operator
 from collections import OrderedDict as OrDi
@@ -737,34 +740,50 @@ class Sdffile(object):
                         print keyorder
                         raise KeyError(str(key))
             
-        pylab.figure()
+        plt.figure()
         if not Yname:
             larg=[datas[0]] #[getcolumn(data,Xname)]
             if 'bins' in kwargs:
                 larg.append(kwargs['bins'])
                 del(kwargs['bins'])
             #(n, bins, patches)=
-            pylab.hist(*larg,**kwargs) #kwargs?
+            plt.hist(*larg,**kwargs) #kwargs?
         else:
-            X,xe,ye=pylab.histogram2d(datas[0],datas[1],**kwargs)
-            ex=[xe[0],xe[-1],ye[-1],ye[1]]
-            pylab.imshow(numpy.transpose(X),extent=ex,interpolation='nearest',aspect='auto')
+            cmap = mpl.cm.jet
+            #X,xe,ye=pylab.histogram2d(datas[0],datas[1],**kwargs) #for real pylab
+            #X,xe,ye,image=plt.hist2d(datas[0],datas[1],**kwargs) #for pyplot as pylab :P
+            X=plt.hist2d(datas[0],datas[1],**kwargs)[0]
+            
+            #bounds=numpy.arange(-0.5,numpy.max(X)+1.5)
+            ticks=list(numpy.arange(numpy.max(X)+1))
+            skip = int(round(float(len(ticks))/20))
+            if skip>1:
+                ticks = numpy.array(ticks[:1] + ticks[skip:-skip:skip] + ticks[-1:])
+            norm = mpl.colors.BoundaryNorm(numpy.arange(-0.5,numpy.max(X)+1.5), cmap.N)
+            cbar = plt.colorbar()
+            cbar = mpl.colorbar.ColorbarBase(cbar.ax , cmap=cmap,norm=norm,ticks=ticks,spacing='proportional')
+            #cbar = mpl.colorbar.ColorbarBase(image.axes , cmap=cmap,norm=norm,ticks=ticks,spacing='proportional')
+            
+            #ex=[xe[0],xe[-1],ye[-1],ye[1]]
+            #pylab.imshow(numpy.transpose(X),extent=ex,interpolation='nearest',aspect='auto')
             #cb=pylab.colorbar()
-            pylab.colorbar()
+            #colRang = range(min(X),max(X)+1)
+            #norm = pylab.colors.BoundaryNorm(colRang, len(colRang))
+            #plt.colorbar()
         
         if 'Xtitle' in newargs:
-            pylab.xlabel(newargs['Xtitle'])
+            plt.xlabel(newargs['Xtitle'])
         else:
-            pylab.xlabel(Xname)
+            plt.xlabel(Xname)
         if 'Ytitle' in newargs:
-            pylab.ylabel(newargs['Ytitle'])
+            plt.ylabel(newargs['Ytitle'])
         elif Yname:
-            pylab.ylabel(Yname)
+            plt.ylabel(Yname)
         if 'title' in newargs:
-            pylab.title(newargs['title'])
+            plt.title(newargs['title'])
     
     def show(self):
-        pylab.show()
+        plt.show()
     
     def histogramFromList(self,plots):
         showflag=True
@@ -791,7 +810,7 @@ class Sdffile(object):
                 larg.remove('noplot')
             self.histogrammer(*larg,**darg)
             if path:
-                pylab.savefig(path, bbox_inches='tight')
+                plt.savefig(path, bbox_inches='tight')
         if showflag:
             self.show()
         #times.append(time.time())
@@ -2909,19 +2928,25 @@ class Mol2Mol(OrDi):
 #End of Mol2Mol
 
 class Runner(object):
-    order = ('input', 'tofield', 'toname', 'nametometa', 'remove', 'cut', 
-             'allcut', 'combine', 'allcombine', 'addcsv', 'getmol2', 'makenewmeta', 'config', 
-             'closestatom', 'closeratom', 'chagemeta', 'mergemeta', 
+    order = ('input', 'tofield', 'toname', 'nametometa', 'removeconfname', 'removeconfmeta',  'cut', 
+             'allcut', 'combine', 'allcombine', 'addcsv', 'getmol2', 'config', 
+             'closestatom', 'closeratoms', 'changemeta', 'mergemeta', 
              'makenewmeta', 'sortmeta', 'stripbutmeta', 'extract', 
              'removemeta', 'pickmeta', 'putmol2', 'histogram', 
              'overwrite', 'output', 'getcsv', 'getatomcsv', 'metalist', 
              'counts', 'donotprint', 'split', 'makefolder')
     
     simplelist =    ('tofield', 'toname', 'removeconfname', 'removeconfmeta', 
-                     'nametometa', 'removemeta', 'pickmeta','input','histogram')
-    simpleloops =   ('getmol2', 'closestatoms', 'closeratoms', 'changemeta', 
-                     'changemeta', 'mergemeta', 'sortorder', 'sortmeta', 
-                     'stripbutmeta', 'extract','makenewmeta','config')
+                     'nametometa', 'removemeta', 'pickmeta', 'input', 
+                     'histogram', 
+                     )
+    
+    simpleloops =   ('getmol2', 'closestatom', 'closeratoms', 'changemeta', 
+                     'mergemeta', 'sortorder', 'sortmeta', 
+                     'stripbutmeta', 'extract','makenewmeta','config',
+                     'cut', 'allcut', 'combine', 'allcombine', 'addcsv', 
+                     )
+    
     #writers =       {'overwrite':lambda x : self.inpath, 'output': lambda x : x, 'stdout': lambda x: None} #default stdout
     writers =       ('overwrite', 'output', 'stdout') #default stdout
     writetypes =    {'getcsv':True,'getatomcsv':True,'metalist':True,'counts':True,'donotprint':True,'sdf':True,'split':False,'makefolder':False} #default 'sdf'
@@ -2991,27 +3016,35 @@ class Runner(object):
         timedif = lambda : self.times[-1]-self.times[-2]
         #old       'task'           :(function,                 (parameters), (loopformat, loopdata), (initialformat, initialdata), (finalformat, finaldata))
         #new       'task'           :(function(*parameters),     (loopformat, loopdata), (initialformat, initialdata), (finalformat, finaldata))
-        tasks =   {'tofield'        :(self.sdf.addconfs,((False,True),),      None,None,('Conformation numbers added to metadata. It took {} seconds.', (timedif(),))), 
-                   'toname'         :(self.sdf.addconfs,((True,False),),      None,None,('Conformation numbers added to names. It took {} seconds.', (timedif(),))),
-                   'removeconfname' :(self.sdf.remconfs,((True,False),),      None,None,('Conformation numbers removed from names. It took {} seconds.',(timedif(),))),
-                   'removeconfmeta' :(self.sdf.remconfs,((True,False),),      None,None,('Conformation numbers removed from metafield \'confnum\'. It took {} seconds.',(timedif(),))),
-                   'nametometa'     :(self.sdf.nametometa,(param,),           None,None,('Name written to metafieldfield {}. It took {} seconds.',(param,timedif()))),
-                   'removemeta'     :(self.sdf.removemeta,(param,False),     ('Metafieldfield {} Removed. It took {} seconds.',(param,timedif())),None,None),
-                   'pickmeta'       :(self.sdf.removemeta,(param,True),        None,None,None),
-                   'getmol2'        :(self.sdf.getMol2DataStr,(param,),       None,None,None),
-                   'closestatoms'   :(self.sdf.closest,(param,),                  None,None,None),
-                   'closeratoms'    :(lambda x: self.sdf.closer(splitter(x)),(param,),     None,None,None),
-                   'changemeta'     :(lambda x: self.sdf.changemetaname([item.strip() for item in x.split('>')]),(param,),None,None,None),
-                   'mergemeta'      :(self.sdf.metamerger,(param,),           ('New metafield merged',None),None,None),
-                   'sortorder'      :(self.sdf.sortme,(param,),               ('Sort {} done.',(param,)),None,None),
-                   'sortmeta'       :(self.sdf.sortmetas,(param,),            ('Sort {} done.',(param,)),None,None),
-                   'stripbutmeta'   :(self.sdf.stripbutmeta,(param,),         ('All atoms, execpt for those in statement {} removed!',(param,)),None,None),
-                   'extract'        :(self.sdf.mollogicparse,(param,),        ('After logical chop {}, sdf-file has {} molecules and {} conformations left.',(param,len(self.sdf._dictomoles),len(self.sdf))),('Initially sdf-file has {} molecules and {} conformations.',(len(self.sdf._dictomoles),len(self.sdf))),None),
-                   'makenewmeta'    :(self.sdf.makenewmetastr, (param,),      ('New metafield {} made.',(param,)),None,('Making new metafields done. It took {} seconds.',(timedif(),))),
-                   
-                   'input'          :(self.sdf.xreadself,(param,),            None,('Starting to read file {}',(param,)),('Reading file done. It took {} seconds.', (timedif(),))) ,
-                   'config'         :(self.runConfig,(param,),                ('Config-file {} done.',(param,)),('Run config-files.',()),('Running config-files done.',())),
-                   'histogram'      :(self.sdf.histogramFromList, (param,),   None, ('Start plotting',()), ('Plotting done',())),
+        tasks =   {
+                    'tofield'        :(self.sdf.addconfs,((False,True),),      None,None,('Conformation numbers added to metadata. It took {} seconds.', (timedif(),))), 
+                    'toname'         :(self.sdf.addconfs,((True,False),),      None,None,('Conformation numbers added to names. It took {} seconds.', (timedif(),))),
+                    'removeconfname' :(self.sdf.remconfs,((True,False),),      None,None,('Conformation numbers removed from names. It took {} seconds.',(timedif(),))),
+                    'removeconfmeta' :(self.sdf.remconfs,((True,False),),      None,None,('Conformation numbers removed from metafield \'confnum\'. It took {} seconds.',(timedif(),))),
+                    'nametometa'     :(self.sdf.nametometa,(param,),           None,None,('Name written to metafieldfield {}. It took {} seconds.',(param,timedif()))),
+                    'removemeta'     :(self.sdf.removemeta,(param,False),     ('Metafieldfield {} Removed. It took {} seconds.',(param,timedif())),None,None),
+                    'pickmeta'       :(self.sdf.removemeta,(param,True),        None,None,None),
+                    'getmol2'        :(self.sdf.getMol2DataStr,(param,),       None,None,None),
+                    'closestatom'   :(self.sdf.closest,(param,),                  None,None,None),
+                    'closeratoms'    :(lambda x: self.sdf.closer(splitter(x)),(param,),     None,None,None),
+                    'changemeta'     :(lambda x: self.sdf.changemetaname([item.strip() for item in x.split('>')]),(param,),None,None,None),
+                    'mergemeta'      :(self.sdf.metamerger,(param,),           ('New metafield merged',None),None,None),
+                    'sortorder'      :(self.sdf.sortme,(param,),               ('Sort {} done.',(param,)),None,None),
+                    'sortmeta'       :(self.sdf.sortmetas,(param,),            ('Sort {} done.',(param,)),None,None),
+                    'stripbutmeta'   :(self.sdf.stripbutmeta,(param,),         ('All atoms, execpt for those in statement {} removed!',(param,)),None,None),
+                    'extract'        :(self.sdf.mollogicparse,(param,),        ('After logical chop {}, sdf-file has {} molecules and {} conformations left.',(param,len(self.sdf._dictomoles),len(self.sdf))),('Initially sdf-file has {} molecules and {} conformations.',(len(self.sdf._dictomoles),len(self.sdf))),None),
+                    'makenewmeta'    :(self.sdf.makenewmetastr, (param,),      ('New metafield {} made.',(param,)),None,('Making new metafields done. It took {} seconds.',(timedif(),))),
+                    'addcsv'         :(self.sdf.addcsvmeta,(param, self.verbose,), ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif,)),None,None),
+
+                    'input'          :(self.sdf.xreadself,(param,),            None,('Starting to read file {}',(param,)),('Reading file done. It took {} seconds.', (timedif(),))) ,
+                    'config'         :(self.runConfig,(param,),                ('Config-file {} done.',(param,)),('Run config-files.',()),('Running config-files done.',())),
+                    'histogram'      :(self.sdf.histogramFromList, (param,),   None, ('Start plotting',()), ('Plotting done',())),
+
+                    'cut'           :(lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),True), (param,), ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif()), None, None)) ,
+                    'allcut'        :(lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),False), (param,), ('Removing all molecules (matching confnum) present in {} complete. It took {} seconds.', (param, timedif()), None, None)) ,
+                    'combine'       :(lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),(True,True)), (param,), ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif()), None, None)) ,
+                    'allcombine'    :(lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),(True,False)), (param,), ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif()), None, None)) ,
+                    
                    }
         #selector = {'func':0,'param':1,'loop':2,'initial':3,'final':4}
         selector = {'func':0,'loop':2,'initial':3,'final':4}
@@ -3479,7 +3512,7 @@ if __name__ == "__main__":
     outputtype.add_argument("-nm", "--counts", type = int,                  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
     
-    arger.add_argument("-ca", "--closestatom", type = str,                  help = "Calculates the closest atoms (distances by atom number) to given point. Adds 'Closest_atoms' metafield with optional prefix. Needs either coordinates separated by ',' or or single atom number")
+    arger.add_argument("-ca", "--closestatom", type = str, nargs='+',       help = "Calculates the closest atoms (distances by atom number) to given point. Adds 'Closest_atoms' metafield with optional prefix. Needs either coordinates separated by ',' or or single atom number")
     arger.add_argument("-cla", "--closeratoms", type = str, nargs='+',      help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
     arger.add_argument("-v", "--verbose", action = "store_true" ,           help = "More info on your run.")
     arger.add_argument("-mm", "--mergemeta", type = str, nargs='+',         help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes multiple arguments separated by |")
@@ -3591,7 +3624,6 @@ if __name__ == "__main__":
                 if args.verbose:
                     print 'Removing molecules complete. It took {} seconds.'.format(times[-1]-times[-2])
         
-        
         #simpleloops
         elif args.allcut:
             for statement in args.allcut:
@@ -3611,7 +3643,7 @@ if __name__ == "__main__":
                 times.append(time.time())
                 if args.verbose:
                     print 'sdf-file metadata combination complete. It took {} seconds.'.format(times[-1]-times[-2])
-            
+        
         #simpleloops
         elif args.allcombine:
             for name in args.combine:
@@ -3629,6 +3661,8 @@ if __name__ == "__main__":
                 times.append(time.time())
                 if args.verbose:
                     print 'Metadata from csv-file added. It took {} seconds.'.format(times[-1]-times[-2])
+        
+        
         
         #simple with caller
         if args.getmol2:
