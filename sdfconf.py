@@ -58,11 +58,20 @@ class Sdffile(object):
         new._orderlist = copy.deepcopy(self._orderlist,memo)
         return new
     
-    def __iter__(self): 
+    def __iter__(self):
         '''
+        New iterator method with an actual generator
+        '''
+        for molkey in self._dictomoles:
+            for confkey in self._dictomoles[molkey]:
+                yield self._dictomoles[molkey][confkey]
+    
+    '''
+    def __iter__(self): 
+        \'''
         function used by iter() function. Initializes an iteration for the object and returns the object itself.
         iterator returns actual objects! not copies
-        '''
+        \'''
         self.iteone = iter(self._dictomoles)
         try:
             self.itehelpone = self.iteone.next()    #CRASHES IF dictomoles is empty. Try-except takes care of it... this is awful
@@ -77,13 +86,12 @@ class Sdffile(object):
         try:
             self.itehelptwo = self.itetwo.next()
             return self._dictomoles[self.itehelpone][self.itehelptwo]
-            #return (self.itehelpone, self.itehelptwo, self._dictomoles[self.itehelp][self.itehelptwo]) #tuple with two keys
         except StopIteration:
             self.itehelpone=self.iteone.next()
             self.itetwo = iter(self._dictomoles[self.itehelpone])
             self.itehelptwo = self.itetwo.next()
             return self._dictomoles[self.itehelpone][self.itehelptwo]
-            #return (self.itehelpone, self.itehelptwo, self._dictomoles[self.itehelpone][self.itehelptwo]) #tuple with two keys
+    '''
     
     def __len__(self):
         #Return total number of conformations in file.
@@ -353,7 +361,6 @@ class Sdffile(object):
             pickvalues = self.getmollogic(value)
         count = 0
         for molname in newmetas:
-            #count += len(newmetas[molname])
             for confn in newmetas[molname]:
                 if logicchar:
                     try:
@@ -406,7 +413,6 @@ class Sdffile(object):
     def makecsv(self,stringofmetas,separator='\t'):
         #Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields
         listofmeta = [met.strip() for met in re.split('\s*,|;\s*',stringofmetas)]
-        #if listofmeta[0]=='?':
         if '?' in listofmeta:
             metalist = self.listmetas()
             for meta in listofmeta[1:]:
@@ -424,7 +430,6 @@ class Sdffile(object):
                         line.append('"'+memeta.getmetastr()+'"')
                     else:
                         line.append(mol.getmeta(meta).getmetastr())
-                    #line.append('"'+mol.getmeta(meta).getmetastr()+'"')
                 else:
                     line.append('""')
             csv.append(separator.join(line))
@@ -434,7 +439,6 @@ class Sdffile(object):
     def makeatomiccsv(self,stringofmetas,separator='\t'):
         #Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields
         listofmeta = [met.strip() for met in re.split('\s*,|;\s*',stringofmetas)]
-        #if listofmeta[0]=='?':
         if '?' in listofmeta:
             metalist = self.listmetas()
             for meta in listofmeta[1:]:
@@ -452,8 +456,6 @@ class Sdffile(object):
                     
                     for key in mol.getmeta( meta )._data.keys():
                         keys.add(key)
-            #if len(keys)==0:
-                #return self.makecsv(stringofmetas, separator)
             for key in keys:
                 newline = [str(key)]
                 
@@ -462,30 +464,9 @@ class Sdffile(object):
                         newline.append("NA")
                     elif mol.getmeta(meta)._datastruct == OrDi:
                         newline.append(str(mol.getmeta(meta)._data.get(key,"NA")))
-                        #tmpmeta = mol.getmeta(meta)
-                        #if not key in tmpmeta._data.keys():
-                        #    newline.append("NaN")
-                        #else:
-                        #    newline.append(str(tmpmeta._data[key]))
                     else:
                         newline.append(mol.getmeta(meta).getmetastr())
                 csv.append(separator.join(newline))
-            
-            '''
-            for meta in listofmeta:
-                
-                
-                if meta in mol._meta:
-                    memeta = mol.getmeta(meta) #.getmetastr()
-                    if memeta._datastruct != 'single' or  memeta.dtype() == str:
-                        line.append('"'+memeta.getmetastr()+'"')
-                    else:
-                        line.append(mol.getmeta(meta).getmetastr())
-                    #line.append('"'+mol.getmeta(meta).getmetastr()+'"')
-                else:
-                    line.append('""')
-            csv.append(separator.join(line))
-            '''
         return csv
         
     def listmetas(self):
@@ -630,8 +611,6 @@ class Sdffile(object):
             del(kwargs['ex'])
         else:
             sdf = self
-        #import pylab
-        #Histograms work again!
         #kwargs: title, Xtitle, Ytitle, bins
         newargs = dict()
         titargs = ['Xtitle','Ytitle','title']
@@ -641,17 +620,13 @@ class Sdffile(object):
         for key in newargs:
             del(kwargs[key])
         
-        #New implementation
         datas = [[]]
-        #levels = [leveler(Xname)]
         almetas = [sdf.getmollogic(Xname)]
         if Yname:
             datas.append([])
             almetas.append(sdf.getmollogic(Yname))
-        #    levels.append(leveler(Yname))
         
         for mol in sdf:
-            #metas = tuple( mol.logicgetmeta(level) for level in levels )
             molname = mol.getname()
             confn = mol.getconfn()
             
@@ -670,8 +645,6 @@ class Sdffile(object):
                 ostru = iter(structs).next()
             except StopIteration:
                 ostru = list
-                
-            
             
             if OrDi in structs:
                 keys = None
@@ -729,95 +702,6 @@ class Sdffile(object):
     def show(self):
         pylab.show()
     
-    '''
-    def logicparse(self, string):
-        def dealer(picks, drops):
-            #if pick:
-            for info in drops:
-                del(self._dictomoles[info[0]][info[1]])
-            self._orderlist = picks
-            self.dictmaint()
-            
-        string = string.strip()
-        
-        if string[:2] == '+ ':
-            pick = True
-            string = string[2:]
-        elif string[:2] == '- ':
-            pick = False
-            string = string[2:]
-        else:
-            pick = True
-        
-        opesplit=[item.strip() for item in re.split('(>=|<=|<|>|==|!=|=)',string)]
-        comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
-        
-        if len(opesplit)==3:
-            opera = opesplit[1]
-            tocompare = [ leveler(opesplit[0]) , leveler(opesplit[2]) ]
-            for info in self._orderlist:
-                mole = self._dictomoles[info[0]][info[1]]
-                
-                try: # added so comparisons to nonexistent metas won't crash
-                    if comps[opera]( mole.logicgetmeta(tocompare[0]), mole.logicgetmeta(tocompare[1]) ):
-                        trues.append(info)
-                    else:
-                        falses.append(info)
-                except ValueError:
-                    falses.append(info)
-                
-        elif len(opesplit)==1:
-            tear = leveler(string)
-            if len(tear) != 2:
-                raise ValueError('Weird logic.')
-            funk = tear[0]
-            
-            #matheus = tear[1][1]
-            matheus = tabjoin(tear[1][1])
-            
-            rcomindex = matheus.rfind(',')
-            if rcomindex == -1:
-                raise TypeError('Weird logic. No comma.')
-            
-            metatab = matheus[:rcomindex]
-            
-            numstring = matheus[rcomindex+1:]
-            
-            perindex = numstring.rfind('%')
-            if perindex > 0:
-                num = numify(numstring[:perindex])
-                per = True
-            else:
-                num = numify(numstring)
-                per = False
-            trues = []
-            falses = []
-            
-            if tear[0]=='max':
-                reverse = True
-                #bymole = False
-            elif tear[0]=='min':
-                reverse = False
-                #bymole = False
-                
-            for molec in self._dictomoles:
-                moles = OrDi()
-                for conf in self._dictomoles[molec]:
-                    moles[conf] = self._dictomoles[molec][conf].logicgetmeta(leveler(metatab))
-                moles = OrDi(sorted(moles.iteritems(), key= lambda xx: xx[1], reverse = reverse))
-                if per:
-                    grab = int(math.ceil(len(moles)*num/100.0))
-                else:
-                    grab = int(num)
-                trues.extend( [[molec, item] for item in moles.keys()[:grab]] )
-                falses.extend( [[molec, item] for item in moles.keys()[grab:]] )
-            
-        if pick:
-            dealer(trues, falses)
-        else:
-            dealer(falses, trues)
-            #find min or max
-    '''
     
     def mollogicparse(self, string):
         '''
@@ -1016,11 +900,6 @@ class Sdffile(object):
                         elif tab[0] in sortfunx:
                             #sort next tuple, etc.
                             meta = tabiter(conf, tab[1] )
-                            #test start
-                            '''
-                            sortfunx = { 'asc': meta.sortme(True), 'des': meta.sortme(False) }
-                            '''
-                            #test end
                             if meta:
                                 meta.sortme(sortfunx[tab[0]])
                                 return meta
@@ -1031,7 +910,6 @@ class Sdffile(object):
                     #slice
                     meta = tabiter(conf, tab[0])
                     if meta:
-                        #sli = tabiter(conf, tab[1][1], tab[1][0]) #assumes tuple
                         sli = tabiter(conf, tab[1]) #assumes tuple
                         return meta.slicer(sli, tab[1][0])
                     else: return None
@@ -1045,14 +923,11 @@ class Sdffile(object):
                 #Work with tuples in given structure
                 if tab[0] in maths:
                     #do math
-                    #return Sdfmeta.metaoper(maths[tab[0]],[self.collapser(tab[1]),self.collapser(tab[2])])
                     return Sdfmeta.metaoper(maths[tab[0]],[tabiter(conf, tab[1]),tabiter(conf, tab[2])])
                     #pass
                 elif tab[0] in pars:
                     #do slicing, etc.
-                    #return self.collapser(tab[1], tab[0]) #do not use collapser
                     return tabiter(conf, tab[1], tab[0]) 
-                    #pass
                 #return something. or not
                 
             def striope(conf,tab,par=None):
@@ -1081,16 +956,6 @@ class Sdffile(object):
             def raiser(conf, tab, par=None):
                 #function for raising error
                 raise TypeError('Bad levels: '+str(tab))
-            
-            '''def sdfmope(tab):
-                if len(tab)>0:
-                    return tab
-                else:
-                    return None
-            elif tab == None:
-                return None
-            else:
-                raise TypeError('Bad levels: '+str(tab))'''
             
             testdi = {list: listope, tuple: tuplope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, NoneType : lambda conf, me, par=None : None }
             return testdi.get(type(tab), raiser )(conf, tab, par)
@@ -1534,13 +1399,6 @@ class Sdfmole(object):
         '''
         return confchop.sub('', self._name)
     
-    ''' deprecated and replaced by getatomloc 
-    def getcoord(self, N):
-        #return coordinates of given atom
-        #Indexing from 1
-        return numify(self._atoms[N-1][:3])
-    '''
-    
     def gettype(self, N):
         '''
         return atom type of given atom
@@ -1578,15 +1436,6 @@ class Sdfmole(object):
             self.addmeta(key,othersdfmol.getmeta(key,dummy=True),overwrite=True)
                 
     def issame(self, othersdfmol):
-        '''
-        return boolean values if molecule names and conformation numbers are same
-        '''
-        '''same = [False, False]
-        if confchop.sub('', self._name) == confchop.sub('', othersdfmol._name):
-            same[0]=True
-        if self.getconfn() == othersdfmol.getconfn():
-            same[1]=True
-        '''
         same = [confchop.sub('', self._name) == confchop.sub('', othersdfmol._name), self.getconfn() == othersdfmol.getconfn()]
         return same
     
@@ -1672,13 +1521,6 @@ class Sdfmole(object):
         '''
         Makes a copy of dict holding the metadata. Assists in case you have multiple sdffiles and want to make new metas with same names.
         '''
-        #newdic = dict()
-        #newlist = list()
-        #for key in self._metakeys:
-        #    newdic[key] = self._meta[key]
-        #    newlist.append(key)
-        #self._meta = newdic
-        #self._metakeys = newlist
         self._meta = dict(self._meta)
         self._metakeys = list(self._metakeys)
             
@@ -1788,13 +1630,6 @@ class Sdfmole(object):
                 newmeta = copy.copy(newmeta)
             newmeta.pickvalues(value, operator)
             self._meta[meta] = newmeta
-    
-    '''
-    def stringtoownmeta(self,string):
-        #find parens, test if same
-        leveled = leveler(string)
-        pass
-    '''
     
     def logicgetmetastr(self, string):
         #return meta defined in given meta expression
@@ -2013,11 +1848,6 @@ class Sdfmeta(object):
             othermeta = Sdfmeta.construct( numify(other))
         else:
             othermeta = other
-        ''' ordering test
-        types = {self._datatype, othermeta._datatype}
-        if str in types and len(types)>1:
-            return False
-        '''
         if type(self._data) == OrDi:
             li1 = self._data.values()
         else:
@@ -2048,11 +1878,6 @@ class Sdfmeta(object):
             othermeta = Sdfmeta.construct( numify(other))
         else:
             othermeta = other
-        ''' ordering test
-        types = (self._datatype, othermeta._datatype)
-        if str in types and len(types)>1:
-            return False
-        '''
         if type(self._data) == OrDi:
             li1 = self._data.values()
         else:
