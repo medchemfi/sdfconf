@@ -138,7 +138,7 @@ class Sdffile(object):
         return _moles
     
     @staticmethod
-    def xsdfseparator(strings):
+    def xsdfseparator(xfile):
         '''
         Separates a list of strings (as in .sdf-file) into list of lists of strings.
         lists of strings represent single conformations
@@ -147,7 +147,7 @@ class Sdffile(object):
         #Hajoittaa .sdf tiedoston listaksi listoja, joista yksi sisaltaa yhden tiedoston molekyyleista
         #_moles = []
         _lines = []
-        for line in strings:
+        for line in xfile:
             if Sdffile.molchop.match(line):
                 #_moles.append(_lines)
                 yield _lines
@@ -642,8 +642,8 @@ class Sdffile(object):
             
     def xreadself(self, path):
         with open(path, 'r') as f:
-            xdata = f.xreadlines()
-            for mole in Sdffile.xsdfseparator(xdata):
+            #xdata = f.xreadlines()
+            for mole in Sdffile.xsdfseparator(f):
                 self.add(mole)
         
         
@@ -3035,7 +3035,7 @@ class Runner(object):
         #use run-file
         #if self.config:
         with open(confpath, 'r') as confile:
-            configures = (parsecon(confline)  for confline in confile.xreadlines() )
+            configures = (parsecon(confline)  for confline in confile )
             
             for option in configures:
                 if option is None:
