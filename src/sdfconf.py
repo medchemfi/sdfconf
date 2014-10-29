@@ -913,7 +913,7 @@ class Sdffile(object):
         remove conformations not fullfilling given meta comparison
         '''
         self.dealer(*self.mollogic(string))
-    
+
     def propor(self, string):
         '''
         return ratios of molecules and conformations fulfilling given metacomparison
@@ -922,6 +922,13 @@ class Sdffile(object):
         porconf = float(len(trues))/len(trues+falses)
         pormols = float(len(set((info[0] for info in trues))))/len(set((info[0] for info in trues+falses)))
         return (pormols, porconf)
+    
+    def propomes(self, propor=None):
+        if propor:
+            (molp, confp) = self.propor(propor)
+            return '{:.1f}% of molecules and {:.1f}% of conformation fulfill the statement {}.'.format(molp*100, confp*100, propor)
+        else:
+            return ''
         
     def dealer(self, picks, drops):
         '''
@@ -1084,6 +1091,7 @@ class Sdffile(object):
             collapse given levels tab generated from some meta expression into a single Sdfmeta or None
             '''
             molname = conf.getname()
+            
             def listope(conf,tab,par=None):
                 #Work with lists in given structures
                 if len(tab)==1: #evaluate
@@ -1129,7 +1137,7 @@ class Sdffile(object):
                     for item in tab[1:]:
                         metaus = tabiter(conf, [metaus,item])
                     return metaus
-                
+            
             def tuplope(conf,tab,par=None):
                 #Work with tuples in given structure
                 if tab[0] in maths:
@@ -1143,7 +1151,7 @@ class Sdffile(object):
                     return tabiter(conf, tab[1], tab[0]) 
                     #pass
                 #return something. or not
-                
+            
             def striope(conf,tab,par=None):
                 #Work with strings in given structure
                 if par in ('"',"'"):
@@ -1151,7 +1159,8 @@ class Sdffile(object):
                 elif tab in sortfunx or tab in molfunx:
                     return tab
                 elif conf.hasmeta(tab):
-                    return copy.deepcopy(conf.getmeta(tab))
+                    #return copy.deepcopy(conf.getmeta(tab))
+                    return copy.copy(conf.getmeta(tab)) #FIXME
                 elif par in ('(','[','{'):
                     trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
                     if not str in map(type, trytab):
@@ -1166,7 +1175,7 @@ class Sdffile(object):
                     if not str in map(type, trytab):
                         return Sdfmeta.construct( trytab )
                     #else: return None
-                    
+            
             def raiser(conf, tab, par=None):
                 #function for raising error
                 raise TypeError('Bad levels: '+str(tab))
@@ -1480,17 +1489,17 @@ class Sdfmole(object):
         Shallow copy method
         '''
         new = Sdfmole()
-        new._name           = copy.copy(self._name)
+        new._name           = self.name #copy.copy(self._name)
         new._meta           = dict(self._meta) #copy.copy(dicself._meta)
-        new._metakeys       = copy.copy(self._metakeys)
-        new._numeric        = copy.copy(self._numeric)
-        new._ignoretype     = copy.copy(self._ignoretype)
-        new._comment        = copy.copy(self._comment)
+        new._metakeys       = list(self._metakeys) #copy.copy(self._metakeys)
+        new._numeric        = self._numeric #copy.copy(self._numeric)
+        new._ignoretype     = list(self._ignoretype) #copy.copy(self._ignoretype)
+        new._comment        = list(self._comment) #copy.copy(self._comment)
         if new.numeric:
-            new._counts     = copy.copy(self._counts)
-            new._atoms      = copy.copy(self._atoms)
-            new._bonds      = copy.copy(self._bonds)
-            new._properties = copy.copy(self._properties)
+            new._counts     = list(self._counts) #copy.copy(self._counts)
+            new._atoms      = list(self._atoms) #copy.copy(self._atoms)
+            new._bonds      = list(self._bonds) #copy.copy(self._bonds)
+            new._properties = list(self._properties) #copy.copy(self._properties)
         else:
             new._other      = list(self._other) #copy.copy(liself._other)
         return new
@@ -1500,19 +1509,19 @@ class Sdfmole(object):
         Deep copy method
         '''
         new = Sdfmole()
-        new._name           = copy.deepcopy(self._name,memo)
+        new._name           = self._name #copy.deepcopy(self._name,memo)
         new._meta           = copy.deepcopy(self._meta,memo)
-        new._metakeys       = copy.deepcopy(self._metakeys,memo)
-        new._numeric        = copy.deepcopy(self._numeric,memo)
-        new._ignoretype     = copy.deepcopy(self._ignoretype,memo)
-        new._comment        = copy.deepcopy(self._comment)
+        new._metakeys       = list(self._metakeys) #copy.deepcopy(self._metakeys,memo)
+        new._numeric        = self._numeric #copy.deepcopy(self._numeric,memo)
+        new._ignoretype     = list(self._ignoretype) #copy.deepcopy(self._ignoretype,memo)
+        new._comment        = list(self._comment) #copy.deepcopy(self._comment)
         if new._numeric:
-            new._counts     = copy.deepcopy(self._counts,memo)
+            new._counts     = list(self._counts) #copy.deepcopy(self._counts,memo)
             new._atoms      = copy.deepcopy(self._atoms,memo)
             new._bonds      = copy.deepcopy(self._bonds,memo)
-            new._properties = copy.deepcopy(self._properties,memo)
+            new._properties = list(self._properties) #copy.deepcopy(self._properties,memo)
         else:
-            new._other      = copy.deepcopy(self._other,memo)
+            new._other      = list(self._other) #copy.deepcopy(self._other,memo)
         return new
     
     def initialize(self, strings):
@@ -2068,13 +2077,14 @@ class Sdfmeta(object):
     '''
     
     metaname = re.compile('\>(.*)\<(.+)\>') #Match gets metafield name
+    ematch =   re.compile('[ ]{0,2}')
     
     def __init__(self, listofstrings=None):
         '''
         Initializes an empty metafield
         If listofstrings is given (a single metafield in .sdf-file) adds that data
         '''
-        self._name = [None,None] #Metafield name
+        self._name = (None,None) #Metafield name
         self._datatype = None #int, float, str
         self._datastruct = None #list, dict, single
         self._data = None #The actual data
@@ -2204,7 +2214,7 @@ class Sdfmeta(object):
                 if oper(item1, item2):
                     return True
         return False
-        
+    
     def initialize(self, listofstrings):
         '''
         parse the metadata from list of strings
@@ -2216,7 +2226,8 @@ class Sdfmeta(object):
         else:
             self._name = Sdfmeta.metaname.match(listofstrings[0]).groups()
             fi = 1
-            if re.match('[ ]{0,2}', self._name[0]):
+            #if re.match('[ ]{0,2}', self._name[0]):
+            if Sdfmeta.ematch.match(self._name[0]):
                 self._name = ('  ', self._name[1])
         #Remove the last empty line and linechanges
         if not len(listofstrings[-1].strip())==0:
@@ -2353,28 +2364,39 @@ class Sdfmeta(object):
         Shallow copy method
         '''
         new = Sdfmeta()
-        new._name = copy.copy( self._name )
-        new._datatype = copy.copy( self._datatype )
-        new._datastruct = copy.copy( self._datastruct )
-        new._data = copy.copy( self._data )
-        new._delims = copy.copy( self._delims )
-        new._dumb = copy.copy( self._dumb )
+        new._name = tuple( self._name ) #new._name = copy.copy( self._name )
+        new._datatype = self._datatype #new._datatype = copy.copy( self._datatype )
+        new._datastruct = self._datastruct
+        new._data = type(self._data)(( self._data )) #new._data = copy.copy( self._data )
+        new._delims = list( self._delims ) #new._delims = copy.copy( self._delims )
+        new._dumb = self._dumb 
         #new._dumbcontent = copy.copy( self._dumbcontent )
         return new
         
     def __deepcopy__(self, memo):
         '''
-        Deep copy method
+        Deep copy method is the same as __copy__
         '''
         new = Sdfmeta()
-        new._name = copy.deepcopy( self._name,memo)
-        new._datatype = copy.deepcopy( self._datatype,memo)
-        new._datastruct = copy.deepcopy( self._datastruct,memo )
-        new._data = copy.deepcopy( self._data,memo )
-        new._delims = copy.deepcopy( self._delims,memo )
-        new._dumb = copy.deepcopy( self._dumb, memo )
-        #new._dumbcontent = copy.deepcopy( self._dumbcontent, memo )
+        new._name = tuple( self._name ) #new._name = copy.copy( self._name )
+        new._datatype = self._datatype #new._datatype = copy.copy( self._datatype )
+        new._datastruct = self._datastruct
+        new._data = type(self._data)(( self._data )) #new._data = copy.copy( self._data )
+        new._delims = list( self._delims ) #new._delims = copy.copy( self._delims )
+        new._dumb = self._dumb
+        #new._dumbcontent = copy.copy( self._dumbcontent ) 
+        
         return new
+        
+        #new = Sdfmeta()
+        #new._name = copy.deepcopy( self._name,memo)
+        #new._datatype = copy.deepcopy( self._datatype,memo)
+        #new._datastruct = copy.deepcopy( self._datastruct,memo )
+        #new._data = copy.deepcopy( self._data,memo )
+        #new._delims = copy.deepcopy( self._delims,memo )
+        #new._dumb = copy.deepcopy( self._dumb, memo )
+        #new._dumbcontent = copy.deepcopy( self._dumbcontent, memo )
+        #return new
     
     def getname(self):
         '''
@@ -2393,7 +2415,7 @@ class Sdfmeta(object):
         Change the name of Sdfmeta
         '''
         if type(newname) in (list, tuple):
-            self._name = list(name[:2])
+            self._name = tuple(newname[:2])
         elif type(newname) == str:
             #self._name[1] = newname
             if not self._name[0]:
@@ -2578,7 +2600,8 @@ class Sdfmeta(object):
         structs = [meta._datastruct for meta in metas]
         types   = [meta._datatype   for meta in metas]
         mathopers = (sum, sub, numpy.prod, max, min, avg, div, mypow)
-        workmetas = copy.deepcopy(metas)
+        #workmetas = copy.deepcopy(metas)
+        workmetas = [copy.copy(meta) for meta in metas] 
         if oper in mathopers:
             if str in types:
                 #cannot calculate strings, doh
@@ -2938,7 +2961,7 @@ class Runner(object):
     
     simplelist =    ('tofield', 'toname', 'removeconfname', 'removeconfmeta', 
                      'nametometa', 'removemeta', 'pickmeta', 'input', 
-                     'histogram', 
+                     'histogram', 'proportion'
                      )
     
     simpleloops =   ('getmol2', 'closestatom', 'closeratoms', 'changemeta', 
@@ -2977,8 +3000,15 @@ class Runner(object):
         #pop vs get
         #self.config = options.pop('config', None)
         self.verbose = options.pop('verbose', False)
-        self.propor = options.pop('propor', False)
+        #self.propor = options.pop('proportion', False)
+        self.setPropor(options.pop('proportion', False))
         
+    def setPropor(self,parameter=None):
+        if not parameter or parameter is True:
+            self.propor = False
+        else:
+            self.propor = parameter.strip()
+    
     def runOptions(self):
         
         #after config, do the rest anyway.
@@ -2986,6 +3016,9 @@ class Runner(object):
             if option in self.options:
                 self.times.append(time.time())
                 self.funcselector(option, self.options[option])
+        
+        if self.verbose:
+            print 'Run complete, it took {} seconds.'.format(self.times[-1]-self.times[0])
     
     def runConfig(self,confpath):
         
@@ -3012,10 +3045,12 @@ class Runner(object):
                     self.funcselector(option[0], option[1])
         
     
-    def taskLib(self,task,option,param=None):
-        timedif = lambda : self.times[-1]-self.times[-2]
+    def taskLib(self,task,option,param=None,**kwargs):
+        steps = kwargs.get('steps',1)
+        timedif = lambda : self.times[-1]-self.times[-(1+steps)]
         #old       'task'           :(function,                 (parameters), (loopformat, loopdata), (initialformat, initialdata), (finalformat, finaldata))
         #new       'task'           :(function(*parameters),     (loopformat, loopdata), (initialformat, initialdata), (finalformat, finaldata))
+        ''' #backup
         tasks =   {
                     'tofield'        :(self.sdf.addconfs,((False,True),),      None,None,('Conformation numbers added to metadata. It took {} seconds.', (timedif(),))), 
                     'toname'         :(self.sdf.addconfs,((True,False),),      None,None,('Conformation numbers added to names. It took {} seconds.', (timedif(),))),
@@ -3032,7 +3067,8 @@ class Runner(object):
                     'sortorder'      :(self.sdf.sortme,(param,),               ('Sort {} done.',(param,)),None,None),
                     'sortmeta'       :(self.sdf.sortmetas,(param,),            ('Sort {} done.',(param,)),None,None),
                     'stripbutmeta'   :(self.sdf.stripbutmeta,(param,),         ('All atoms, execpt for those in statement {} removed!',(param,)),None,None),
-                    'extract'        :(self.sdf.mollogicparse,(param,),        ('After logical chop {}, sdf-file has {} molecules and {} conformations left.',(param,len(self.sdf._dictomoles),len(self.sdf))),('Initially sdf-file has {} molecules and {} conformations.',(len(self.sdf._dictomoles),len(self.sdf))),None),
+                    #'extract'        :(self.sdf.mollogicparse,(param,self.propor,),        ('After logical chop {}, sdf-file has {} molecules and {} conformations left.',(param,len(self.sdf._dictomoles),len(self.sdf))),('Initially sdf-file has {} molecules and {} conformations.',(len(self.sdf._dictomoles),len(self.sdf))),None),
+                    'extract'        :(self.sdf.mollogicparse,(param,),        ('\n'.join(('After logical chop {}, sdf-file has {} molecules and {} conformations left.',self.sdf.propomes(self.propor))) ,(param,len(self.sdf._dictomoles),len(self.sdf))),('\n'.join(('Initially sdf-file has {} molecules and {} conformations.',self.sdf.propomes(self.propor))),(len(self.sdf._dictomoles),len(self.sdf))),None),
                     'makenewmeta'    :(self.sdf.makenewmetastr, (param,),      ('New metafield {} made.',(param,)),None,('Making new metafields done. It took {} seconds.',(timedif(),))),
                     'addcsv'         :(self.sdf.addcsvmeta,(param, self.verbose,), ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif,)),None,None),
 
@@ -3045,6 +3081,72 @@ class Runner(object):
                     'combine'       :(lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),(True,True)), (param,), ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif()), None, None)) ,
                     'allcombine'    :(lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),(True,False)), (param,), ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif()), None, None)) ,
                     
+                    'proportion'        :(self.setPropor, (param,) ,None,None,('Propor set to {}.',(param,))),
+                   }
+        '''
+        '''
+        tasks =   {
+                    'tofield'        :lambda : (self.sdf.addconfs,((False,True),),      None,None,('Conformation numbers added to metadata. It took {} seconds.', (timedif(),))), 
+                    'toname'         :lambda : (self.sdf.addconfs,((True,False),),      None,None,('Conformation numbers added to names. It took {} seconds.', (timedif(),))),
+                    'removeconfname' :lambda : (self.sdf.remconfs,((True,False),),      None,None,('Conformation numbers removed from names. It took {} seconds.',(timedif(),))),
+                    'removeconfmeta' :lambda : (self.sdf.remconfs,((True,False),),      None,None,('Conformation numbers removed from metafield \'confnum\'. It took {} seconds.',(timedif(),))),
+                    'nametometa'     :lambda : (self.sdf.nametometa,(param,),           None,None,('Name written to metafieldfield {}. It took {} seconds.',(param,timedif()))),
+                    'removemeta'     :lambda : (self.sdf.removemeta,(param,False),     ('Metafieldfield {} Removed. It took {} seconds.',(param,timedif())),None,None),
+                    'pickmeta'       :lambda : (self.sdf.removemeta,(param,True),        None,None,None),
+                    'getmol2'        :lambda : (self.sdf.getMol2DataStr,(param,),       None,None,None),
+                    'closestatom'    :lambda : (self.sdf.closest,(param,),                  None,None,None),
+                    'closeratoms'    :lambda : (lambda x: self.sdf.closer(splitter(x)),(param,),     None,None,None),
+                    'changemeta'     :lambda : (lambda x: self.sdf.changemetaname([item.strip() for item in x.split('>')]),(param,),None,None,None),
+                    'mergemeta'      :lambda : (self.sdf.metamerger,(param,),           ('New metafield merged',None),None,None),
+                    'sortorder'      :lambda : (self.sdf.sortme,(param,),               ('Sort {} done.',(param,)),None,None),
+                    'sortmeta'       :lambda : (self.sdf.sortmetas,(param,),            ('Sort {} done.',(param,)),None,None),
+                    'stripbutmeta'   :lambda : (self.sdf.stripbutmeta,(param,),         ('All atoms, execpt for those in statement {} removed!',(param,)),None,None),
+                    #'extract'        :(self.sdf.mollogicparse,(param,self.propor,),        ('After logical chop {}, sdf-file has {} molecules and {} conformations left.',(param,len(self.sdf._dictomoles),len(self.sdf))),('Initially sdf-file has {} molecules and {} conformations.',(len(self.sdf._dictomoles),len(self.sdf))),None),
+                    'extract'        :lambda : (self.sdf.mollogicparse,(param,),        ('\n'.join(('After logical chop {}, sdf-file has {} molecules and {} conformations left.',self.sdf.propomes(self.propor))).strip() ,(param,len(self.sdf._dictomoles),len(self.sdf))),('\n'.join(('Initially sdf-file has {} molecules and {} conformations.',self.sdf.propomes(self.propor))).strip(),(len(self.sdf._dictomoles),len(self.sdf))),None),
+                    'makenewmeta'    :lambda : (self.sdf.makenewmetastr, (param,),      ('New metafield {} made.',(param,)),None,('Making new metafields done. It took {} seconds.',(timedif(),))),
+                    'addcsv'         :lambda : (self.sdf.addcsvmeta,(param, self.verbose,), ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif,)),None,None),
+
+                    'input'          :lambda : (self.sdf.xreadself,(param,),            None,('Starting to read file {}',(param,)),('Reading file done. It took {} seconds.', (timedif(),))) ,
+                    'config'         :lambda : (self.runConfig,(param,),                ('Config-file {} done.',(param,)),('Run config-files.',()),('Running config-files done.',())),
+                    'histogram'      :lambda : (self.sdf.histogramFromList, (param,),   None, ('Start plotting',()), ('Plotting done',())),
+
+                    'cut'           :lambda : (lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),True), (param,), ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif()), None, None)) ,
+                    'allcut'        :lambda : (lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),False), (param,), ('Removing all molecules (matching confnum) present in {} complete. It took {} seconds.', (param, timedif()), None, None)) ,
+                    'combine'       :lambda : (lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),(True,True)), (param,), ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif()), None, None)) ,
+                    'allcombine'    :lambda : (lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),(True,False)), (param,), ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif()), None, None)) ,
+                    
+                    'proportion'    :lambda : (self.setPropor, (param,) ,None,None,('Propor set to {}.',(param,))),
+                   }
+        '''
+        NoLamb = lambda : None
+        tasks =   {
+                    'tofield'        :lambda i : (self.sdf.addconfs, lambda : ((False,True),),      NoLamb,NoLamb,lambda : ('Conformation numbers added to metadata. It took {} seconds.', (timedif(),)))[i], 
+                    'toname'         :lambda i : (self.sdf.addconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers added to names. It took {} seconds.', (timedif(),)))[i], 
+                    'removeconfname' :lambda i : (self.sdf.remconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers removed from names. It took {} seconds.',(timedif(),)))[i], 
+                    'removeconfmeta' :lambda i : (self.sdf.remconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers removed from metafield \'confnum\'. It took {} seconds.',(timedif(),)))[i], 
+                    'nametometa'     :lambda i : (self.sdf.nametometa, lambda : (param,),           NoLamb,NoLamb,lambda : ('Name written to metafieldfield {}. It took {} seconds.',(param,timedif())))[i], 
+                    'removemeta'     :lambda i : (self.sdf.removemeta, lambda : (param,False),      lambda : ('Metafieldfield {} Removed. It took {} seconds.',(param,timedif())),NoLamb,NoLamb)[i], 
+                    'pickmeta'       :lambda i : (self.sdf.removemeta, lambda : (param,True),        NoLamb,NoLamb,NoLamb)[i], 
+                    'getmol2'        :lambda i : (self.sdf.getMol2DataStr, lambda : (param,),       NoLamb,NoLamb,NoLamb)[i], 
+                    'closestatom'    :lambda i : (self.sdf.closest, lambda : (param,),                  NoLamb,NoLamb,NoLamb)[i], 
+                    'closeratoms'    :lambda i : (lambda x: self.sdf.closer(splitter(x)), lambda : (param,),     NoLamb,NoLamb,NoLamb)[i], 
+                    'changemeta'     :lambda i : (lambda x: self.sdf.changemetaname([item.strip() for item in x.split('>')]), lambda : (param,), NoLamb, NoLamb, NoLamb)[i], 
+                    'mergemeta'      :lambda i : (self.sdf.metamerger, lambda : (param,),           lambda : ('New metafield merged',None),NoLamb,NoLamb)[i], 
+                    'sortorder'      :lambda i : (self.sdf.sortme, lambda : (param,),               lambda : ('Sort {} done.',(param,)),NoLamb,NoLamb)[i], 
+                    'sortmeta'       :lambda i : (self.sdf.sortmetas, lambda : (param,),            lambda : ('Sort {} done.',(param,)),NoLamb,NoLamb)[i], 
+                    'stripbutmeta'   :lambda i : (self.sdf.stripbutmeta, lambda : (param,),         lambda : ('All atoms, execpt for those in statement {} removed!',(param,)),NoLamb,NoLamb)[i], 
+                    #'extract'        :(self.sdf.mollogicparse,(param,self.propor,),        ('After logical chop {}, sdf-file has {} molecules and {} conformations left.',(param,len(self.sdf._dictomoles),len(self.sdf))),('Initially sdf-file has {} molecules and {} conformations.',(len(self.sdf._dictomoles),len(self.sdf))),None)[i], 
+                    'extract'        :lambda i : (self.sdf.mollogicparse, lambda : (param,),        lambda : ('\n'.join(('After logical chop {}, sdf-file has {} molecules and {} conformations left.',self.sdf.propomes(self.propor))).strip() ,(param,len(self.sdf._dictomoles),len(self.sdf))), lambda : ('\n'.join(('Initially sdf-file has {} molecules and {} conformations.',self.sdf.propomes(self.propor))).strip(),(len(self.sdf._dictomoles),len(self.sdf))), lambda : ('Chopping complete, it took {} seconds.',(timedif(),)))[i], 
+                    'makenewmeta'    :lambda i : (self.sdf.makenewmetastr, lambda : (param,),       lambda : ('New metafield {} made.',(param,)), NoLamb, lambda : ('Making new metafields done. It took {} seconds.',(timedif(),)))[i], 
+                    'addcsv'         :lambda i : (self.sdf.addcsvmeta, lambda : (param, self.verbose,), lambda : ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif,)),NoLamb,NoLamb)[i], 
+                    'input'          :lambda i : (self.sdf.xreadself, lambda : (param,),            NoLamb, lambda : ('Starting to read file {}',(param,)), lambda : ('Reading file done. It took {} seconds.', (timedif(),)))[i], 
+                    'config'         :lambda i : (self.runConfig, lambda : (param,),                lambda : ('Config-file {} done.',(param,)), lambda : ('Run config-files.',()), lambda : ('Running config-files done',()))[i], 
+                    'histogram'      :lambda i : (self.sdf.histogramFromList, lambda : (param,),    NoLamb, lambda : ('Start plotting',()), lambda : ('Plotting done',()))[i], 
+                    'cut'           :lambda i : (lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),True), lambda : (param,), lambda : ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif()), NoLamb, NoLamb))[i], 
+                    'allcut'        :lambda i : (lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),False), lambda : (param,), lambda : ('Removing all molecules (matching confnum) present in {} complete. It took {} seconds.', (param, timedif()), NoLamb, NoLamb))[i], 
+                    'combine'       :lambda i : (lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),(True,True)), lambda : (param,), lambda : ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif()), NoLamb, NoLamb))[i], 
+                    'allcombine'    :lambda i : (lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),(True,False)), lambda : (param,), lambda : ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif()), NoLamb, NoLamb))[i], 
+                    'proportion'    :lambda i : (self.setPropor, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Propor set to {}.',(param,)))[i], 
                    }
         #selector = {'func':0,'param':1,'loop':2,'initial':3,'final':4}
         selector = {'func':0,'loop':2,'initial':3,'final':4}
@@ -3052,20 +3154,21 @@ class Runner(object):
         try:
             if task == 'func':
                 mytask=tasks.get(option)
-                return mytask[0](*mytask[1])
+                #return mytask(0)((*mytask(1)()))
+                return mytask(0)(*mytask(1)())
             else:
-                return tasks.get(option)[selector.get(task)]
+                return tasks.get(option)(selector.get(task))()
         except KeyError:
             raise KeyError('Wrong task or option.')
     
     def funcselector(self,option,params,):
         #self.times.append(time.time())
         
-        def messenger(task, mypara=params):
+        def messenger(task, mypara=params,**kwargs):
             if task in ('final'):
                 self.times.append(time.time())
             if self.verbose:
-                mes = self.taskLib(task, option, mypara)
+                mes = self.taskLib(task, option, mypara, **kwargs)
                 if mes:
                     print mes[0].format(*mes[1])
         
@@ -3088,12 +3191,12 @@ class Runner(object):
                 #(func,paramtup,loopmes,initmes,finmes) = tasks.get(option)
                 #func(*paramtup)
                 self.taskLib('func', option, oneparam)
-                self.times.append(time.time())
+                #self.times.append(time.time())
                 #if self.verbose and loopmes:
                 #    print formatString.format(*formatTuple)
                 messenger('loop',oneparam)
                 
-            messenger('final')
+            messenger('final', steps=len(params))
         elif option in Runner.writetypes:
             if Runner.writetypes[option]:
                 self.writetype = option
@@ -3444,11 +3547,11 @@ def test(thing, i):
         print ''.join(['  ']*i) + str(thing)
 '''
 
-
+'''
 def testchopper(sdf, *schops):
-    '''
+    \'''
     Makes series of chops for a copy of a sdffile, then returns ratio of different molecules between second last and last chop.
-    '''
+    \'''
     mySDF = copy.deepcopy(sdf)
     for chop in schops[:-1]:
         mySDF.mollogicparse(chop)
@@ -3462,7 +3565,7 @@ def testchopper(sdf, *schops):
     len2 = len(mySDF._dictomoles)
     del(mySDF)
     return float(len2)/len1
-
+'''
     
 
 if __name__ == "__main__":
