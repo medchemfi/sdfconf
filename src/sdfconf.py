@@ -72,33 +72,6 @@ class Sdffile(object):
             for confkey in self._dictomoles[molkey]:
                 yield self._dictomoles[molkey][confkey]
     
-    '''
-    def __iter__(self): 
-        \'''
-        function used by iter() function. Initializes an iteration for the object and returns the object itself.
-        iterator returns actual objects! not copies
-        \'''
-        self.iteone = iter(self._dictomoles)
-        try:
-            self.itehelpone = self.iteone.next()    #CRASHES IF dictomoles is empty. Try-except takes care of it... this is awful
-        except StopIteration:
-            return iter([])
-        self.itetwo = iter(self._dictomoles[self.itehelpone])
-        return self
-    
-    
-    def next(self):
-        #next function for iterating the file. Iterates molecule at a time, not in the order of .sdf-file.
-        try:
-            self.itehelptwo = self.itetwo.next()
-            return self._dictomoles[self.itehelpone][self.itehelptwo]
-            #return (self.itehelpone, self.itehelptwo, self._dictomoles[self.itehelp][self.itehelptwo]) #tuple with two keys
-        except StopIteration:
-            self.itehelpone=self.iteone.next()
-            self.itetwo = iter(self._dictomoles[self.itehelpone])
-            self.itehelptwo = self.itetwo.next()
-            return self._dictomoles[self.itehelpone][self.itehelptwo]
-    '''
     
     def __len__(self):
         #Return total number of conformations in file.
@@ -755,7 +728,7 @@ class Sdffile(object):
             plt.title(newargs['title'])
     
     def show(self):
-        pylab.show()
+        plt.show()
     
     def histogramFromList(self,plots):
         showflag=True
@@ -1394,7 +1367,7 @@ class Sdfmole(object):
         first = -1
         
         for i, line in enumerate(strings[1:]): #notice index shift: i=0; line=strings[1]
-            if metaname.match(line):#if line[:3] == '> <':
+            if Sdfmeta.metaname.match(line):#if line[:3] == '> <':
                 first = i+1
                 break
             else:
@@ -3328,6 +3301,9 @@ if __name__ == "__main__":
         options['input'] = inputfile
         onerun = Runner(options)
         onerun.runOptions()
+        
+        if onerun.writer==None:
+            onerun.sdf.writer(onerun.writetype,**onerun.wriarg)
         
     
     for onefile in manyfiles:
