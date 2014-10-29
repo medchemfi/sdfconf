@@ -783,7 +783,9 @@ class Sdffile(object):
             plt.title(newargs['title'])
     
     def show(self):
-        plt.show()
+        #plt.show()
+        plt.draw()
+        #plt.show(block=False)
     
     def histogramFromList(self,plots):
         showflag=True
@@ -3019,6 +3021,8 @@ class Runner(object):
         
         if self.verbose:
             print 'Run complete, it took {} seconds.'.format(self.times[-1]-self.times[0])
+        
+        #plt.show()
     
     def runConfig(self,confpath):
         
@@ -4003,4 +4007,6 @@ if __name__ == "__main__":
             if not options[key] and type(options[key])!=int:
                 del(options[key])
         main(onefile, options)
+    
+    plt.show()
 
