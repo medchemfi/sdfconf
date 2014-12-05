@@ -11,8 +11,8 @@ import numpy
 import time
 #import pylab
 #import matplotlib.pyplot as pylab
-import matplotlib.pyplot as plt
-import matplotlib as mpl
+#import matplotlib.pyplot as plt
+#import matplotlib as mpl
 import copy
 import operator
 from collections import OrderedDict as OrDi
@@ -42,7 +42,7 @@ class Sdffile(object):
     
     def __init__(self, path=''):
         #Initianilizes an empty file.
-        self._dictomoles = dict() # {'aspirin':{1:aspi1, 2:aspi2, ...}, 'bentzene':{1:benz1, 2:benz2, ...}}
+        self._dictomoles = dict() # {'aspirin':{1:aspi1, 2:aspi2, ...}, 'bentzene':{1:benz1, 2:benz2, ...}, ...}
         self._orderlist = list()
         if path != '':
             self.xreadself(path)
@@ -648,6 +648,9 @@ class Sdffile(object):
             return None
 
     def histogrammer(self, Xname, Yname=None, **kwargs):
+        import matplotlib.pyplot as plt
+        import matplotlib as mpl
+        self.plt=plt
         if 'ex' in kwargs:
             sdf = copy.copy(self)
             sdf.mollogicparse(kwargs['ex'])
@@ -726,8 +729,8 @@ class Sdffile(object):
                 larg.append(kwargs['bins'])
                 del(kwargs['bins'])
             #(n, bins, patches)=
-            print larg
-            print kwargs
+            #print larg
+            #print kwargs
             plt.hist(*larg,**kwargs) #kwargs?
         else:
             cmap = mpl.cm.jet
@@ -753,7 +756,7 @@ class Sdffile(object):
             plt.title(newargs['title'])
     
     def show(self):
-        plt.show()
+        self.plt.show()
     
     def histogramFromList(self,plots):
         #print plots
@@ -3521,5 +3524,6 @@ if __name__ == "__main__":
                 del(options[key])
         main(onefile, dict(options))
     
-    plt.show()
+    if 'plt' in globals():
+        onefile.plt.show()
 
