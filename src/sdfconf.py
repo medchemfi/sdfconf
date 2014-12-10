@@ -18,6 +18,7 @@ import operator
 from collections import OrderedDict as OrDi
 import warnings
 from types import NoneType
+import bisect as bi
 
 #Common regular expressions used.  
 confchop= re.compile('\{\[.+\]\}') #re.compile('\{\[\d+\]\}') #gets conformation number #changed from number to everything
@@ -156,9 +157,12 @@ class Sdffile(object):
     
     def remove(self, name, confn):
         #Remove a molecule by name and conformation number.
-        del(self._dictomoles[name][str(confn)])
-        self._orderlist.remove([name,confn])
-    
+        try:
+            del(self._dictomoles[name][str(confn)])
+            self._orderlist.remove([name,confn])
+        except ValueError:
+            warnings.warn('{}{{[{}]}} not in list.'.format(name, confn))
+        
     def sdfmetacombi(self, other, bolist=[True, True], overwrite=False):
         '''
         Combine metadata to current file from another sdf-file.
@@ -553,7 +557,8 @@ class Sdffile(object):
             name = name+'_insidenum' if len(name)>0 else 'insidenum'
         omol = {'sdf':Sdffile, 'mol2':Mol2File}.get(otherpath.rpartition('.')[2],Sdffile)(otherpath)[int(molnum)]
         for mmol in self:
-            numberIn, numberOut = mmol.calcEscapeNumber(omol,float(maxRange) ) #also ignores
+            #numberIn, numberOut = mmol.calcEscapeNumber(omol,float(maxRange) ) #also ignores
+            numberIn, numberOut = mmol.calcEscapeNumberOrder(omol,float(maxRange) ) #also ignores
             if not inside and numberIn is not None:
                 mmol.addmeta(name, numberOut)
             elif inside and numberIn is not None:
@@ -933,7 +938,7 @@ class Sdffile(object):
                     else:
                         falses.append([molname,confnum])
                 except KeyError:
-                    warnings.warn('No meta {} in molecule {}{{[{}]}}'.format((string[1:],molname,confnum)))
+                    warnings.warn('No meta {} in molecule {}{{[{}]}}'.format(string[1:], molname, confnum))
                     falses.append([molname,confnum])
             return (trues, falses)
         #end of internal functions
@@ -1243,7 +1248,7 @@ class Sdffile(object):
         Chaotic writer function that puts wanted result in a file/files or standard output
         '''
         newargs = dict(kwargs)
-        if writetype=='none':
+        if writetype in ('none','donotprint'):
             return
         if not 'split' in kwargs:
             if 'path' in kwargs: #output or overwrite
@@ -1481,8 +1486,29 @@ class Sdfmole(object):
                     outCount += 1
             return inCount, outCount
         
+    def calcEscapeNumberOrder(self,matcher,maxRange=2.0, ignores=['H']):
+        '''
+        calculate number of atoms in [self] that are farther than [range] from at least one atom in [other]. Returns number of atoms inside and outside.
+        '''
+        finder = {Findable:matcher, Sdfmole:Findable(matcher),Mol2Mol:Findable(matcher)}.get(type(matcher), None)
         
-        
+        if not finder:
+            raise TypeError('Type must be of type Findable, Sdfmole or Mol2mol.')
+        #outCount = 0
+        #inCount = 0
+        outCount = []
+        inCount = []
+        for sAn, sCoord in self.atomsGenerator(ignores):
+            atoms = finder.findinrange(sCoord, maxRange)
+            if len(atoms)>0:
+                #inCount += 1
+                inCount.append(sAn)
+            else:
+                #outCount += 1
+                outCount.append(sAn)
+        #return inCount, outCount
+        return len(inCount), len(outCount)
+    
     
     def atomsGenerator(self,ignores=['H']):
         '''
@@ -2848,15 +2874,7 @@ class Mol2Mol(OrDi):
 #End of Mol2Mol
 
 class Runner(object):
-    '''
-    order = ('input', 'tofield', 'toname', 'nametometa', 'removeconfname', 'removeconfmeta',  'cut', 
-             'allcut', 'combine', 'allcombine', 'addcsv', 'getmol2', 'addescape', 'addinside', 'config', 
-             'closestatom', 'closeratoms', 'changemeta', 'mergemeta', 
-             'makenewmeta', 'sortmeta', 'stripbutmeta', 'extract', 'metatoname', 
-             'removemeta', 'pickmeta', 'putmol2', 'histogram', 
-             'getcsv', 'getatomcsv', 'metalist', 
-             'counts', 'donotprint', 'split', 'makefolder', 'output','overwrite',)
-    '''
+
     order = OrDi( (
              ('input','in'), 
              ('tofield','cf'), 
@@ -2880,6 +2898,7 @@ class Runner(object):
              ('sortmeta','sm'), 
              ('stripbutmeta','sbm'), 
              ('proportion','pro'), 
+             ('sortorder','so'), 
              ('extract','ex'), 
              ('metatoname','mtn'), 
              ('removemeta','rm'), 
@@ -3043,10 +3062,11 @@ class Runner(object):
                     'allcombine'    :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.strip()),(True,False)), lambda : (param,), lambda : ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
                     'proportion'    :lambda i : (self.setPropor, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Propor set to {}.',(param,)))[i], 
                     'putmol2'       :lambda i : (lambda x :self.sdf.injectMol2DataStr(x.strip()), lambda : (param,), NoLamb, NoLamb, NoLamb)[i],
-                    'addescape'     :lambda i : (self.sdf.escapeStr, lambda : (param, False), lambda : ('Escape number from {} added. It took {} seconds.',(param, timedif())), NoLamb, NoLamb)[i],
-                    'addinside'     :lambda i : (self.sdf.escapeStr, lambda : (param, True), lambda : ('Inside number from {} added. It took {} seconds.',(param, timedif())), NoLamb, NoLamb)[i],
+                    'addescape'     :lambda i : (self.sdf.escapeStr, lambda : (param, False), lambda : ('Escape number from {} added. It took {} seconds.',(param, timedif())), lambda : ('Calculating escape numbers...', ()), NoLamb)[i],
+                    'addinside'     :lambda i : (self.sdf.escapeStr, lambda : (param, True), lambda : ('Inside number from {} added. It took {} seconds.',(param, timedif())), lambda : ('Calculating inside numbers...', ()), NoLamb)[i],
                    }
         selector = {'func':0,'loop':2,'initial':3,'final':4}
+        '''
         try:
             if task == 'func':
                 mytask=tasks.get(option)
@@ -3056,8 +3076,39 @@ class Runner(object):
             else:
                 return tasks.get(option)(selector.get(task))()
         except KeyError:
-            raise KeyError('Wrong task or option.')
-    
+            raise KeyError('Wrong task={} or option={}'.format(task,option))
+        '''
+        '''
+        if task == 'func':
+            try:
+                mytask=tasks.get(option)
+            except KeyError:
+                raise KeyError('Wrong task={} or option={}'.format(task,option))
+            retu = mytask(0)(*mytask(1)())
+            self.times.append(time.time())
+            return retu
+        else:
+            try:
+                return tasks.get(option)(selector.get(task))()
+            except KeyError:
+                raise KeyError('Wrong task={} or option={}'.format(task,option))
+        '''
+        try:
+            if task == 'func':
+                #(fu, para)=[tasks.get(option)(i) for i in (0,1)]
+                mytask=tasks.get(option)
+                fu = mytask(0)
+                para = mytask(1)()
+            else:
+                fu=tasks.get(option)(selector.get(task))
+                para=()
+        except KeyError:
+            raise KeyError('Wrong task={} or option={}'.format(task,option))
+        retu = fu(*para)
+        if task == 'func':
+            self.times.append(time.time())
+        return retu
+        
     def funcselector(self,option,params, fromconfig=False):
         
         def messenger(task, mypara=params,**kwargs):
@@ -3109,7 +3160,71 @@ class Runner(object):
     #look http://parezcoydigo.wordpress.com/2012/08/04/from-argparse-to-dictionary-in-python-2-7/
 #End of Runner
 
+class Findable(object):
+    
+    
+    def __init__(self, iterable=None, ignores=['H']):
+        self._maindict = None #ordered dict jonka alkiot sis‰lt‰v‰t koordinaatit listana, indeksi avaimena
+        self._orders = [] #Lista joka tulee sis‰lt‰m‰‰ dimensioiden m‰‰r‰n listapareja (tuplessa), jotka sis‰lt‰v‰t kunkin koordinaattipisteen indeksin ja yhden dimension koordinaatin. Listat j‰rjestetty kunkin dimension mukaan kasvavaan j‰rjestykseen.
+        self._thelen = 0 #Dimensioiden lukum‰‰r‰
+        if iterable:
+            self.set_iterable(iterable, ignores) #Luodaan datarakenne
+                
+        else:
+            self.set_iterable([]) #Tyhj‰ rakenne
+            
+    def set_iterable(self, iterable, ignores=[]):
+        if type(iterable) in (list, tuple):
+            pass
+        elif type(iterable) in (Sdfmole,Mol2Mol):
+            iterable = [list(atom[1]) for atom in iterable.atomsGenerator(ignores)]
+        else:
+            raise TypeError('Input must be of type list, tuple, Sdfmole, Mol2Mol.')
+        
+        if type(iterable[0]) not in (list, tuple):
+            iterable = (iterable,) 
+            
+        self._thelen = len(iterable[0]) #ks init
+        self._maindict = OrDi(enumerate(iterable)) #ks init
+        #print self._maindict[0][1]
+        self._orders = [] #ks init
+        for i in range(self._thelen): #joka dimensiolle
+            self._orders.append(([],[])) #lis‰t‰‰n listapari
+            for key in sorted(self._maindict, key=lambda x: self._maindict[x][i]): #jokaiselle pisteelle (koordinaattien lukuj‰rjestyksess‰)
+                self._orders[i][0].append(  key  ) #listaan 0 lis‰t‰‰n indeksi
+                self._orders[i][1].append(  self._maindict[key][i]  ) #listaan 0 lis‰t‰‰n koordinaatti
+        
+    def findinrange(self, coord, radius, indexes=None , level = 0): #kutsuttaessa anna hakukoordinaatti ja s‰de, muut auttavat rekursiivisessa dimensioiden k‰sittelyss‰
+        #level on dimensio
+        
+        '''
+        tehd‰‰n ensin haut joilla haetaan s‰teen sis‰ll‰ olevat pisteen yksitt‰isten dimensioiden mukaan ja vasta siten lˆytyneille pisteille tehd‰‰n todellinen et‰isyyshaku.
+        Eli ensin etsit‰‰n s‰teen mukainen kuutio ja vasta sen sis‰lt‰ pallo :P (kun kolme ulottuvuutta)
+        '''
+        if not indexes:
+            indexes = self._maindict.keys() #haetaan alkuper‰iset indeksit
+        
+        ind_left  = bi.bisect_right( self._orders[level][1] , coord[level]-radius ) #puolitushaku piste - radius
+        ind_right =  bi.bisect_left( self._orders[level][1] , coord[level]+radius ) #puolitushaku piste + radius
+        
+        if indexes is not self._maindict.keys(): #mik‰li ei ensimm‰inen taso
+            new_indexes = list( set(indexes) & set(self._orders[level][0][ind_left:ind_right]) ) #ulosmenevist‰ indekseist‰ poistetaan ne joita ei ollut edellisess‰ haussa
+        else:
+            new_indexes = self._orders[level][0][ind_left:ind_right] #indeksit puolitushakujen v‰list‰ lˆytyv‰t
+        
+        if len(new_indexes)==0: #mik‰li ei lˆytynyt mit‰‰n, palaa
+            return new_indexes
+        elif level<self._thelen-1: #mik‰li ei olla viimeisessa dimensiossa
+            return self.findinrange(coord, radius, new_indexes, level +1) #haetaan myˆs seuraavasta dimensiosta, annetaan myˆs t‰‰ll‰ lˆytyneet
+        else: #mik‰li ollaan viimeisess‰ dimensiossa
+            final = []
+            co1 = numpy.array(coord)
+            for i in new_indexes: #k‰yd‰‰n l‰pi lˆydetyt pisteet
+                if  (sum((co1-numpy.array(self._maindict[i]))**2))**0.5 <= radius: #et‰isyystesti
+                    final.append(i)
+            return final
 
+#End of findable
 
     
 def listtostring(tab, fill):
@@ -3457,13 +3572,13 @@ if __name__ == "__main__":
     arger.add_argument("-aesc", "--addescape",  type=str, nargs='+', metavar="File,mol_num,range,name", help = "Add metafield escapenum which is number of atoms not in range of atoms in other molecule.")
     arger.add_argument("-ains", "--addinside",  type=str, nargs='+', metavar="File,mol_num,range,name", help = "Add metafield insidenum which is number of atoms in range of atoms in other molecule.")
     
-    choicecombi = arger.add_mutually_exclusive_group()
-    choicecombi.add_argument("-co", "--combine", metavar='addition.sdf', type = str, nargs='+',     help = "Combine metadata from specified file to the data of original file. Confromation numbers must match.")
-    choicecombi.add_argument("-aco", "--allcombine", metavar='addition.sdf', type = str, nargs='+', help = "Combine metadata from specified file to the data of original file. Names must match.")
+    #choicecombi = arger.add_mutually_exclusive_group()
+    arger.add_argument("-co", "--combine", metavar='addition.sdf', type = str, nargs='+',     help = "Combine metadata from specified file to the data of original file. Confromation numbers must match.")
+    arger.add_argument("-aco", "--allcombine", metavar='addition.sdf', type = str, nargs='+', help = "Combine metadata from specified file to the data of original file. Names must match.")
     
-    choicecut = arger.add_mutually_exclusive_group()
-    choicecut.add_argument("-cu", "--cut", metavar='unwanted.sdf', type = str, nargs='+',           help = "Remove molecules in specified file from original file. Confromations must match.")
-    choicecut.add_argument("-acu", "--allcut", metavar='unwanted.sdf', type = str, nargs='+',       help = "Remove molecules in specified file from original file. Names must match. Not tested")
+    #choicecut = arger.add_mutually_exclusive_group()
+    arger.add_argument("-cu", "--cut", metavar='unwanted.sdf', type = str, nargs='+',           help = "Remove molecules in specified file from original file. Confromations must match.")
+    arger.add_argument("-acu", "--allcut", metavar='unwanted.sdf', type = str, nargs='+',       help = "Remove molecules in specified file from original file. Names must match. Not tested")
     
     arger.add_argument("-csv", "--addcsv", metavar='data.csv', type = str, nargs='+',           help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. Names of molecules must be leftmost. If name includes confnumber, meta is only added molecules with same confnumber.")
     arger.add_argument("-ex", "--extract", metavar='statement', type = str, nargs='+',           help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID='benzene'. Multiple statements as separate strings")
