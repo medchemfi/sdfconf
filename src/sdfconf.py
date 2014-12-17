@@ -19,6 +19,10 @@ from collections import OrderedDict as OrDi
 import warnings
 #from types import NoneType
 import bisect as bi
+try:
+    from future.utils import lmap
+except ImportError:
+    lmap = map
 
 #Common regular expressions used.  
 confchop= re.compile('\{\[.+\]\}') #re.compile('\{\[\d+\]\}') #gets conformation number #changed from number to everything
@@ -162,7 +166,7 @@ class Sdffile(object):
         i=0
         while n in self._dictomoles[name]:
             i+=1
-            n=str( max(map(int,self._dictomoles[name].keys())) + i)
+            n=str( max(lmap(int,self._dictomoles[name].keys())) + i)
             
         self._dictomoles[name][n] = new
         self._orderlist.append([name,n])
@@ -647,9 +651,9 @@ class Sdffile(object):
                 mol.addmeta(newfield+'_closest_bond_distance', str(mind))
         
     def coordormeta(self, canditate):
-        cords = map(numify,re.split('\s*',canditate))
+        cords = lmap(numify,re.split('\s*',canditate))
         if len(cords)==3:
-            if  map(type,cords)==[float,float,float]:
+            if  lmap(type,cords)==[float,float,float]:
                 return cords
         else:
             return None
@@ -684,7 +688,7 @@ class Sdffile(object):
             if kwargs['counts']==0 or kwargs['counts']==2:
                 towrite = ['Total {}\t{}'.format(len(self._dictomoles),len(self))]
             if kwargs['counts']==1 or kwargs['counts']==2:
-                towrite.extend(('\t'.join(map(str, count)) for count in self.counts()))
+                towrite.extend(('\t'.join(lmap(str, count)) for count in self.counts()))
             return '\n'.join(towrite)+'\n'
         elif output=='sdf':
             return str(self)
@@ -726,7 +730,7 @@ class Sdffile(object):
                 metas = tuple( almeta[molname][confn] for almeta in almetas )
             except KeyError:
                 continue
-            if 0 in map(len, metas): #skips 0 len metas
+            if 0 in lmap(len, metas): #skips 0 len metas
                 continue
             try:
                 minlen = min( {len(meta) for meta in metas}-{1} ) # shortest list length, ignore singles
@@ -948,14 +952,16 @@ class Sdffile(object):
                     warnings.warn(mol + ' marked false for not having necesary metafield.')
                     continue
                 #if len(set(map(len,[mole[1] for mole in molec.iteritems()])) - {0,1})>0:
+                if len(set(lmap(len,list(molec.values()))) - {0,1})>0:
                     warnings.warn('Comparing lists, might lead to weird results.',UserWarning)
-                moles = OrDi(sorted(molec.iteritems(), key= lambda xx: xx[1], reverse = reverse))
+                #moles = OrDi(sorted(molec.iteritems(), key= lambda xx: xx[1], reverse = reverse))
+                moles = OrDi(sorted([(key, molec[key]) for key in molec], key= lambda xx: xx[1], reverse = reverse))
                 if per:
                     grab = int(math.ceil(len(moles)*num/100.0))
                 else:
                     grab = int(num)
-                trues.extend( [[mol, item] for item in moles.keys()[:grab]] )
-                falses.extend( [[mol, item] for item in moles.keys()[grab:]] )
+                trues.extend( [[mol, item] for item in list(moles.keys())[:grab]] )
+                falses.extend( [[mol, item] for item in list(moles.keys())[grab:]] )
             return (trues, falses)
         
         def uniqu( string ):
@@ -1052,7 +1058,7 @@ class Sdffile(object):
                                     metas.append(tabiter(self._dictomoles[molname][confi],tab[1]))
                                 if not tab[0] in precalc:
                                     precalc[tab[0]] = dict()
-                                precalc[tab[0]][molname] = Sdfmeta.construct( molfunx[tab[0]](metas) ) #molfunx functions not implemented
+                                precalc[tab[0]][molname] = Sdfmeta.construct( molfunx[tab[0]](metas) ) 
                                 del(metas)
                             if tab[0] in precalc and molname in precalc[tab[0]]:
                                 return precalc[tab[0]][molname] #start and end missing
@@ -1099,7 +1105,7 @@ class Sdffile(object):
                     return copy.copy(conf.getmeta(tab)) #FIXME
                 elif par in ('(','[','{'):
                     trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
-                    if not str in map(type, trytab):
+                    if not str in lmap(type, trytab):
                         return Sdfmeta.construct( trytab )
                     try:
                         return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
@@ -1108,7 +1114,7 @@ class Sdffile(object):
                         raise ValueError('Your logic makes no sense. '+str(tab))
                 else:
                     trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
-                    if not str in map(type, trytab):
+                    if not str in lmap(type, trytab):
                         return Sdfmeta.construct( trytab )
                     #else: return None
                     
@@ -1821,7 +1827,7 @@ class Sdfmole(object):
         '''
         self.numerize()
         #return numpy.array([numify(coord) for coord in self._atoms[n-1][0:3]])
-        return numpy.array(map(numify, self._atoms[n-1][0:3]))
+        return numpy.array(lmap(numify, self._atoms[n-1][0:3]))
     
     def atomdist(self, atom1, atom2):
         '''
@@ -1857,7 +1863,7 @@ class Sdfmole(object):
         atom=numify(atom1)
         distances[atom-1]=0
         if intrests:
-            intrests = map(numify, intrests)
+            intrests = lmap(numify, intrests)
         while True:
             links = []
             for bond in self._bonds:
@@ -1979,7 +1985,7 @@ class Sdfmole(object):
     
     @staticmethod
     def coorder(point):
-        coord = numpy.array( map(numify, goodchop.split(point.strip('{[()]}'))) )
+        coord = numpy.array( lmap(numify, goodchop.split(point.strip('{[()]}'))) )
         if type(coord) == numpy.ndarray and len(coord) > 1:
             return coord
         else:
@@ -2015,7 +2021,7 @@ class Sdfmole(object):
         elif isinstance(tab, str):
             if para in ('(','[','{'):
                 trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
-                if not str in map(type, trytab):
+                if not str in lmap(type, trytab):
                     return Sdfmeta.construct( trytab )
             try:
                 return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
@@ -2285,7 +2291,7 @@ class Sdfmeta(object):
             raise TypeError('Datastructure type not list, dict, OrderedDict, str, int or float.')
         if not ('literal' in dictarg and dictarg['literal']):
             if type(data) == list:
-                data = map(numify, data)
+                data = lmap(numify, data)
                 
             elif type(data) == OrDi:
                 for key in data:
@@ -2295,7 +2301,7 @@ class Sdfmeta(object):
                         del(data[key])
                 
         if type(data) == list:
-            types = set(map(type, data))
+            types = set(lmap(type, data))
         elif type(data) == OrDi:
             types = {type(data[key]) for key in data}
         else:
@@ -2303,6 +2309,7 @@ class Sdfmeta(object):
         
         new._data = data
         if not all({typ in (int, float, str) for typ in types}):
+            #print(data)
             raise TypeError('Data type not str, int or float.')
         if len(types)==1:
             new._datatype = iter(types).next()
@@ -2311,7 +2318,7 @@ class Sdfmeta(object):
         else:
             new._datatype = float
             if type(new._data) == list:
-                new._data = map(float, new._data)
+                new._data = lmap(float, new._data)
             elif type(new._data) == OrDi:
                 for key in new._data:
                     new._data[key] = float(new._data[key])
@@ -2406,14 +2413,14 @@ class Sdfmeta(object):
             if self._datatype == str:
                 other._datatype = str
                 #other._data = map(str, other._data) if other._datastruct == list else dict(((key,str(other._data[key])) for key in other._data))
-                other._data = dict(((key,str(other._data[key])) for key in other._data)) if other._datastruct == OrDi else map(str, other._data) 
+                other._data = dict(((key,str(other._data[key])) for key in other._data)) if other._datastruct == OrDi else lmap(str, other._data) 
                 #other._datastruct = list
                 self.extend(other)
             elif other._datatype == str:
                 self._datatype = str
                 #self._data = map(str, self._data)
                 #self._data = map(str, self._data) if self._datastruct == list else dict(((key,str(self._data[key])) for key in self._data))
-                self._data = dict(((key,str(self._data[key])) for key in self._data)) if self._datastruct == OrDi else map(str, self._data)
+                self._data = dict(((key,str(self._data[key])) for key in self._data)) if self._datastruct == OrDi else lmap(str, self._data)
                 #self._datastruct = list
                 self.extend(other)
                 
@@ -2447,7 +2454,7 @@ class Sdfmeta(object):
                 
         if floatflag:
             if self._datastruct == list:
-                self._data = map(float, self._data)
+                self._data = lmap(float, self._data)
             else:
                 self._data = {k: float(v) for k, v in self._data.items()}
         
@@ -2792,7 +2799,7 @@ class Sdfmeta(object):
                     if mytype == str:
                         return None
                     elif mytype == float:
-                        lister = map(float,lister)
+                        lister = lmap(float,lister)
                     return (lister,mytype,splitted[1])
                 else:
                     pass
@@ -2879,7 +2886,7 @@ class Mol2Mol(OrDi):
                 break
             if things[offset+1].strip() in ignores:
                 continue
-            yield (int(things[offset+0]), numpy.array( map(numify,things[offset+2:offset+5])))
+            yield (int(things[offset+0]), numpy.array( lmap(numify,things[offset+2:offset+5])))
     
     def injectatomdata(self, data, column, defaultValue=0.0, prec=4):
         
@@ -2917,7 +2924,7 @@ class Mol2Mol(OrDi):
                     inject = defaultValue
                 if math.isnan(inject) or math.isinf(inject):
                     inject = defaultValue
-                stachar = sum( map(len, things[:mycol]) )
+                stachar = sum( lmap(len, things[:mycol]) )
                 endchar = stachar+len(things[mycol])
                 injectinfo.append( (form.format(inject), stachar, endchar))
             else:
@@ -3036,7 +3043,7 @@ class Runner(object):
                 self.funcselector(option, self.options[option])
         
         if self.verbose:
-            print('Run complete, it took {} seconds.'.format(self.times[-1]-self.times[0]))
+            print('Run complete, it took {:.3f} seconds.'.format(self.times[-1]-self.times[0]))
         
         #plt.show()
     
@@ -3076,7 +3083,7 @@ class Runner(object):
     def taskLib(self,task,option,param=None,**kwargs):
         steps = kwargs.get('steps',1)
         #timedif = lambda : self.times[-1]-self.times[-(1+steps)]
-        timedif = lambda : '{}'.format(self.times[-1]-self.times[-(1+steps)])
+        timedif = lambda : '{:.3f}'.format(self.times[-1]-self.times[-(1+steps)])
         #old       'task'           :(function,                 (parameters), (loopformat, loopdata), (initialformat, initialdata), (finalformat, finaldata))
         #new       'task'           :(function(*parameters),     (loopformat, loopdata), (initialformat, initialdata), (finalformat, finaldata))
 
@@ -3316,7 +3323,7 @@ def numify(stri):
                     return stri
         except TypeError:
             if type(stri)==list:
-                return map(numify,stri)
+                return lmap(numify,stri)
             else:
                 raise TypeError('Wrong type: {}. {}'.format(str(type(stri)),str(stri)))
 
@@ -3477,7 +3484,7 @@ def allsame(listordict):
         stuff = listordict.values()
     else:
         stuff = listordict
-    types = set(map(type, stuff))
+    types = set(lmap(type, stuff))
     if len(types) == 1:
         return types.pop()
     elif not str in types:
