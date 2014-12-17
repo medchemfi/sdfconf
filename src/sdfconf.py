@@ -17,7 +17,7 @@ import copy
 import operator
 from collections import OrderedDict as OrDi
 import warnings
-from types import NoneType
+#from types import NoneType
 import bisect as bi
 
 #Common regular expressions used.  
@@ -41,15 +41,20 @@ class Sdffile(object):
     
     molchop = re.compile('^\${4}') #Separates molecules in file
     
+    
     def __init__(self, path=''):
-        #Initianilizes an empty file.
+        '''
+        Initianilizes an empty file. If path is specified, add data from it.
+        '''
         self._dictomoles = dict() # {'aspirin':{1:aspi1, 2:aspi2, ...}, 'bentzene':{1:benz1, 2:benz2, ...}, ...}
         self._orderlist = list()
         if path != '':
             self.xreadself(path)
     
     def __copy__(self):
-        #Shallow copy function used by copy.copy()
+        '''
+        Shallow copy function used by copy.copy()
+        '''
         new = Sdffile()
         #new._dictomoles = copy.copy(self._dictomoles)
         new._dictomoles = dict()
@@ -59,7 +64,9 @@ class Sdffile(object):
         return new
     
     def __deepcopy__(self,memo):
-        #Deep copy function used by copy.deepcopy()
+        '''
+        Deep copy function used by copy.deepcopy()
+        '''
         new = Sdffile()
         new._dictomoles = copy.deepcopy(self._dictomoles,memo)
         new._orderlist = copy.deepcopy(self._orderlist,memo)
@@ -98,7 +105,7 @@ class Sdffile(object):
             mols = self._orderlist[ind]
             return self._dictomoles[mols[0]][mols[1]]
         else:
-            raise TypeError, "Invalid argument type."
+            raise TypeError("Invalid argument type.")
         
         
     @staticmethod
@@ -152,9 +159,15 @@ class Sdffile(object):
             self._dictomoles[name]=dict()
         n = self.tempconfn(new, name)
             
+        i=0
+        while n in self._dictomoles[name]:
+            i+=1
+            n=str( max(map(int,self._dictomoles[name].keys())) + i)
+            
         self._dictomoles[name][n] = new
         self._orderlist.append([name,n])
-    
+        
+            
     def remove(self, name, confn):
         #Remove a molecule by name and conformation number.
         try:
@@ -229,7 +242,9 @@ class Sdffile(object):
     #conformation numbers
     
     def tempconfn(self, mol, molname=None):
-        #Returns a temporary conformation number for given molecule.
+        '''
+        Returns a temporary conformation number for given molecule.
+        '''
         n = mol.getconfn()
         if not n:
             try:
@@ -247,7 +262,9 @@ class Sdffile(object):
         return n
     
     def uniconfn(self, mol, n='-1'):
-        #Returns a unique conformation number for given molecule.
+        '''
+        Returns a unique conformation number for given molecule.
+        '''
         n=abs(int(n))
         try:
             moli = self._dictomoles[mol.getname()]
@@ -319,7 +336,7 @@ class Sdffile(object):
             self.mergenewmeta(newmeta, metas, operators[funk.lower().strip()])
         else:
             if args.verbose:
-                print 'Command {} not found'.format(funk)
+                print('Command {} not found'.format(funk))
     
     
     def mergenewmeta(self, newmetaname, metas, oper):
@@ -346,7 +363,7 @@ class Sdffile(object):
                 mol.addmeta(newmetaname, newmet)
     
     def makenewmetastr(self, string):
-        #Frontend for makenewmeta
+        '''Frontend for makenewmeta'''
         string = string.strip()
         comps = ('>=', '<=', '<', '>', '==', '!=', '=' )
         eqind=string.find('=')
@@ -383,24 +400,24 @@ class Sdffile(object):
             warnings.warn('Not all new metas were generated',UserWarning)
         
     def nametometa(self, meta):
-        #Adds a metafield including the molecule name
+        '''Adds a metafield holding the molecule name'''
         for mol in self:
             mol.addmeta(meta, mol.getname(), literal=True)
             
     def changemetaname(self, oldname, newname):
-        #Change the name of a metafield
+        '''Change the name of a metafield'''
         for mol in self:
             mol.changemetaname(oldname, newname)
             
     def changemeta(self, who, towhat):
-        #Change the content of given metafield by logical statement
+        '''Change the content of given metafield by logical statement'''
         state = leveler(towhat)
         for mol in self:
             if who in mol._meta:
                 mol._meta[who] = mol.logicgetmeta(state)
     
     def dictmaint(self): 
-        #Maintenance of Sdffile dictionaries
+        '''Maintenance of Sdffile dictionaries'''
         delkeys=[]
         for key in self._dictomoles:
             if len(self._dictomoles[key])==0:
@@ -416,11 +433,11 @@ class Sdffile(object):
             mol.metanewdict()
     
     def sametest(self, bolist, samelist):
-        #Test wether molecules are "the same" as described in bolist.
+        '''Test wether molecules are "the same" as described in bolist.'''
         return (bolist[0] <= samelist[0]) and (bolist[1] <= samelist[1])
         
     def makecsv(self,stringofmetas,separator='\t'):
-        #Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields
+        '''Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields'''
         listofmeta = [met.strip() for met in re.split('\s*,|;\s*',stringofmetas)]
         if '?' in listofmeta:
             metalist = self.listmetas()
@@ -496,18 +513,26 @@ class Sdffile(object):
         return counts
     
     def closestStr(self, string):
+        #String frontend for closest
         argus = splitter(string)
         if len(argus)==1:
             self.closest(argus[0])
         elif len(argus)==2:
             self.closest(argus[0], name=argus[1])
     
-    #should work
     def closest(self, point, **varargdict): #name, intrests, num
+        '''
+        Calculates distaces from atoms to point of interest. Distaces by 
+        atomnumbers are added to a metafield. point is a coordinate in 3d 
+        or a name of metafield. If later, first atom number in meta 
+        is picked and it's location is used. 
+        '''
         if not 'name' in varargdict:
-            name = ''
+            #name = ''
+            name = 'Closest_atoms'
         else:
-            name = varargdict['name']+'_'
+            #name = varargdict['name']+'_'
+            name = varargdict['name']
         for mol in self:
             #is coord1 meta or not? If it was a metafield with atomnumber, it would give that one as closest, so no.
             alist = mol.dists(point)
@@ -515,7 +540,10 @@ class Sdffile(object):
             #newlist = []
             moles=[]
             if 'intrests' in varargdict:
-                switch = {list:varargdict['intrests'],int:[varargdict['intrests']],str:mol.logicgetmeta(leveler(varargdict['intrests']))._data}
+                switch = {
+                          list:varargdict['intrests'],
+                          int:[varargdict['intrests']],
+                          str:mol.logicgetmeta(leveler(varargdict['intrests']))._data}
                 mylist = switch.get( type(varargdict['intrests']), [])
                 
                 for atom in alist:
@@ -529,10 +557,14 @@ class Sdffile(object):
             od = OrDi()
             for item in moles:
                 od[item[1]]=item[0]
-            mol.addmeta(name+'Closest_atoms',od)
+            #mol.addmeta(name+'Closest_atoms',od)
+            mol.addmeta(name,od)
             
-    #should work
     def closer(self, point, meta):
+        '''
+        Calculates how many atoms are closer to the given coordinate
+        than the atom in given metafield.
+        '''
         log = leveler(meta)
         for mol in self:
             alist = sorted(mol.dists(point), key  = lambda x: x[0] )
@@ -548,27 +580,36 @@ class Sdffile(object):
         Generate escapenum field for all molecules. (Number of atoms in self not in range of other molecule.)
         '''
         try:
-            otherpath, molnum, maxRange, name = re.split('\s*,\s*', string)
+            #otherpath, molnum, maxRange, name = re.split('\s*,\s*', string)
+            spli = re.split('\s*,\s*', string)
+            otherpath, molnum, maxRange, name = spli[:4]
+            manx = spli[4] if len(spli)>4 else 0
         except ValueError:
             return
         if not inside:
             name = name+'_escapenum' if len(name)>0 else 'escapenum'
+            manx = -manx
         else:
             name = name+'_insidenum' if len(name)>0 else 'insidenum'
         omol = {'sdf':Sdffile, 'mol2':Mol2File}.get(otherpath.rpartition('.')[2],Sdffile)(otherpath)[int(molnum)]
+        matcher = Findable(omol)
         for mmol in self:
             #numberIn, numberOut = mmol.calcEscapeNumber(omol,float(maxRange) ) #also ignores
-            numberIn, numberOut = mmol.calcEscapeNumberOrder(omol,float(maxRange) ) #also ignores
+            #numberIn, numberOut = mmol.calcEscapeNumberOrder(omol,float(maxRange) , maxn=manx) #also ignores
+            numberIn, numberOut = mmol.calcEscapeNumberOrder(matcher,float(maxRange) , maxn=manx) #also ignores
             if not inside and numberIn is not None:
                 mmol.addmeta(name, numberOut)
             elif inside and numberIn is not None:
                 mmol.addmeta(name, numberIn)
             else:
                 warnings.warn('Metafield {} not created for all molecules.'.format(name))
-        
-
+    
     
     def closestatoms(self, point, metafield):
+        '''
+        deprecated
+        Was used to calculate
+        '''
         dot = Sdfmole.coorder(point)#self.coordormeta(point)
         if type(dot) != list:
             #if not a good point, use argument 'point' as metafield
@@ -722,9 +763,9 @@ class Sdffile(object):
                     try:
                         datas[i].extend([meta._data[key] for key in keyorder])
                     except KeyError:
-                        print mol._name
-                        print meta._data
-                        print keyorder
+                        print(mol._name)
+                        print(meta._data)
+                        print(keyorder)
                         raise KeyError(str(key))
             
         plt.figure()
@@ -906,7 +947,7 @@ class Sdffile(object):
                     falses.extend([[mol, moln] for moln in self._dictomoles[mol]])
                     warnings.warn(mol + ' marked false for not having necesary metafield.')
                     continue
-                if len(set(map(len,[mole[1] for mole in molec.iteritems()])) - {0,1})>0:
+                #if len(set(map(len,[mole[1] for mole in molec.iteritems()])) - {0,1})>0:
                     warnings.warn('Comparing lists, might lead to weird results.',UserWarning)
                 moles = OrDi(sorted(molec.iteritems(), key= lambda xx: xx[1], reverse = reverse))
                 if per:
@@ -1075,7 +1116,8 @@ class Sdffile(object):
                 #function for raising error
                 raise TypeError('Bad levels: '+str(tab))
             
-            testdi = {list: listope, tuple: tuplope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, NoneType : lambda conf, me, par=None : None }
+            #testdi = {list: listope, tuple: tuplope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, NoneType : lambda conf, me, par=None : None }
+            testdi = {list: listope, tuple: tuplope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
             return testdi.get(type(tab), raiser )(conf, tab, par)
         
         def confloop(mol, tab):
@@ -1085,7 +1127,7 @@ class Sdffile(object):
             for confnum in self._dictomoles[mol]:
                 try:
                     newmet = tabiter(self._dictomoles[mol][confnum], tab)
-                except ValueError:
+                except (ValueError, AttributeError):
                     newmet = None
                 if newmet and len(newmet)>0:
                     metadic[mol][confnum] = newmet
@@ -1466,10 +1508,13 @@ class Sdfmole(object):
             alist.append([float(dist),anum])
         return alist
     
-    def calcEscapeNumber(self,other,maxRange=2.0, ignores=['H']):
+    def calcEscapeNumber(self,other,maxRange=2.0, **kwargs):
         '''
         calculate number of atoms in [self] that are farther than [range] from at least one atom in [other]. Returns number of atoms inside and outside.
         '''
+        ignores=['H'] if not 'ignores' in kwargs else kwargs['ignores']
+        maxn=0 if not 'maxn' in kwargs else kwargs['maxn']
+            
         if type(other) not in (Sdfmole, Mol2Mol):
             return None
         else:
@@ -1484,30 +1529,42 @@ class Sdfmole(object):
                         break
                 if not found:
                     outCount += 1
+                if (maxn>0 and inCount>=maxn) or (maxn<0 and inCount>=-maxn):
+                    break
+                #elif maxn<0 and inCount>=-maxn:
+                    
             return inCount, outCount
         
-    def calcEscapeNumberOrder(self,matcher,maxRange=2.0, ignores=['H']):
+    def calcEscapeNumberOrder(self,matcher,maxRange=2.0, **kwargs):
         '''
         calculate number of atoms in [self] that are farther than [range] from at least one atom in [other]. Returns number of atoms inside and outside.
         '''
-        finder = {Findable:matcher, Sdfmole:Findable(matcher),Mol2Mol:Findable(matcher)}.get(type(matcher), None)
+        
+        ignores=['H'] if not 'ignores' in kwargs else kwargs['ignores']
+        maxn=0 if not 'maxn' in kwargs else kwargs['maxn']
+        
+        finder = {Findable:lambda : matcher, Sdfmole: lambda : Findable(matcher), Mol2Mol: lambda : Findable(matcher)}.get(type(matcher), lambda : None)()
         
         if not finder:
             raise TypeError('Type must be of type Findable, Sdfmole or Mol2mol.')
-        #outCount = 0
-        #inCount = 0
-        outCount = []
-        inCount = []
+        outCount = 0
+        inCount = 0
+        #outCount = []
+        #inCount = []
         for sAn, sCoord in self.atomsGenerator(ignores):
             atoms = finder.findinrange(sCoord, maxRange)
             if len(atoms)>0:
-                #inCount += 1
-                inCount.append(sAn)
+                inCount += 1
+                #inCount.append(sAn)
+                if maxn>0 and inCount>=maxn:
+                    break
             else:
-                #outCount += 1
-                outCount.append(sAn)
-        #return inCount, outCount
-        return len(inCount), len(outCount)
+                outCount += 1
+                #outCount.append(sAn)
+                if maxn<0 and inCount>=-maxn:
+                    break
+        return inCount, outCount
+        #return len(inCount), len(outCount)
     
     
     def atomsGenerator(self,ignores=['H']):
@@ -1542,12 +1599,12 @@ class Sdfmole(object):
         ans = [None, None]
         m = confchop.search(self._name)
         if m:
-            ans[0] = m.group(0)[2:-2]
+            ans[0] = str( m.group(0)[2:-2] )
         if ckey in self._meta:
-            ans[1] = self.getmeta(ckey)[0]
+            ans[1] = str( self.getmeta(ckey)[0] )
         if ans[0] and ans[1]:
             #if ans[0]!=str(ans[1]):
-            if str(ans[0])!=str(ans[1]):
+            if ans[0]!=ans[1]:
                 print(self.mes.format(ans[0],ans[1]))
         return ans
         
@@ -2024,7 +2081,7 @@ class Sdfmeta(object):
         if isinstance( ind, (slice, int) ):
             return mylist[ind]
         else:
-            raise TypeError, "Invalid argument type."
+            raise TypeError("Invalid argument type.")
             
     def __iter__(self):
         '''
@@ -2224,7 +2281,7 @@ class Sdfmeta(object):
                 out._delims = dictarg['delims']
             return out
         else:
-            print type(data)
+            print(type(data))
             raise TypeError('Datastructure type not list, dict, OrderedDict, str, int or float.')
         if not ('literal' in dictarg and dictarg['literal']):
             if type(data) == list:
@@ -2434,9 +2491,9 @@ class Sdfmeta(object):
                 lde = len(self._delims[i])
             except IndexError:
                 lde = 0
-                print self._name
-                print self._data
-                print self._delims
+                print(self._name)
+                print(self._data)
+                print(self._delims)
             if l +lde > length:
                 strings.append(''.join(tmp))
                 tmp=[]
@@ -2671,7 +2728,8 @@ class Sdfmeta(object):
         
         if not type(toget) in (list, OrDi):
             raise TypeError('There is something wrong with our toget going to slicer') 
-        slices = {Sdfmeta:itsmeta, slice:itsslice, NoneType: lambda toget, sliceorindex: None }
+        #slices = {Sdfmeta:itsmeta, slice:itsslice, NoneType: lambda toget, sliceorindex: None }
+        slices = {Sdfmeta:itsmeta, slice:itsslice, type(None): lambda toget, sliceorindex: None }
         return slices[type(sliceorindex)](toget, sliceorindex)
         
     def sortme(self, ascending=True, byValue = True):
@@ -2764,7 +2822,7 @@ class Mol2File(object):
         if isinstance( ind, slice ) or isinstance( ind, int ):
             return self._molecules[ind]
         else:
-            raise TypeError, "Invalid argument type."
+            raise TypeError("Invalid argument type.")
     
     def readfile(self, path):
         with open(path,'r') as f:
@@ -2795,6 +2853,7 @@ class Mol2Mol(OrDi):
     def __init__(self, *args, **kwargs):
         super(Mol2Mol, self).__init__(*args, **kwargs)
         self._delims = None
+        #self._array = None
         
     def pickatomdata(self, column):
         newdic = OrDi()
@@ -2849,7 +2908,7 @@ class Mol2Mol(OrDi):
             try:
                 ind, mycol = findindex(things, (0, column))
             except ValueError:
-                print things
+                print(things)
                 continue
             if mycol:
                 try:
@@ -2977,7 +3036,7 @@ class Runner(object):
                 self.funcselector(option, self.options[option])
         
         if self.verbose:
-            print 'Run complete, it took {} seconds.'.format(self.times[-1]-self.times[0])
+            print('Run complete, it took {} seconds.'.format(self.times[-1]-self.times[0]))
         
         #plt.show()
     
@@ -3016,7 +3075,8 @@ class Runner(object):
     
     def taskLib(self,task,option,param=None,**kwargs):
         steps = kwargs.get('steps',1)
-        timedif = lambda : self.times[-1]-self.times[-(1+steps)]
+        #timedif = lambda : self.times[-1]-self.times[-(1+steps)]
+        timedif = lambda : '{}'.format(self.times[-1]-self.times[-(1+steps)])
         #old       'task'           :(function,                 (parameters), (loopformat, loopdata), (initialformat, initialdata), (finalformat, finaldata))
         #new       'task'           :(function(*parameters),     (loopformat, loopdata), (initialformat, initialdata), (finalformat, finaldata))
 
@@ -3058,8 +3118,8 @@ class Runner(object):
                     'histogram'      :lambda i : (self.sdf.histogramFromList, lambda : (param,),    NoLamb, lambda : ('Start plotting',()), lambda : ('Plotting done',()))[i], 
                     'cut'           :lambda i : (lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),True), lambda : (param,), lambda : ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
                     'allcut'        :lambda i : (lambda x :self.sdf.sdflistremove(Sdffile(x.strip()),False), lambda : (param,), lambda : ('Removing all molecules (matching confnum) present in {} complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
-                    'combine'       :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.strip()),(True,True)), lambda : (param,), lambda : ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
-                    'allcombine'    :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.strip()),(True,False)), lambda : (param,), lambda : ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
+                    'combine'       :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,True),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), lambda : (param,), lambda : ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
+                    'allcombine'    :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,False),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), lambda : (param,), lambda : ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
                     'proportion'    :lambda i : (self.setPropor, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Propor set to {}.',(param,)))[i], 
                     'putmol2'       :lambda i : (lambda x :self.sdf.injectMol2DataStr(x.strip()), lambda : (param,), NoLamb, NoLamb, NoLamb)[i],
                     'addescape'     :lambda i : (self.sdf.escapeStr, lambda : (param, False), lambda : ('Escape number from {} added. It took {} seconds.',(param, timedif())), lambda : ('Calculating escape numbers...', ()), NoLamb)[i],
@@ -3118,7 +3178,7 @@ class Runner(object):
                 mes = self.taskLib(task, option, mypara, **kwargs)
                 if mes:
                     #try:
-                    print mes[0].format(*mes[1])
+                    print(mes[0].format(*mes[1]))
                     #except IndexError:
                     #    print mes
         
@@ -3155,7 +3215,7 @@ class Runner(object):
             self.sdf.writer(self.writetype,**self.wriarg)
             self.times.append(time.time())
             if self.verbose:
-                print 'File writing done, it took {} seconds.'.format(self.times[-1]-self.times[-2])
+                print('File writing done, it took {} seconds.'.format(self.times[-1]-self.times[-2]))
     
     #look http://parezcoydigo.wordpress.com/2012/08/04/from-argparse-to-dictionary-in-python-2-7/
 #End of Runner
@@ -3288,7 +3348,7 @@ def avg(num):
         if type(num) in (int,float):
             return num
         else:
-            raise TypeError
+            raise TypeError()
     
 def sub(num):
     if len(num)<2:
@@ -3464,6 +3524,7 @@ def leveler(string):
     endstring = string[pars[-1][1]+1:]
     if len(endstring)>0:
         tab.append(endstring)
+    #print(tab)
     return tab
 
 def dumb_levopemap(tab, par=None, length=None):
@@ -3634,9 +3695,13 @@ if __name__ == "__main__":
     
     for onefile in manyfiles:
         options = vars(args)
+        deli = []
         for key in options.keys():
             if not options[key] and type(options[key])!=int:
-                del(options[key])
+                #del(options[key])
+                deli.append(key)
+        options = dict([(key, options[key]) for key in options if not key in deli])
+        del(deli)
         main(onefile, dict(options))
     
     if 'plt' in globals():
