@@ -2209,6 +2209,17 @@ class Sdfmeta(object):
         else:
             li2 = list(othermeta._data)
         
+        if self._datatype == str and other._datatype == str:
+            def oper(string1, string2):
+                test = lambda x: x[:6].upper() == 'REGEX:'
+                if test(string1):
+                    return bool(re.search(string1[6:], string2 ))
+                elif test(string2):
+                    return bool(re.search(string2[6:], string1 ))
+                else:
+                    return operator.eq(string1, string2)
+                    
+        
         for item2 in li2:
             for item1 in li1:
                 if oper(item1, item2):
