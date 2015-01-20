@@ -24,6 +24,11 @@ try:
 except ImportError:
     lmap = map
 
+if sys.version_info[0]==2 and sys.version_info[1]>=7:
+    pass
+else:
+    raise SystemError('Python version must be 2.7. or later, but not 3.x.')
+
 #Common regular expressions used.  
 confchop= re.compile('\{\[.+\]\}') #re.compile('\{\[\d+\]\}') #gets conformation number #changed from number to everything
 
@@ -1022,14 +1027,27 @@ class Sdffile(object):
         return single meta for all conformations inside a nested dict like _dictomoles
         meta is made from meta expression in given string
         '''
+        
+        def mmaxmin(meta, getmax=True):
+            fu = max if getmax else min
+            if meta._datastruct == OrDi:
+                items = meta._data.iteritems()
+                la = lambda x : x[1]
+                rety = OrDi
+            else:
+                items = meta._data
+                la = lambda x : x
+                rety = list
+            
+            return  rety((fu(items, key = la),))
+        
         molfunx = { 'max':lambda mets: max([met[0] for met in mets]), 'min': lambda mets: min([met[0] for met in mets]), 'avg': lambda mets: avg([met[0] for met in mets]) }
         #fuf = lambda mets: max([met[0] for met in mets])
         sortfunx = { 'asc':True,'des':False }
         
-        metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta))}
+        #metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta))}
+        metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta)), 'mmax':lambda meta: mmaxmin(meta, True), 'mmin':lambda meta: mmaxmin(meta, False)}
         
-        #def sorto(dire):
-        #    pass
         
         maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div,'**':mypow}
         pars = ('(','[','{','"',"'")
@@ -1099,7 +1117,8 @@ class Sdffile(object):
                 #Work with strings in given structure
                 if par in ('"',"'"):
                     return Sdfmeta.construct(tab)
-                elif tab in sortfunx or tab in molfunx:
+                #elif tab in sortfunx or tab in molfunx:
+                elif tab in sortfunx or tab in molfunx or tab in metafunx:
                     return tab
                 elif conf.hasmeta(tab):
                     return copy.copy(conf.getmeta(tab)) #FIXME
@@ -1508,7 +1527,7 @@ class Sdfmole(object):
             #coord2 = numpy.array(self.getcoord(i+1)) #numpy.array([float(c) for c in atom[0:3]])
             coord2 = self.getatomloc(i+1)
         '''
-        for anum, coord2 in self.atomsGenerator(ignores):
+        for anum, coord2 in self.atomsGenerator(ignores=ignores):
             dist = sum((coord1-coord2)**2)**0.5
             #alist.append([float(dist),i+1])
             alist.append([float(dist),anum])
@@ -1526,9 +1545,9 @@ class Sdfmole(object):
         else:
             outCount = 0
             inCount = 0
-            for sAn, sCoord in self.atomsGenerator(ignores):
+            for sAn, sCoord in self.atomsGenerator(ignores=ignores):
                 found = False
-                for oAn, oCoord in other.atomsGenerator(ignores):
+                for oAn, oCoord in other.atomsGenerator(ignores=ignores):
                     if sum((sCoord-oCoord)**2)**0.5 <= maxRange:
                         found = True
                         inCount += 1
@@ -1557,7 +1576,7 @@ class Sdfmole(object):
         inCount = 0
         #outCount = []
         #inCount = []
-        for sAn, sCoord in self.atomsGenerator(ignores):
+        for sAn, sCoord in self.atomsGenerator(ignores=ignores):
             atoms = finder.findinrange(sCoord, maxRange)
             if len(atoms)>0:
                 inCount += 1
@@ -1573,17 +1592,26 @@ class Sdfmole(object):
         #return len(inCount), len(outCount)
     
     
-    def atomsGenerator(self,ignores=['H']):
+    def atomsGenerator(self,**kwargs):
         '''
         generator that yields tuples including (atom number, coordinates of atom) for atoms in self, except for those of type represented in ignores.
         '''
+        gettab = [lambda i: i+1, lambda i: self.getatomloc(i+1)]
+        
+        ignores = kwargs.get('ignores', ['H'])
+        at = kwargs.get('types',False)
+        
+        if at :
+            gettab.append(lambda i: self.gettype(i+1).strip())
+        
         self.numerize()
         #for i, atom in enumerate(self._atoms):
         for i in range(len(self._atoms)):
             if self.gettype(i+1).strip() in ignores:
                 continue
             else: 
-                yield (i+1,self.getatomloc(i+1))
+                #yield (i+1,self.getatomloc(i+1))
+                yield tuple(gette(i) for gette in gettab)
 
     def numerize(self):
         '''
@@ -2874,7 +2902,17 @@ class Mol2Mol(OrDi):
                 newdic[numify(things[0+offset])] = things[column+offset]
         return newdic
     
-    def atomsGenerator(self, ignores=['H']):
+    #def atomsGenerator(self, ignores=['H']):
+    def atomsGenerator(self, **kwargs):
+        
+        gettab = [lambda: int(things[offset+0]), lambda: numpy.array( lmap(numify,things[offset+2:offset+5])) ]
+        
+        ignores = kwargs.get('ignores',['H'])
+        at = kwargs.get('types',False)
+        
+        if at:
+            gettab.append(lambda: things[offset+1].strip() )
+        
         for line in self['ATOM']:
             things = re.split( '\s+', line.strip())
             if len(things)>1:
@@ -2886,7 +2924,8 @@ class Mol2Mol(OrDi):
                 break
             if things[offset+1].strip() in ignores:
                 continue
-            yield (int(things[offset+0]), numpy.array( lmap(numify,things[offset+2:offset+5])))
+            #yield (int(things[offset+0]), numpy.array( lmap(numify,things[offset+2:offset+5])))
+            yield tuple(gette() for gette in gettab)
     
     def injectatomdata(self, data, column, defaultValue=0.0, prec=4):
         
@@ -3244,7 +3283,7 @@ class Findable(object):
         if type(iterable) in (list, tuple):
             pass
         elif type(iterable) in (Sdfmole,Mol2Mol):
-            iterable = [list(atom[1]) for atom in iterable.atomsGenerator(ignores)]
+            iterable = [list(atom[1]) for atom in iterable.atomsGenerator(ignores=ignores)]
         else:
             raise TypeError('Input must be of type list, tuple, Sdfmole, Mol2Mol.')
         
@@ -3663,7 +3702,7 @@ if __name__ == "__main__":
     outputtype.add_argument("-gc", "--getcsv", type = str ,                 help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','.")
     outputtype.add_argument("-gac", "--getatomcsv", type = str ,            help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','. Writes dictionaries to separate lines")
     outputtype.add_argument("-ml", "--metalist", action = "store_true",     help = "Writes a list of metafields.")
-    outputtype.add_argument("-nm", "--counts", type = int,                  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both")
+    outputtype.add_argument("-nm", "--counts", nargs='?', type = int, const=0, choices=(0,1,2),  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
     
     arger.add_argument("-ca", "--closestatom", type = str, nargs='+', metavar='(xx, yy, zz), my_poi', help = "Calculates the closest atoms (distances by atom number) to given point. Adds 'Closest_atoms' metafield with optional prefix. Needs either coordinates separated by ',' or or single atom number")
