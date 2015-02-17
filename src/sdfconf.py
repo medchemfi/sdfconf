@@ -593,6 +593,7 @@ class Sdffile(object):
             spli = re.split('\s*,\s*', string)
             otherpath, molnum, maxRange, name = spli[:4]
             manx = spli[4] if len(spli)>4 else 0
+            nums = bool(spli[5].lower() in ('anums','atoms','list','atom_numbers','nums')) if len(spli)>5 else False
         except ValueError:
             return
         if not inside:
@@ -605,10 +606,14 @@ class Sdffile(object):
         for mmol in self:
             #numberIn, numberOut = mmol.calcEscapeNumber(omol,float(maxRange) ) #also ignores
             #numberIn, numberOut = mmol.calcEscapeNumberOrder(omol,float(maxRange) , maxn=manx) #also ignores
-            numberIn, numberOut = mmol.calcEscapeNumberOrder(matcher,float(maxRange) , maxn=manx) #also ignores
+            numberIn, numberOut = mmol.calcEscapeNumberOrder(matcher,float(maxRange) , maxn=manx, anums = nums) #also ignores
             if not inside and numberIn is not None:
+                if isinstance(numberOut, (list,tuple)) and len(numberOut)==0:
+                    continue
                 mmol.addmeta(name, numberOut)
             elif inside and numberIn is not None:
+                if isinstance(numberIn, (list,tuple)) and len(numberIn)==0:
+                    continue
                 mmol.addmeta(name, numberIn)
             else:
                 warnings.warn('Metafield {} not created for all molecules.'.format(name))
@@ -1046,8 +1051,14 @@ class Sdffile(object):
         sortfunx = { 'asc':True,'des':False }
         
         #metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta))}
-        metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta)), 'mmax':lambda meta: mmaxmin(meta, True), 'mmin':lambda meta: mmaxmin(meta, False)}
+        def mlen(meta):
+            try:
+                return len(meta)
+            except TypeError:
+                return 0
         
+        #metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta)), 'mmax':lambda meta: mmaxmin(meta, True), 'mmin':lambda meta: mmaxmin(meta, False)}
+        metafunx = {'mlen':mlen, 'mavg':lambda meta: avg((thing for thing in meta)), 'mmax':lambda meta: mmaxmin(meta, True), 'mmin':lambda meta: mmaxmin(meta, False)}
         
         maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div,'**':mypow}
         pars = ('(','[','{','"',"'")
@@ -1569,25 +1580,46 @@ class Sdfmole(object):
         maxn=0 if not 'maxn' in kwargs else kwargs['maxn']
         
         finder = {Findable:lambda : matcher, Sdfmole: lambda : Findable(matcher), Mol2Mol: lambda : Findable(matcher)}.get(type(matcher), lambda : None)()
-        
         if not finder:
             raise TypeError('Type must be of type Findable, Sdfmole or Mol2mol.')
-        outCount = 0
-        inCount = 0
+        
+        if kwargs.get('anums',False):
+            adder = lambda add: [add]
+            outCount = []
+            inCount = []
+            tester = lambda count : len(count)
+        else:
+            adder = lambda add: 1
+            outCount = 0
+            inCount = 0
+            tester = lambda count : count
+        
+        if maxn>0:
+            test = lambda : tester(inCount)>=maxn
+        elif maxn<0:
+            test = lambda : tester(outCount)>=-maxn
+        else:
+            test = lambda : False
+    
+        
+        #outCount = 0
+        #inCount = 0
         #outCount = []
         #inCount = []
         for sAn, sCoord in self.atomsGenerator(ignores=ignores):
             atoms = finder.findinrange(sCoord, maxRange)
             if len(atoms)>0:
-                inCount += 1
+                inCount += adder(sAn) #1
                 #inCount.append(sAn)
-                if maxn>0 and inCount>=maxn:
-                    break
+                #if maxn>0 and inCount>=maxn:
+                #if test():
+                #    break
             else:
-                outCount += 1
+                outCount += adder(sAn) #1
                 #outCount.append(sAn)
-                if maxn<0 and inCount>=-maxn:
-                    break
+                #if maxn<0 and inCount>=-maxn:
+            if test():
+                break
         return inCount, outCount
         #return len(inCount), len(outCount)
     
@@ -2272,6 +2304,7 @@ class Sdfmeta(object):
                 self._data = [line.strip('\n') for line in mylines]
                 self._datastruct = list
                 self._delims = ['' for line in mylines[:-1]]
+                #self._dumb = False #TEST 170215
                 return
             #not just string
             
