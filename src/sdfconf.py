@@ -1051,14 +1051,21 @@ class Sdffile(object):
         sortfunx = { 'asc':True,'des':False }
         
         #metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta))}
-        def mlen(meta):
+        def mlen(meta, conf):
             try:
                 return len(meta)
             except TypeError:
                 return 0
         
+        def getColumn(meta, conf):
+            if isinstance(meta, (int, list, tuple)):
+                columns = meta
+            elif isinstance(meta, Sdfmeta):
+                columns = meta._data.values()[0] if meta._datastruct == OrDi else meta._data[0]
+            return OrDi(conf.atomsGenerator(tabs=columns))
+        
         #metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta)), 'mmax':lambda meta: mmaxmin(meta, True), 'mmin':lambda meta: mmaxmin(meta, False)}
-        metafunx = {'mlen':mlen, 'mavg':lambda meta: avg((thing for thing in meta)), 'mmax':lambda meta: mmaxmin(meta, True), 'mmin':lambda meta: mmaxmin(meta, False)}
+        metafunx = {'mlen':mlen, 'mavg':lambda meta, conf: avg((thing for thing in meta)), 'mmax':lambda meta, conf: mmaxmin(meta, True), 'mmin':lambda meta, conf: mmaxmin(meta, False), 'confcol':getColumn }
         
         maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div,'**':mypow}
         pars = ('(','[','{','"',"'")
@@ -1100,7 +1107,7 @@ class Sdffile(object):
                             else:
                                 return None
                         elif tab[0] in metafunx:
-                            return Sdfmeta.construct( metafunx[tab[0]](tabiter(conf, tab[1] )) )
+                            return Sdfmeta.construct( metafunx[tab[0]](tabiter(conf, tab[1] ), conf) )
                     #slice
                     meta = tabiter(conf, tab[0])
                     if meta:
@@ -1631,10 +1638,15 @@ class Sdfmole(object):
         gettab = [lambda i: i+1, lambda i: self.getatomloc(i+1)]
         
         ignores = kwargs.get('ignores', ['H'])
-        at = kwargs.get('types',False)
         
-        if at :
+        if kwargs.get('types',False) :
             gettab.append(lambda i: self.gettype(i+1).strip())
+        
+        if kwargs.get('tabs',False):
+            tablist = kwargs.get('tabs')
+            if not isinstance(tablist, (list, tuple)):
+                tablist = (tablist, )
+            gettab[1:]=[lambda x: numify(self._atoms[x][i]) for i in tablist]
         
         self.numerize()
         #for i, atom in enumerate(self._atoms):
@@ -2957,6 +2969,12 @@ class Mol2Mol(OrDi):
         if at:
             gettab.append(lambda: things[offset+1].strip() )
         
+        if kwargs.get('tabs',False):
+            tablist = kwargs.get('tabs')
+            if not isinstance(tablist, (list, tuple)):
+                tablist = (tablist, )
+            gettab[1:]=[lambda x: numify(things[offset+i]) for i in tablist]
+        
         for line in self['ATOM']:
             things = re.split( '\s+', line.strip())
             if len(things)>1:
@@ -3035,7 +3053,7 @@ class Runner(object):
              ('combine','co'), 
              ('allcombine','aco'), 
              ('addcsv','csv'), 
-             ('getmol2',''), 
+             ('getmol2','gm2'), 
              ('addescape','aesc'), 
              ('addinside','ains'), 
              ('config','con'), 
@@ -3720,8 +3738,8 @@ if __name__ == "__main__":
     arger.add_argument("-rcn", "--removeconfname",  action="store_true",    help = "remove conformation number from name.")
     arger.add_argument("-rcm", "--removeconfmeta",  action="store_true",    help = "remove conformation number from metafield 'confnum'.")
     
-    arger.add_argument("-aesc", "--addescape",  type=str, nargs='+', metavar="File,mol_num,range,name", help = "Add metafield escapenum which is number of atoms not in range of atoms in other molecule.")
-    arger.add_argument("-ains", "--addinside",  type=str, nargs='+', metavar="File,mol_num,range,name", help = "Add metafield insidenum which is number of atoms in range of atoms in other molecule.")
+    arger.add_argument("-aesc", "--addescape",  type=str, nargs='+', metavar="File,mol_num,range,name[,max[,nums]]", help = "Add metafield escapenum which is number of atoms not in range of atoms in other molecule.")
+    arger.add_argument("-ains", "--addinside",  type=str, nargs='+', metavar="File,mol_num,range,name[,max[,nums]]", help = "Add metafield insidenum which is number of atoms in range of atoms in other molecule.")
     
     #choicecombi = arger.add_mutually_exclusive_group()
     arger.add_argument("-co", "--combine", metavar='addition.sdf', type = str, nargs='+',     help = "Combine metadata from specified file to the data of original file. Confromation numbers must match.")
@@ -3753,16 +3771,16 @@ if __name__ == "__main__":
     arger.add_argument("-cla", "--closeratoms", type = str, nargs='+',      help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
     arger.add_argument("-v", "--verbose", action = "store_true" ,           help = "More info on your run.")
     arger.add_argument("-mm", "--mergemeta", type = str, nargs='+',         help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes multiple arguments separated by |")
-    arger.add_argument("-mnm", "--makenewmeta", type = str, nargs='+',      help = "Makes a new metafield based on logical statement and value picking inside the metafield. newmeta = meta1 + meta2 < 50. Takes multiple arguments separated by |")
-    arger.add_argument("-cm", "--changemeta", type = str, nargs='+',        help = "Changes names of metafields. [olname1>newname1|oldname2>newname2]. ")
-    arger.add_argument("-sm", "--sortmeta", type = str, nargs='+',          help = "Sorts cells of a metafield in ascending [<metaname] or descending [>metaname] order. Additional '+' as the last character sorts by key in dictionary type metas. Takes multiple values separated by |")
-    arger.add_argument("-so", "--sortorder", type = str, nargs='+',         help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name")
-    arger.add_argument("-hg", "--histogram", type = str, nargs='+',         help = "Plots a 1D or 2D histogram, multiple plots with '|'. 'Xname,Yname,Xtitle=x-akseli,Ytitle=y-akseli,bins=[30,30]'")
+    arger.add_argument("-mnm", "--makenewmeta", type = str, nargs='+', metavar='newmeta=statement[</>value]',     help = "Makes a new metafield based on logical statement and value picking inside the metafield. newmeta = meta1 + meta2 < 50. Takes multiple arguments separated by |")
+    arger.add_argument("-cm", "--changemeta", type = str, nargs='+', metavar='olname1>newname1' , help = "Changes names of metafields. [olname1>newname1|oldname2>newname2]. ")
+    arger.add_argument("-sm", "--sortmeta", type = str, nargs='+', metavar='</>statement',         help = "Sorts cells of a metafield in ascending [<metaname] or descending [>metaname] order. Additional '+' as the last character sorts by key in dictionary type metas. Takes multiple values separated by |")
+    arger.add_argument("-so", "--sortorder", type = str, nargs='+', metavar='meta', help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name")
+    arger.add_argument("-hg", "--histogram", type = str, nargs='+', metavar='Xname[,Yname],Xtitle=x-akseli[,Ytitle=y-akseli][,bins=[30,30]]',        help = "Plots a 1D or 2D histogram, multiple plots with '|'. 'Xname,Yname,Xtitle=x-akseli,Ytitle=y-akseli,bins=[30,30]'")
     
-    arger.add_argument("-gm2", "--getmol2", type = str, nargs='+',          help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata. pathto.mol2, column, metaname.")#meta column path
-    arger.add_argument("-pm2", "--putmol2", type = str, nargs='+',          help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data. input.mol2,output.mol2, column, metaname, default, precision.")#metaname, column, path, defaultValue, precision, outpath
+    arger.add_argument("-gm2", "--getmol2", type = str, nargs='+', metavar='pathto.mol2,column,metaname',         help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata.")#meta column path
+    arger.add_argument("-pm2", "--putmol2", type = str, nargs='+',  metavar='input.mol2,output.mol2, column, metaname, default, precision',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
     
-    arger.add_argument("-sbm", "--stripbutmeta", type = str, nargs='+',     help = "Removes all atoms from molecules, except for those in given logical statement. Takes multiple parameters separated by '|'")
+    arger.add_argument("-sbm", "--stripbutmeta", type = str, nargs='+', metavar='statement', help = "Removes all atoms from molecules, except for those in given logical statement. Takes multiple parameters separated by '|'")
     
     args = arger.parse_args()
     
