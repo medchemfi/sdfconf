@@ -1646,9 +1646,10 @@ class Sdfmole(object):
             tablist = kwargs.get('tabs')
             if not isinstance(tablist, (list, tuple)):
                 tablist = (tablist, )
-            gettab[1:]=[lambda x: numify(self._atoms[x][i]) for i in tablist]
+            self.numerize()
+            gettab[1:]=[lambda i: numify(self._atoms[i][j]) for j in tablist]
+            self.numerize()
         
-        self.numerize()
         #for i, atom in enumerate(self._atoms):
         for i in range(len(self._atoms)):
             if self.gettype(i+1).strip() in ignores:
@@ -3767,25 +3768,28 @@ if __name__ == "__main__":
     outputtype.add_argument("-nm", "--counts", nargs='?', type = int, const=0, choices=(0,1,2),  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
     
-    arger.add_argument("-ca", "--closestatom", type = str, nargs='+', metavar='(xx, yy, zz), my_poi', help = "Calculates the closest atoms (distances by atom number) to given point. Adds 'Closest_atoms' metafield with optional prefix. Needs either coordinates separated by ',' or or single atom number")
-    arger.add_argument("-cla", "--closeratoms", type = str, nargs='+',      help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
-    arger.add_argument("-v", "--verbose", action = "store_true" ,           help = "More info on your run.")
-    arger.add_argument("-mm", "--mergemeta", type = str, nargs='+',         help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes multiple arguments separated by |")
+    arger.add_argument("-ca", "--closestatom", type = str, nargs='+',  metavar='(xx, yy, zz), my_poi', help = "Calculates the closest atoms (distances by atom number) to given point. Adds 'Closest_atoms' metafield with optional prefix. Needs either coordinates separated by ',' or or single atom number")
+    arger.add_argument("-cla", "--closeratoms", type = str, nargs='+', help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
+    arger.add_argument("-v", "--verbose", action = "store_true" ,      help = "More info on your run.")
+    arger.add_argument("-mm", "--mergemeta", type = str, nargs='+',    help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes multiple arguments separated by |")
     arger.add_argument("-mnm", "--makenewmeta", type = str, nargs='+', metavar='newmeta=statement[</>value]',     help = "Makes a new metafield based on logical statement and value picking inside the metafield. newmeta = meta1 + meta2 < 50. Takes multiple arguments separated by |")
-    arger.add_argument("-cm", "--changemeta", type = str, nargs='+', metavar='olname1>newname1' , help = "Changes names of metafields. [olname1>newname1|oldname2>newname2]. ")
-    arger.add_argument("-sm", "--sortmeta", type = str, nargs='+', metavar='</>statement',         help = "Sorts cells of a metafield in ascending [<metaname] or descending [>metaname] order. Additional '+' as the last character sorts by key in dictionary type metas. Takes multiple values separated by |")
-    arger.add_argument("-so", "--sortorder", type = str, nargs='+', metavar='meta', help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name")
-    arger.add_argument("-hg", "--histogram", type = str, nargs='+', metavar='Xname[,Yname],Xtitle=x-akseli[,Ytitle=y-akseli][,bins=[30,30]]',        help = "Plots a 1D or 2D histogram, multiple plots with '|'. 'Xname,Yname,Xtitle=x-akseli,Ytitle=y-akseli,bins=[30,30]'")
+    arger.add_argument("-cm", "--changemeta", type = str, nargs='+',   metavar='olname1>newname1' , help = "Changes names of metafields. [olname1>newname1|oldname2>newname2]. ")
+    arger.add_argument("-sm", "--sortmeta", type = str, nargs='+',     metavar='</>statement',         help = "Sorts cells of a metafield in ascending [<metaname] or descending [>metaname] order. Additional '+' as the last character sorts by key in dictionary type metas. Takes multiple values separated by |")
+    arger.add_argument("-so", "--sortorder", type = str, nargs='+',    metavar='meta', help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name")
+    arger.add_argument("-hg", "--histogram", type = str, nargs='+',    metavar='Xname[,Yname],Xtitle=x-akseli[,Ytitle=y-akseli][,bins=[30,30]]',        help = "Plots a 1D or 2D histogram, multiple plots with '|'.")
     
     arger.add_argument("-gm2", "--getmol2", type = str, nargs='+', metavar='pathto.mol2,column,metaname',         help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata.")#meta column path
-    arger.add_argument("-pm2", "--putmol2", type = str, nargs='+',  metavar='input.mol2,output.mol2, column, metaname, default, precision',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
+    arger.add_argument("-pm2", "--putmol2", type = str, nargs='+', metavar='input.mol2,output.mol2, column, metaname, default, precision',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
     
     arger.add_argument("-sbm", "--stripbutmeta", type = str, nargs='+', metavar='statement', help = "Removes all atoms from molecules, except for those in given logical statement. Takes multiple parameters separated by '|'")
     
     args = arger.parse_args()
     
     if not (args.input or args.config):
-        arger.error('You must give at least one input file, or a config file.')
+        class ArgumentError(Exception):
+            pass
+        raise ArgumentError('You must give at least one input file, or a config file.')
+        #arger.error('You must give at least one input file, or a config file.')
     
     manyfiles = args.input
     
