@@ -2139,7 +2139,7 @@ class Sdfmeta(object):
         Initializes an empty metafield
         If listofstrings is given (a single metafield in .sdf-file) adds that data
         '''
-        self._name = (None,None) #Metafield name
+        self._name = None #Metafield name
         self._datatype = None #int, float, str
         self._datastruct = None #list, dict, single
         self._data = None #The actual data
@@ -2277,20 +2277,24 @@ class Sdfmeta(object):
         '''
         #get name of metafield
         if listofstrings[0][0] != '>' :
-            self._name = ['  ','']
+            self._name = None
             fi = 0
         else:
-            self._name = Sdfmeta.metaname.match(listofstrings[0]).groups()
+            self._name = Sdfmeta.metaname.match(listofstrings[0]).groups()[1]
             fi = 1
-            if Sdfmeta.ematch.match(self._name[0]):
-                self._name = ('  ', self._name[1])
+            #if Sdfmeta.ematch.match(self._name[0]):
+            #    self._name = ('  ', self._name[1])
         #Remove the last empty line and linechanges
+        '''
         if not len(listofstrings[-1].strip())==0:
             #Raise error?
             return
         else: #             rstrip?
             self._data = [listofstrings[i].strip('\n ') for i in range(fi,len(listofstrings)-1) ]
-    
+        '''
+        if len(listofstrings[-1].strip())==0:
+            self._data = [listofstrings[i].strip('\n ') for i in xrange(fi,len(listofstrings)-1) ]
+        
     def numerize(self):
         '''
         Metas are initially stored in dumb-form (text). This method does the actual parsing/numerizing
@@ -2342,9 +2346,10 @@ class Sdfmeta(object):
         new._dumb = False
         if 'name' in dictarg:
             name = dictarg['name']
-            new.setname(name)
         else:
-            name = ''
+            name = None
+        new.setname(name)
+        
         if type(data) == str:
             
             if 'literal' in dictarg and dictarg['literal']:
@@ -2385,12 +2390,14 @@ class Sdfmeta(object):
                     if key != newkey:
                         del(data[key])
                 
-        if type(data) == list:
-            types = set(lmap(type, data))
-        elif type(data) == OrDi:
+        #if type(data) == list:
+        #    types = set(lmap(type, data))
+        #elif type(data) == OrDi:
+        if type(data) == OrDi:
             types = {type(data[key]) for key in data}
         else:
-            types = {type(data)}
+            types = set(lmap(type, data))
+            #types = {type(data)}
         
         new._data = data
         if not all({typ in (int, float, str) for typ in types}):
@@ -2419,7 +2426,8 @@ class Sdfmeta(object):
         Shallow copy method
         '''
         new = Sdfmeta()
-        new._name = tuple( self._name ) #new._name = copy.copy( self._name )
+        #new._name = tuple( self._name ) #new._name = copy.copy( self._name )
+        new._name = self._name #new._name = copy.copy( self._name )
         new._datatype = self._datatype #new._datatype = copy.copy( self._datatype )
         new._datastruct = self._datastruct
         new._data = type(self._data)(( self._data )) #new._data = copy.copy( self._data )
@@ -2432,7 +2440,8 @@ class Sdfmeta(object):
         Deep copy method is the same as __copy__
         '''
         new = Sdfmeta()
-        new._name = tuple( self._name ) #new._name = copy.copy( self._name )
+        #new._name = tuple( self._name ) #new._name = copy.copy( self._name )
+        new._name = self._name #new._name = copy.copy( self._name )
         new._datatype = self._datatype #new._datatype = copy.copy( self._datatype )
         new._datastruct = self._datastruct
         new._data = type(self._data)(( self._data )) #new._data = copy.copy( self._data )
@@ -2444,7 +2453,7 @@ class Sdfmeta(object):
         '''
         return name of Sdfmeta
         '''
-        return self._name[-1]
+        return self._name #[-1]
     
     def isdumb(self):
         '''
@@ -2455,6 +2464,16 @@ class Sdfmeta(object):
     def setname(self, newname):
         '''
         Change the name of Sdfmeta
+        '''
+        if type(newname) == str:
+            self._name = newname
+        elif not newname:
+            self._name = None
+        elif isinstance(newname, (tuple,list)):
+            self.setname(newname[-1])
+            #historical reasons
+        else:
+            raise TypeError('Name defined incorrectly! '+str(newname))
         '''
         if type(newname) in (list, tuple):
             self._name = tuple(newname[:2])
@@ -2469,6 +2488,7 @@ class Sdfmeta(object):
             self.setname('')
         else:
             raise TypeError('Name defined incorrectly! '+str(newname))
+        '''
         
     def dtype(self):
         return self._datatype
@@ -2612,7 +2632,8 @@ class Sdfmeta(object):
         #Make list
         strings = []
         #Append name
-        strings.append('>'+self._name[0]+'<'+self._name[1]+'>')
+        #strings.append('>'+self._name[0]+'<'+self._name[1]+'>')
+        strings.append('>  <'+self._name+'>')
         
         if self.isdumb():
             #Add data
@@ -3489,7 +3510,7 @@ def metajoiner(metas, **params):
     if 'name' in params:
         newmeta.setname(params['name'])
     else:
-        newmeta.setname('')
+        newmeta.setname(None)
     for meta in metas:
         newmeta.extend(meta)
     if newmeta._datatype == str and newmeta._datastruct != OrDi:
@@ -3671,6 +3692,9 @@ def dumb_levopemap(tab, par=None, length=None):
                     i = sear.start()
                     ie = sear.end()
             if sear:
+                if i>0 and thing[i-1]=='\\' :  #Escape character for math operators
+                    tab[j] = thing[:i-1]+thing[i:]
+                    continue
                 tab1=[]
                 tab1.extend(tab[:j])
                 if i > 0:
@@ -3748,7 +3772,7 @@ if __name__ == "__main__":
     
     #choicecut = arger.add_mutually_exclusive_group()
     arger.add_argument("-cu", "--cut", metavar='unwanted.sdf', type = str, nargs='+',           help = "Remove molecules in specified file from original file. Confromations must match.")
-    arger.add_argument("-acu", "--allcut", metavar='unwanted.sdf', type = str, nargs='+',       help = "Remove molecules in specified file from original file. Names must match. Not tested")
+    arger.add_argument("-acu", "--allcut", metavar='unwanted.sdf', type = str, nargs='+',       help = "Remove molecules in specified file from original file. Names must match. Not tested.")
     
     arger.add_argument("-csv", "--addcsv", metavar='data.csv', type = str, nargs='+',           help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. Names of molecules must be leftmost. If name includes confnumber, meta is only added molecules with same confnumber.")
     arger.add_argument("-ex", "--extract", metavar='statement', type = str, nargs='+',           help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID='benzene'. Multiple statements as separate strings")
@@ -3772,23 +3796,31 @@ if __name__ == "__main__":
     arger.add_argument("-cla", "--closeratoms", type = str, nargs='+', help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
     arger.add_argument("-v", "--verbose", action = "store_true" ,      help = "More info on your run.")
     arger.add_argument("-mm", "--mergemeta", type = str, nargs='+',    help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes multiple arguments separated by |")
+    
     arger.add_argument("-mnm", "--makenewmeta", type = str, nargs='+', metavar='newmeta=statement[</>value]',     help = "Makes a new metafield based on logical statement and value picking inside the metafield. newmeta = meta1 + meta2 < 50. Takes multiple arguments separated by |")
-    arger.add_argument("-cm", "--changemeta", type = str, nargs='+',   metavar='olname1>newname1' , help = "Changes names of metafields. [olname1>newname1|oldname2>newname2]. ")
+    arger.add_argument("-cm", "--changemeta", type = str, nargs='+',   metavar='olname1>newname1' , help = "Changes names of metafields. [olname1>newname1|oldname2>newname2].")
+    
     arger.add_argument("-sm", "--sortmeta", type = str, nargs='+',     metavar='</>statement',         help = "Sorts cells of a metafield in ascending [<metaname] or descending [>metaname] order. Additional '+' as the last character sorts by key in dictionary type metas. Takes multiple values separated by |")
+    
     arger.add_argument("-so", "--sortorder", type = str, nargs='+',    metavar='meta', help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name")
-    arger.add_argument("-hg", "--histogram", type = str, nargs='+',    metavar='Xname[,Yname],Xtitle=x-akseli[,Ytitle=y-akseli][,bins=[30,30]]',        help = "Plots a 1D or 2D histogram, multiple plots with '|'.")
+    arger.add_argument("-hg", "--histogram", type = str, nargs='+',    metavar="Xname,Yname,Xtitle=x-akseli,Ytitle=y-akseli,bins=[30,30]",        help = "Plots a 1D or 2D histogram, multiple plots with '|'.")
     
     arger.add_argument("-gm2", "--getmol2", type = str, nargs='+', metavar='pathto.mol2,column,metaname',         help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata.")#meta column path
-    arger.add_argument("-pm2", "--putmol2", type = str, nargs='+', metavar='input.mol2,output.mol2, column, metaname, default, precision',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
+    arger.add_argument("-pm2", "--putmol2", type = str, nargs='+',     metavar='input.mol2,output.mol2, column, metaname, default, precision',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
     
     arger.add_argument("-sbm", "--stripbutmeta", type = str, nargs='+', metavar='statement', help = "Removes all atoms from molecules, except for those in given logical statement. Takes multiple parameters separated by '|'")
+    
     
     args = arger.parse_args()
     
     if not (args.input or args.config):
+        '''
         class ArgumentError(Exception):
             pass
         raise ArgumentError('You must give at least one input file, or a config file.')
+        '''
+        arger.print_help()
+        sys.exit(1)
         #arger.error('You must give at least one input file, or a config file.')
     
     manyfiles = args.input
