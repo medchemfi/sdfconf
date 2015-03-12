@@ -373,6 +373,7 @@ class Sdffile(object):
     
     def makenewmetastr(self, string):
         '''Frontend for makenewmeta'''
+        '''
         string = string.strip()
         comps = ('>=', '<=', '<', '>', '==', '!=', '=' )
         eqind=string.find('=')
@@ -384,22 +385,31 @@ class Sdffile(object):
                 self.makenewmeta(name, ostri[:i].strip(), comp, ostri[i+len(comp):].strip() )
                 return
         self.makenewmeta(name, ostri.strip(), None, None )
+        '''
+        things = compsplit(string)
+        
+        if len(things) in (3,5) and things[1] == '=':
+            #things = things[:1]+things[2:]
+            self.makenewmeta(*(things[:1]+things[2:]))
+        else:
+            raise InputException('Invalid new meta definition {}'.format(str(things)))
+            
     
     def makenewmeta(self, name, metastatement, logicchar = None, value = None):
         '''
         make a new metafield by metastatement and pick only those fullfilling given logical statement
         '''
-        comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
+        #comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
         newmetas = self.getmollogic(metastatement)
         if logicchar:
-            pickvalues = self.getmollogic(value)
+            pickervalues = self.getmollogic(value)
+            logic = Sdfmeta.comps[logicchar]
         count = 0
         for molname in newmetas:
-
             for confn in newmetas[molname]:
                 if logicchar:
                     try:
-                        newmetas[molname][confn].pickvalues( pickvalues[molname][confn], comps[logicchar] )
+                        newmetas[molname][confn].pickvalues( pickervalues[molname][confn], logic )
                     except KeyError:
                         continue
                 if len(newmetas[molname][confn])>0:
@@ -828,11 +838,20 @@ class Sdffile(object):
             larg = []
             darg = dict()
             for para in params:
+                '''
                 ind=para.find('=')
                 if ind!=-1:
                     darg[para[:ind]]=para[ind+1:]
                 else:
                     larg.append(para)
+                '''
+                things = compsplit(para, ('=',))
+                if len(things)==3:
+                    #darg[para[:ind]]=para[ind+1:]
+                    darg[things[0]]=things[2]
+                else:
+                    larg.append(para)
+                
             for key in darg:
                 darg[key]=lister(darg[key])
                 darg[key]=numify(darg[key])
@@ -912,7 +931,7 @@ class Sdffile(object):
                 
                 try: # added so comparisons to nonexistent metas won't crash
                     #if comps[opera]( mole.logicgetmeta(tocompare[0]), mole.logicgetmeta(tocompare[1]) ):
-                    if comps[opera]( compares[0][info[0]][info[1]], compares[1][info[0]][info[1]] ):
+                    if Sdfmeta.comps[opera]( compares[0][info[0]][info[1]], compares[1][info[0]][info[1]] ):
                         trues.append(info)
                     else:
                         falses.append(info)
@@ -930,7 +949,8 @@ class Sdffile(object):
             if len(tear) != 2:
                 raise ValueError('Weird logic.')
             #funk = tear[0]
-            matheus = tabjoin(tear[1][1])
+            #matheus = tabjoin(tear[1][1])
+            matheus = levjoin(tear[1][1])
             rcomindex = matheus.rfind(',')
             if rcomindex == -1:
                 raise TypeError('Weird logic. No comma.')
@@ -1011,8 +1031,8 @@ class Sdffile(object):
         else:
             pick = True
         
-        opesplit=[item.strip() for item in re.split('(>=|<=|<|>|==|!=|=)',string)]
-        comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
+        #opesplit=[item.strip() for item in re.split('(>=|<=|<|>|==|!=|=)',string)]
+        opesplit=compsplit(string)
         
         if len(opesplit)==3:
             trues, falses = compar( opesplit )
@@ -1112,8 +1132,22 @@ class Sdffile(object):
                     meta = tabiter(conf, tab[0])
                     if meta:
                         sli = tabiter(conf, tab[1]) #assumes tuple
-                        return meta.slicer(sli, tab[1][0])
-                    else: return None
+                        if isinstance(sli, slice):
+                            return meta.slicer(sli, tab[1][0])
+                        else:
+                            print 'gotit'
+                            meta.pickvalues(tabiter(conf, sli[1]), Sdfmeta.comps.get(sli[0], None))
+                            return meta
+                    '''
+                    if tab[0] == '(' : #valuechop #test
+                        print 'PICKER!'
+                        rip = compsplit(tab[1])
+                        if len(rip)>1:
+                            meta.pickvalues(tabiter(conf, rip[1]), Sdfmeta.comps.get(rip[0], None))
+                            return meta
+                    '''
+                    #else: return None
+                    return None
                 else: #len(tab)>2 evaluate first against the last
                     metaus = tabiter(conf, tab[0])
                     for item in tab[1:]:
@@ -1144,11 +1178,17 @@ class Sdffile(object):
                     trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
                     if not str in lmap(type, trytab):
                         return Sdfmeta.construct( trytab )
-                    try:
-                        return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
-                    except ValueError:
-                        #return Sdfmeta.construct( tab )
-                        raise ValueError('Your logic makes no sense. '+str(tab))
+                    else:
+                        try:
+                            return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
+                        except ValueError:
+                            rip = compsplit(tab)
+                            #print 'RIP!'
+                            if len(rip)>1 and par == '(':
+                                #print 'OMG its true'
+                                return rip
+                            #return Sdfmeta.construct( tab )
+                            raise ValueError('Your logic makes no sense. '+str(tab))
                 else:
                     trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
                     if not str in lmap(type, trytab):
@@ -1970,10 +2010,11 @@ class Sdfmole(object):
                 atom=nextone
         return distances
     
+    '''
     def pickmetavalues(self, meta, value, operator,copyme=False):
-        '''
+        \'''
         Removes entries in single Sdfmeta that won't fullfill given comparison
-        '''
+        \'''
         if self.hasmeta(meta):
             if type(value)==str:
                 comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
@@ -1983,6 +2024,7 @@ class Sdfmole(object):
                 newmeta = copy.copy(newmeta)
             newmeta.pickvalues(value, operator)
             self._meta[meta] = newmeta
+    '''
     
     def logicgetmetastr(self, string):
         #return meta defined in given meta expression
@@ -2133,6 +2175,7 @@ class Sdfmeta(object):
     metaname = re.compile('\>(.*)\<(.+)\>') #Match gets metafield name
     ematch =   re.compile('[ ]{0,2}')
     fisep  =   re.compile('[ ,;]')
+    comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
     
     def __init__(self, listofstrings=None):
         '''
@@ -2791,22 +2834,46 @@ class Sdfmeta(object):
         else:
             return [oper([meta._data[0] for meta in metas])]
         
-    def pickvalues(self, value, operator):
+    def pickvalues(self, value, oper):  ### FIX THIS PICKVALUES METHOD!  SHOULD WORK WITH ALL COMPARISONS, ALSO REGEX!!!
         if type(value)==Sdfmeta:
             pickvalue=value[0]
         else:
             pickvalue=numify(value)
         #MAY CREATE METAS WITH LENGT OF 0
-        if type( self._data ) == OrDi:
+        
+        if self.isdumb():
+            self.numerize()
+        
+        if oper in (operator.eq, operator.ne) and (self._datatype == str and type(pickvalue) == str):
+            #print 'STRINGER'
+            def comparator(string1, string2):
+                test = lambda x: x[:6].upper() == 'REGEX:'
+                if test(string1):
+                    return bool(re.search(string1[6:], string2 ))
+                elif test(string2):
+                    return bool(re.search(string2[6:], string1 ))
+                else:
+                    return (string1 == string2)
+            
+            compar = comparator if oper == operator.eq else lambda x,y : not comparator(x, y)
+                    
+        else:
+            #print 'NORMAL'
+            compar = oper
+        
+        if type(self._data) == OrDi:
+            #li1 = self._data.values()
             newdata = OrDi()
             for key in self._data:
-                if operator(self._data[key], pickvalue):
+                if compar(self._data[key], pickvalue):
                     newdata[key] = self._data[key]
         else:
+            #li1 = list(self._data)
             newdata = []
             for thing in self._data:
-                if operator(thing, pickvalue):
+                if compar(thing, pickvalue):
                     newdata.append(thing)
+        
         self._data = newdata
         self._delims = self._delims[:len(self._data)-1]
         
@@ -3349,6 +3416,8 @@ class Runner(object):
     
     #look http://parezcoydigo.wordpress.com/2012/08/04/from-argparse-to-dictionary-in-python-2-7/
 #End of Runner
+class InputException(Exception):
+    pass
 
 class Findable(object):
     
@@ -3738,8 +3807,22 @@ def levjoin(taber):
             else:
                 string.extend([levjoin(item[1][0]), item[0], levjoin(item[1][1]) ])
     return ''.join(string)
-
     
+def compsplit(string, comps = ('==','<=','>=','!=','=>','=<','<','>','=')):
+    tab = leveler(string)
+    for i, item in enumerate(tab):
+        if isinstance(item, str):
+            j=-1
+            for comp in comps:
+                j=item.find(comp)
+                if j>=0:
+                    return compsplit(levjoin(tab[:i])+item[:j]) + [ item[j:j+len(comp)]] + compsplit(item[j+len(comp):]+levjoin(tab[i+1:]))
+    ret = []
+    if string.strip() != '':
+        ret.append(string.strip())
+    return ret
+    
+
     
 
 if __name__ == "__main__":
