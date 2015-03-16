@@ -1104,10 +1104,10 @@ class Sdffile(object):
             '''
             molname = conf.getname()
             
-            print 'tabiter: {}'.format(tab)
+            #print 'tabiter: {}'.format(tab)
             
             def listope(conf,tab,par=None):
-                print 'listoper: {}'.format(tab)
+                #print 'listoper: {}'.format(tab)
                 #Work with lists in given structures
                 if len(tab)==1: #evaluate
                     return tabiter(conf, tab[0], par)
@@ -1151,13 +1151,13 @@ class Sdffile(object):
                     meta = tabiter(conf, tab[0])
                     if meta:
                         sli = tabiter(conf, tab[1]) #assumes tuple
-                        print 'sli is '
-                        print sli
+                        #print 'sli is '
+                        #print sli
                         if isinstance(sli, slice):
                             return meta.slicer(sli, tab[1][0])
                         elif sli:
-                            print 'gotit'
-                            print sli
+                            #print 'gotit'
+                            #print sli
                             meta.pickvalues(tabiter(conf, sli[1]), Sdfmeta.comps.get(sli[0], None))
                             return meta
                     '''
@@ -1194,8 +1194,8 @@ class Sdffile(object):
                 '''
                 
             def striope(conf,tab,par=None):
-                print 'strioper: {}'.format(tab)
-                print 'par = {}'.format(par)
+                #print 'strioper: {}'.format(tab)
+                #print 'par = {}'.format(par)
                 #Work with strings in given structure
                 if par in ('"',"'"):
                     return Sdfmeta.construct(tab)
@@ -1214,7 +1214,7 @@ class Sdffile(object):
                             return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
                         except ValueError:
                             rip = compsplit(tab)
-                            print 'RIP is {}'.format(rip)
+                            #print 'RIP is {}'.format(rip)
                             if len(rip)>1 and par == '(':
                                 #print 'OMG its true'
                                 return rip
@@ -1227,7 +1227,7 @@ class Sdffile(object):
                     #else: return None
                     
             def raiser(conf, tab, par=None):
-                print 'raiser: {}'.format(tab)
+                #print 'raiser: {}'.format(tab)
                 #function for raising error
                 raise TypeError('Bad levels: '+str(tab))
             
