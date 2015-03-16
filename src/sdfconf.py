@@ -1082,7 +1082,11 @@ class Sdffile(object):
                 columns = meta
             elif isinstance(meta, Sdfmeta):
                 columns = meta._data.values()[0] if meta._datastruct == OrDi else meta._data[0]
-            return OrDi(conf.atomsGenerator(tabs=columns))
+            reva = OrDi(conf.atomsGenerator(tabs=columns))
+            for key in reva:
+                reva[key] = numify(reva[key].strip()) if type(reva[key]) == str else numify(reva[key]) 
+            return reva
+            #return OrDi(conf.atomsGenerator(tabs=columns))
         
         #metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta)), 'mmax':lambda meta: mmaxmin(meta, True), 'mmin':lambda meta: mmaxmin(meta, False)}
         metafunx = {'mlen':mlen, 'mavg':lambda meta, conf: avg((thing for thing in meta)), 'mmax':lambda meta, conf: mmaxmin(meta, True), 'mmin':lambda meta, conf: mmaxmin(meta, False), 'confcol':getColumn }
@@ -1100,13 +1104,19 @@ class Sdffile(object):
             '''
             molname = conf.getname()
             
+            print 'tabiter: {}'.format(tab)
+            
             def listope(conf,tab,par=None):
+                print 'listoper: {}'.format(tab)
                 #Work with lists in given structures
                 if len(tab)==1: #evaluate
                     return tabiter(conf, tab[0], par)
                 elif len(tab)==2: #it a slice / asc/max, or something like that
                     if type(tab[0])==str:
-                        if tab[0] in molfunx:
+                        if tab[0] in pars and not par:
+                            #do slicing, etc.
+                            return tabiter(conf, tab[1], tab[0]) 
+                        elif tab[0] in molfunx and tab[1][0] == '(':
                             #do precalc, etc
                             if not tab[0] in precalc or not molname in precalc[tab[0]]:
                                 metas = []
@@ -1118,7 +1128,7 @@ class Sdffile(object):
                                 del(metas)
                             if tab[0] in precalc and molname in precalc[tab[0]]:
                                 return precalc[tab[0]][molname] #start and end missing
-                        elif tab[0] in sortfunx:
+                        elif tab[0] in sortfunx and tab[1][0] == '(':
                             #sort next tuple, etc.
                             meta = tabiter(conf, tab[1] )
                             if meta:
@@ -1126,16 +1136,28 @@ class Sdffile(object):
                                 return meta
                             else:
                                 return None
-                        elif tab[0] in metafunx:
+                            
+                        elif tab[0] in Sdfmeta.comps : 
+                            #return levjoin(tab)
+                            return tab
+                            
+                        elif tab[0] in metafunx and tab[1][0] == '(':
+                            #tabin = tabiter(conf, tab[1] )
+                            #print tabin._data
+                            #return Sdfmeta.construct( metafunx[tab[0]](tabin, conf) )
                             return Sdfmeta.construct( metafunx[tab[0]](tabiter(conf, tab[1] ), conf) )
+                        
                     #slice
                     meta = tabiter(conf, tab[0])
                     if meta:
                         sli = tabiter(conf, tab[1]) #assumes tuple
+                        print 'sli is '
+                        print sli
                         if isinstance(sli, slice):
                             return meta.slicer(sli, tab[1][0])
-                        else:
+                        elif sli:
                             print 'gotit'
+                            print sli
                             meta.pickvalues(tabiter(conf, sli[1]), Sdfmeta.comps.get(sli[0], None))
                             return meta
                     '''
@@ -1148,13 +1170,18 @@ class Sdffile(object):
                     '''
                     #else: return None
                     return None
-                else: #len(tab)>2 evaluate first against the last
-                    metaus = tabiter(conf, tab[0])
-                    for item in tab[1:]:
+                else: #len(tab)>2 evaluate (first to second) to third, etc.
+                    if len(tab)==3 and tab[0] in maths:
+                        #do math
+                        return Sdfmeta.metaoper(maths[tab[0]],[tabiter(conf, tab[1]),tabiter(conf, tab[2])])
+                    metaus = tabiter(conf, tab[:2], None)
+                    for item in tab[2:]:
                         metaus = tabiter(conf, [metaus,item])
                     return metaus
                 
+                '''
             def tuplope(conf,tab,par=None):
+                print 'tupleoper: {}'.format(tab)
                 #Work with tuples in given structure
                 if tab[0] in maths:
                     #do math
@@ -1164,13 +1191,17 @@ class Sdffile(object):
                     #do slicing, etc.
                     return tabiter(conf, tab[1], tab[0]) 
                 #return something. or not
+                '''
                 
             def striope(conf,tab,par=None):
+                print 'strioper: {}'.format(tab)
+                print 'par = {}'.format(par)
                 #Work with strings in given structure
                 if par in ('"',"'"):
                     return Sdfmeta.construct(tab)
                 #elif tab in sortfunx or tab in molfunx:
-                elif tab in sortfunx or tab in molfunx or tab in metafunx:
+                #elif tab in sortfunx or tab in molfunx or tab in metafunx:
+                elif tab in (sortfunx, molfunx, metafunx) : #CHANGES
                     return tab
                 elif conf.hasmeta(tab):
                     return copy.copy(conf.getmeta(tab)) #FIXME
@@ -1183,7 +1214,7 @@ class Sdffile(object):
                             return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
                         except ValueError:
                             rip = compsplit(tab)
-                            #print 'RIP!'
+                            print 'RIP is {}'.format(rip)
                             if len(rip)>1 and par == '(':
                                 #print 'OMG its true'
                                 return rip
@@ -1196,11 +1227,13 @@ class Sdffile(object):
                     #else: return None
                     
             def raiser(conf, tab, par=None):
+                print 'raiser: {}'.format(tab)
                 #function for raising error
                 raise TypeError('Bad levels: '+str(tab))
             
             #testdi = {list: listope, tuple: tuplope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, NoneType : lambda conf, me, par=None : None }
-            testdi = {list: listope, tuple: tuplope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
+            #testdi = {list: listope, tuple: tuplope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
+            testdi = {list: listope, tuple: listope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
             return testdi.get(type(tab), raiser )(conf, tab, par)
         
         def confloop(mol, tab):
@@ -1675,8 +1708,9 @@ class Sdfmole(object):
         '''
         generator that yields tuples including (atom number, coordinates of atom) for atoms in self, except for those of type represented in ignores.
         '''
+        self.numerize()
         gettab = [lambda i: i+1, lambda i: self.getatomloc(i+1)]
-        
+
         ignores = kwargs.get('ignores', ['H'])
         
         if kwargs.get('types',False) :
@@ -1687,7 +1721,7 @@ class Sdfmole(object):
             if not isinstance(tablist, (list, tuple)):
                 tablist = (tablist, )
             self.numerize()
-            gettab[1:]=[lambda i: numify(self._atoms[i][j]) for j in tablist]
+            gettab[1:]=[lambda i: numify(self._atoms[i][j-1]) for j in tablist]
             self.numerize()
         
         #for i, atom in enumerate(self._atoms):
@@ -3062,7 +3096,7 @@ class Mol2Mol(OrDi):
             tablist = kwargs.get('tabs')
             if not isinstance(tablist, (list, tuple)):
                 tablist = (tablist, )
-            gettab[1:]=[lambda x: numify(things[offset+i]) for i in tablist]
+            gettab[1:]=[lambda x: numify(things[offset+i-1]) for i in tablist]
         
         for line in self['ATOM']:
             things = re.split( '\s+', line.strip())
@@ -3586,14 +3620,14 @@ def metajoiner(metas, **params):
         newmeta._data = [''.join(newmeta._data)]  
     newmeta.cleandelim(True)
     return newmeta
-    
+    '''
 def getcolumn(tab,head):
     ind = tab[0].index(head.strip())
     column = []
     for row in tab[1:]:
         column.append(row[ind])
     return column
-
+    '''
 def readcsv(path):
     f=open(path,'r')
     matrix = csvtomatrix(f.readlines())
