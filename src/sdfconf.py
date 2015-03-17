@@ -2884,17 +2884,51 @@ class Sdfmeta(object):
         else:
             return [oper([meta._data[0] for meta in metas])]
         
-    def pickvalues(self, value, oper):  ### FIX THIS PICKVALUES METHOD!  SHOULD WORK WITH ALL COMPARISONS, ALSO REGEX!!!
+    def pickvalues(self, value, oper):
+        '''
         if type(value)==Sdfmeta:
             pickvalue=value[0]
         else:
             pickvalue=numify(value)
         #MAY CREATE METAS WITH LENGT OF 0
+        '''
+        if type(value)!=Sdfmeta:
+            value=Sdfmeta.construct(value)
+        
+        #print value._data
+        #print value._datatype
+        #print value._datastruct
         
         if self.isdumb():
             self.numerize()
         
-        if oper in (operator.eq, operator.ne) and (self._datatype == str and type(pickvalue) == str):
+        if self._datastruct == OrDi :
+            
+            if value._datastruct == OrDi:
+                for key in self._data.keys():
+                    if not key in value._data.keys():
+                        raise InputException('Valuepick: keys {} not in {}.'.format(self._data.keys(),value._data.keys()))
+                        #self._data = OrDi()
+                            #self._delims = []
+                            #return
+            elif len(value) != 1:
+                #else:
+                    #self._data = OrDi()
+                    #self._delims = []
+                    #return
+                raise InputException('Valuepick: comparing OrDi-meta to non-single list.')
+                    
+        elif self._datastruct in (list, 'single') :
+            if ( not  ( (len(value) == 1) or (len(value) == len(self))) ) or value._datastruct == OrDi :
+                #self._data = []
+                #self._delims = []
+                #return
+                raise InputException('Valuepick: comparing list to non-single, different lenght list or OrDi-meta.')
+        #if not  ( (len(value) != 1) or (len(value) != len(self))):
+        #    pass
+        
+        #if oper in (operator.eq, operator.ne) and (self._datatype == str and type(pickvalue) == str):
+        if oper in (operator.eq, operator.ne) and (self._datatype == str and value._datatype == str):
             #print 'STRINGER'
             def comparator(string1, string2):
                 test = lambda x: x[:6].upper() == 'REGEX:'
@@ -2911,17 +2945,30 @@ class Sdfmeta(object):
             #print 'NORMAL'
             compar = oper
         
-        if type(self._data) == OrDi:
+        if self._datastruct == OrDi:
             #li1 = self._data.values()
             newdata = OrDi()
-            for key in self._data:
-                if compar(self._data[key], pickvalue):
+            if value._datastruct == OrDi:
+                oval = lambda x : value._data[x]
+            else:
+                oval = lambda x : value._data[0]
+            #oval = lambda x : value._data[x] if value._datastruct == OrDi else lambda x: value._data[0]
+            
+            for key in self._data.keys():
+                #print ( self._data[key], oval(key) )
+                if compar(self._data[key], oval(key)):
                     newdata[key] = self._data[key]
+        
         else:
             #li1 = list(self._data)
             newdata = []
-            for thing in self._data:
-                if compar(thing, pickvalue):
+            if len(value)>1:
+                oval = lambda x : value._data[x]
+            else:
+                oval = lambda x : value._data[0]
+            #oval = lambda x : value._data[x] if len(value)>1 else lambda x : value._data[0]
+            for i, thing in enumerate(self._data):
+                if compar(thing, oval(i)):
                     newdata.append(thing)
         
         self._data = newdata
