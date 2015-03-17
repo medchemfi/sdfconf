@@ -371,7 +371,7 @@ class Sdffile(object):
                 newmet.cleandelim(True)
                 mol.addmeta(newmetaname, newmet)
     
-    def makenewmetastr(self, string):
+    def makenewmetastr(self, string): #no more accepts new = old < 5; now you must write new = old(<5); you can also new = old2(old1(<5){})(>3)
         '''Frontend for makenewmeta'''
         '''
         string = string.strip()
@@ -386,9 +386,11 @@ class Sdffile(object):
                 return
         self.makenewmeta(name, ostri.strip(), None, None )
         '''
+        
         things = compsplit(string)
         
-        if len(things) in (3,5) and things[1] == '=':
+        #if len(things) in (3,5) and things[1] == '=':
+        if len(things) == 3 and things[1] == '=': 
             #things = things[:1]+things[2:]
             self.makenewmeta(*(things[:1]+things[2:]))
         else:
@@ -1146,7 +1148,12 @@ class Sdffile(object):
                             #print tabin._data
                             #return Sdfmeta.construct( metafunx[tab[0]](tabin, conf) )
                             return Sdfmeta.construct( metafunx[tab[0]](tabiter(conf, tab[1] ), conf) )
-                        
+                        '''
+                        elif tab[0] in maths:
+                            #single math like -meta --> 0-meta, also *meta --> 0*meta :P
+                            #return Sdfmeta.metaoper(maths[tab[0]],[tabiter(conf, 0),tabiter(conf, tab[1])])
+                            return Sdfmeta.metaoper(maths[tab[0]],[Sdfmeta.construct(0),tabiter(conf, tab[1])])
+                        '''
                     #slice
                     meta = tabiter(conf, tab[0])
                     if meta:
@@ -1170,15 +1177,24 @@ class Sdffile(object):
                     '''
                     #else: return None
                     return None
-                else: #len(tab)>2 evaluate (first to second) to third, etc.
+                #else: #len(tab)>2 evaluate (first to second) to third, etc.
+                elif len(tab)>2:
                     if len(tab)==3 and tab[0] in maths:
                         #do math
-                        return Sdfmeta.metaoper(maths[tab[0]],[tabiter(conf, tab[1]),tabiter(conf, tab[2])])
-                    metaus = tabiter(conf, tab[:2], None)
-                    for item in tab[2:]:
-                        metaus = tabiter(conf, [metaus,item])
-                    return metaus
-                
+                        f1 = tabiter(conf, tab[1])
+                        #print f1._data
+                        if not f1:
+                            f1 = Sdfmeta.construct(0)
+                        #return Sdfmeta.metaoper(maths[tab[0]],[tabiter(conf, tab[1]),tabiter(conf, tab[2])])
+                        return Sdfmeta.metaoper(maths[tab[0]],[f1,tabiter(conf, tab[2])])
+                    else:
+                        metaus = tabiter(conf, tab[:2], None)
+                        for item in tab[2:]:
+                            metaus = tabiter(conf, [metaus,item])
+                        return metaus
+                else:
+                    return None
+                    
                 '''
             def tuplope(conf,tab,par=None):
                 print 'tupleoper: {}'.format(tab)
@@ -3600,7 +3616,7 @@ def div(num):
         
 def mypow(num):
     if type(num) in (tuple, list):
-        return numpy.asscalar(numpy.power(*num[:2]))
+        return numpy.asscalar(numpy.power(*lmap(float,num[:2])))
     else:
         return None
 
