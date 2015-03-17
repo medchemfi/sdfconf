@@ -1179,7 +1179,7 @@ class Sdffile(object):
                     return None
                 #else: #len(tab)>2 evaluate (first to second) to third, etc.
                 elif len(tab)>2:
-                    if len(tab)==3 and tab[0] in maths:
+                    if len(tab)==3 and type(tab[0]) == str and tab[0] in maths:
                         #do math
                         f1 = tabiter(conf, tab[1])
                         #print f1._data
@@ -1214,7 +1214,8 @@ class Sdffile(object):
                 #print 'par = {}'.format(par)
                 #Work with strings in given structure
                 if par in ('"',"'"):
-                    return Sdfmeta.construct(tab)
+                    #return Sdfmeta.construct(tab)
+                    return Sdfmeta.construct(tab,literal=True)
                 #elif tab in sortfunx or tab in molfunx:
                 #elif tab in sortfunx or tab in molfunx or tab in metafunx:
                 elif tab in (sortfunx, molfunx, metafunx) : #CHANGES
@@ -2775,12 +2776,25 @@ class Sdfmeta(object):
         mathopers = (sum, sub, numpy.prod, max, min, avg, div, mypow)
         workmetas = [copy.copy(meta) for meta in metas] 
         if oper in mathopers:
-            if str in types:
-                #cannot calculate strings, doh
-                return None
+            
             
             if len(set(structs))>2:
                 raise TypeError('Mixed datastructs')
+            
+            
+            if str in types:
+                print [meta._data for meta in metas]
+                if oper == sum:
+                    print 'awe-sum'
+                    for mtype in types:
+                        if mtype != str:
+                            return None
+                    print 'operator!'
+                    oper = lambda x : ''.join(x)
+                else:
+                    return None
+                #cannot calculate strings, doh
+                #return None
             
             
             #if len(set(structs))==2 and 'single' in structs:
@@ -2852,7 +2866,8 @@ class Sdfmeta(object):
                         caltab.append(meta._data[0])
                     else:
                         return tab
-            tab.append(float(oper(caltab)))
+            #tab.append(float(oper(caltab))) ##why float? #Sdfmeta.construct should handle it...
+            tab.append(oper(caltab))
             i+=1
         return tab
         
@@ -2874,7 +2889,8 @@ class Sdfmeta(object):
                     caltab.append(meta._data[0])
                 else:
                     caltab.append(meta._data[key])
-            dic[key] = float(oper(caltab))
+            #dic[key] = float(oper(caltab)) #again, construct should handle float cast
+            dic[key] = oper(caltab) 
         return dic #OrDi(dic)
         
     @staticmethod
@@ -3812,9 +3828,14 @@ def leveler(string):
         elif item[0] == pair[curpar[0]]:
             level -= 1
             if level == 0:
-                tab.append((curpar[0],leveler(string[curpar[1]+1:item[1]]))) #curpar[1],item[1],
-                curpar = None
-                backpar = item
+                if curpar[0] in ("'",'"'): ##testing
+                    tab.append((curpar[0],string[curpar[1]+1:item[1]])) #curpar[1],item[1],
+                    curpar = None
+                    backpar = item
+                else:
+                    tab.append((curpar[0],leveler(string[curpar[1]+1:item[1]]))) #curpar[1],item[1],
+                    curpar = None
+                    backpar = item
         elif item[0] == curpar[0]:
             level += 1
     endstring = string[pars[-1][1]+1:]
