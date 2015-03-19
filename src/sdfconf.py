@@ -1160,7 +1160,7 @@ class Sdffile(object):
                         sli = tabiter(conf, tab[1]) #assumes tuple
                         #print 'sli is '
                         #print sli
-                        if isinstance(sli, slice):
+                        if isinstance(sli, (slice,Sdfmeta)):
                             return meta.slicer(sli, tab[1][0])
                         elif sli:
                             #print 'gotit'
