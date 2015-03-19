@@ -2785,12 +2785,14 @@ class Sdfmeta(object):
             if str in types:
                 print [meta._data for meta in metas]
                 if oper == sum:
-                    print 'awe-sum'
+                    #print 'awe-sum'
                     for mtype in types:
                         if mtype != str:
                             return None
-                    print 'operator!'
+                    #print 'operator!'
                     oper = lambda x : ''.join(x)
+                elif oper == sub:
+                    oper = lambda x : re.sub(x[1], '', x[0])
                 else:
                     return None
                 #cannot calculate strings, doh
