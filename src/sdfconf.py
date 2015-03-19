@@ -1091,7 +1091,7 @@ class Sdffile(object):
             #return OrDi(conf.atomsGenerator(tabs=columns))
         
         #metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta)), 'mmax':lambda meta: mmaxmin(meta, True), 'mmin':lambda meta: mmaxmin(meta, False)}
-        metafunx = {'mlen':mlen, 'mavg':lambda meta, conf: avg((thing for thing in meta)), 'mmax':lambda meta, conf: mmaxmin(meta, True), 'mmin':lambda meta, conf: mmaxmin(meta, False), 'confcol':getColumn }
+        metafunx = {'mlen':mlen, 'mavg':lambda meta, conf: avg((thing for thing in meta)), 'mmax':lambda meta, conf: mmaxmin(meta, True), 'mmin':lambda meta, conf: mmaxmin(meta, False), 'confcol':getColumn, 'str': lambda meta, conf: Sdfmeta.construct( meta.getmetastr(), literal=True ) }
         
         maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div,'**':mypow}
         pars = ('(','[','{','"',"'")
