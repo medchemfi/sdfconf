@@ -144,7 +144,6 @@ class Sdffile(object):
         return list of lists of strings
         '''
         #Hajoittaa .sdf tiedoston listaksi listoja, joista yksi sisaltaa yhden tiedoston molekyyleista
-        #_moles = []
         _lines = []
         for line in xfile:
             if Sdffile.molchop.match(line):
@@ -153,8 +152,6 @@ class Sdffile(object):
                 _lines = []
             else:
                 _lines.append(line)
-        #del(_lines)
-        #return _moles
     
     def add(self, stringsofone):
         '''
@@ -241,10 +238,7 @@ class Sdffile(object):
         reads numbers from metastatement and keeps same atomnumbers in conformations.
         Indexing starts from 1
         '''
-        #levels = leveler(metalogic)
         metas = self.getmollogic(metalogic)
-        #for mol in self:
-        #    mol.stripbutmeta(levels)
         for molinfo in self._orderlist:
             self._dictomoles[molinfo[0]][molinfo[1]].stripbutmeta(metas[molinfo[0]][molinfo[1]])
     
@@ -330,25 +324,6 @@ class Sdffile(object):
             self._dictomoles[name][nn] = mol
         self.dictmaint()
     
-    '''
-    def metamerger(self, string):
-        \'''
-        Method to merge multiple metafields into one. Comes with a few operations. Frontend to mergenewmeta.
-        All but join can also be made with makenewmeta()
-        \'''
-        [newmeta, task] = re.split('\s*=\s*',string)
-        funki = task.find('(')
-        funk = task[:funki]
-        metas = goodchop.split(task[funki:].strip('{[()]}'))
-        
-        operators = {'sum':sum, 'max':max, 'min':min, 'avg':avg, 'join':metajoiner, 'prod':numpy.prod, 'sub':sub, 'div':div, 'pow':mypow}
-        if funk in operators:
-            self.mergenewmeta(newmeta, metas, operators[funk.lower().strip()])
-        else:
-            if args.verbose:
-                print('Command {} not found'.format(funk))
-    '''
-    
     def mergenewmeta(self, newmetaname, metas, oper):
         '''Merges multiple metavalues into one'''
         for mol in self:
@@ -361,7 +336,7 @@ class Sdffile(object):
                     tab.append(mol.getmeta(meta)) #add meta instead of number
                 else:
                     try:
-                        num =  mol.logicgetmeta(leveler(meta)) #numify(meta)
+                        num =  mol.logicgetmeta(Sdfmeta.leveler(meta)) #numify(meta)
                     except ValueError:
                         #meta isn't a statement
                         continue
@@ -374,25 +349,10 @@ class Sdffile(object):
     
     def makenewmetastr(self, string): #no more accepts new = old < 5; now you must write new = old(<5); you can also new = old2(old1(<5){})(>3)
         '''Frontend for makenewmeta'''
-        '''
-        string = string.strip()
-        comps = ('>=', '<=', '<', '>', '==', '!=', '=' )
-        eqind=string.find('=')
-        name=string[:eqind].strip()
-        ostri = string[eqind+1:].strip()
-        for comp in comps:
-            i = ostri.find(comp)
-            if i>-1:
-                self.makenewmeta(name, ostri[:i].strip(), comp, ostri[i+len(comp):].strip() )
-                return
-        self.makenewmeta(name, ostri.strip(), None, None )
-        '''
         
-        things = compsplit(string)
+        things = Sdfmeta.compsplit(string)
         
-        #if len(things) in (3,5) and things[1] == '=':
         if len(things) == 3 and things[1] == '=': 
-            #things = things[:1]+things[2:]
             self.makenewmeta(*(things[:1]+things[2:]))
         else:
             raise InputException('Invalid new meta definition {}'.format(str(things)))
@@ -402,7 +362,6 @@ class Sdffile(object):
         '''
         make a new metafield by metastatement and pick only those fullfilling given logical statement
         '''
-        #comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
         newmetas = self.getmollogic(metastatement)
         '''
         if logicchar:
@@ -437,7 +396,7 @@ class Sdffile(object):
             
     def changemeta(self, who, towhat):
         '''Change the content of given metafield by logical statement'''
-        state = leveler(towhat)
+        state = Sdfmeta.leveler(towhat)
         for mol in self:
             if who in mol._meta:
                 mol._meta[who] = mol.logicgetmeta(state)
@@ -534,7 +493,6 @@ class Sdffile(object):
         #Get counts of different conformations and molecules
         counts = []
         for mol in self._dictomoles:
-            #counts.append('{}\t{}'.format(mol,len(self._dictomoles[mol])))
             counts.append((mol,len(self._dictomoles[mol])))
         return counts
     
@@ -554,22 +512,19 @@ class Sdffile(object):
         is picked and it's location is used. 
         '''
         if not 'name' in varargdict:
-            #name = ''
             name = 'Closest_atoms'
         else:
-            #name = varargdict['name']+'_'
             name = varargdict['name']
         for mol in self:
             #is coord1 meta or not? If it was a metafield with atomnumber, it would give that one as closest, so no.
             alist = mol.dists(point)
             alist=sorted(alist, key=lambda item: item[0])
-            #newlist = []
             moles=[]
             if 'intrests' in varargdict:
                 switch = {
                           list:varargdict['intrests'],
                           int:[varargdict['intrests']],
-                          str:mol.logicgetmeta(leveler(varargdict['intrests']))._data}
+                          str:mol.logicgetmeta(Sdfmeta.leveler(varargdict['intrests']))._data}
                 mylist = switch.get( type(varargdict['intrests']), [])
                 
                 for atom in alist:
@@ -583,7 +538,6 @@ class Sdffile(object):
             od = OrDi()
             for item in moles:
                 od[item[1]]=item[0]
-            #mol.addmeta(name+'Closest_atoms',od)
             mol.addmeta(name,od)
             
     def closer(self, point, meta):
@@ -591,7 +545,7 @@ class Sdffile(object):
         Calculates how many atoms are closer to the given coordinate
         than the atom in given metafield.
         '''
-        log = leveler(meta)
+        log = Sdfmeta.leveler(meta)
         for mol in self:
             alist = sorted(mol.dists(point), key  = lambda x: x[0] )
             molmet = mol.logicgetmeta(log)
@@ -606,11 +560,10 @@ class Sdffile(object):
         Generate escapenum field for all molecules. (Number of atoms in self not in range of other molecule.)
         '''
         try:
-            #otherpath, molnum, maxRange, name = re.split('\s*,\s*', string)
             spli = re.split('\s*,\s*', string)
             otherpath, molnum, maxRange, name = spli[:4]
             manx = spli[4] if len(spli)>4 else 0
-            nums = bool(spli[5].lower() in ('anums','atoms','list','atom_numbers','nums')) if len(spli)>5 else False
+            #nums = bool(spli[5].lower() in ('anums','atoms','list','atom_numbers','nums')) if len(spli)>5 else False
         except ValueError:
             return
         if not inside:
@@ -621,9 +574,7 @@ class Sdffile(object):
         omol = {'sdf':Sdffile, 'mol2':Mol2File}.get(otherpath.rpartition('.')[2],Sdffile)(otherpath)[int(molnum)]
         matcher = Findable(omol)
         for mmol in self:
-            #numberIn, numberOut = mmol.calcEscapeNumber(omol,float(maxRange) ) #also ignores
-            #numberIn, numberOut = mmol.calcEscapeNumberOrder(omol,float(maxRange) , maxn=manx) #also ignores
-            numberIn, numberOut = mmol.calcEscapeNumberOrder(matcher,float(maxRange) , maxn=manx, anums = nums) #also ignores
+            numberIn, numberOut = mmol.calcEscapeNumberOrder(matcher,float(maxRange) , maxn=manx, anums = True) #also ignores
             if not inside and numberIn is not None:
                 if isinstance(numberOut, (list,tuple)) and len(numberOut)==0:
                     continue
@@ -698,7 +649,6 @@ class Sdffile(object):
             
     def xreadself(self, path):
         with open(path, 'r') as f:
-            #xdata = f.xreadlines()
             for mole in Sdffile.xsdfseparator(f):
                 self.add(mole)
         
@@ -734,7 +684,6 @@ class Sdffile(object):
             del(kwargs['ex'])
         else:
             sdf = self
-        #kwargs: title, Xtitle, Ytitle, bins
         newargs = dict()
         titargs = ['Xtitle','Ytitle','title']
         for key in kwargs:
@@ -765,9 +714,7 @@ class Sdffile(object):
                 minlen = 1
             try:
                 structs = set([meta._datastruct for meta in metas])-{'single'}
-                #ostru = iter(structs).next() #needed?
             except StopIteration:
-                #ostru = list #needed?
                 pass
             
             
@@ -852,7 +799,7 @@ class Sdffile(object):
                 else:
                     larg.append(para)
                 '''
-                things = compsplit(para, ('=',))
+                things = Sdfmeta.compsplit(para, ('=',))
                 if len(things)==3:
                     #darg[para[:ind]]=para[ind+1:]
                     darg[things[0]]=things[2]
@@ -907,13 +854,11 @@ class Sdffile(object):
         #if pick:
         for info in drops:
             del(self._dictomoles[info[0]][info[1]])
-            #self._orderlist.remove(info)
         neworder=[]
         for info in self._orderlist:
             if info in picks:
                 neworder.append(info)
         self._orderlist = neworder
-        #self._orderlist = picks
         self.dictmaint()
         if len(picks)!=len(self):
             warnings.warn('Number of picked ones doesn\'t match number of remaining ones.')
@@ -927,17 +872,13 @@ class Sdffile(object):
             basic logical comparison meta1 > meta2, etc. true if statement is true
             '''
             opera = opesplit[1]
-            #tocompare = [ leveler(opesplit[0]) , leveler(opesplit[2]) ]
             trues = []
             falses = []
             
             compares = ( self.getmollogic(opesplit[0]), self.getmollogic(opesplit[2]) )
             
             for info in self._orderlist:
-                #mole = self._dictomoles[info[0]][info[1]]
-                
                 try: # added so comparisons to nonexistent metas won't crash
-                    #if comps[opera]( mole.logicgetmeta(tocompare[0]), mole.logicgetmeta(tocompare[1]) ):
                     if Sdfmeta.comps[opera]( compares[0][info[0]][info[1]], compares[1][info[0]][info[1]] ):
                         trues.append(info)
                     else:
@@ -951,13 +892,10 @@ class Sdffile(object):
             pick number, or percentage of conformations for all molecules.
             smallest or greatest of meta for conformations
             '''
-            #string = opesplit[0]
-            tear = leveler(string)
+            tear = Sdfmeta.leveler(string)
             if len(tear) != 2:
                 raise ValueError('Weird logic.')
-            #funk = tear[0]
-            #matheus = tabjoin(tear[1][1])
-            matheus = levjoin(tear[1][1])
+            matheus = Sdfmeta.levjoin(tear[1][1])
             rcomindex = matheus.rfind(',')
             if rcomindex == -1:
                 raise TypeError('Weird logic. No comma.')
@@ -975,10 +913,8 @@ class Sdffile(object):
             
             if tear[0]=='max':
                 reverse = True
-                #bymole = False
             elif tear[0]=='min':
                 reverse = False
-                #bymole = False
             values = self.getmollogic(metatab)
             #for molec in values:
             for mol in self._dictomoles:
@@ -988,10 +924,8 @@ class Sdffile(object):
                     falses.extend([[mol, moln] for moln in self._dictomoles[mol]])
                     warnings.warn(mol + ' marked false for not having necesary metafield.')
                     continue
-                #if len(set(map(len,[mole[1] for mole in molec.iteritems()])) - {0,1})>0:
                 if len(set(lmap(len,list(molec.values()))) - {0,1})>0:
                     warnings.warn('Comparing lists, might lead to weird results.',UserWarning)
-                #moles = OrDi(sorted(molec.iteritems(), key= lambda xx: xx[1], reverse = reverse))
                 moles = OrDi(sorted([(key, molec[key]) for key in molec], key= lambda xx: xx[1], reverse = reverse))
                 if per:
                     grab = int(math.ceil(len(moles)*num/100.0))
@@ -1006,7 +940,6 @@ class Sdffile(object):
             not implemented
             will remove duplicates of conformations by given meta expression
             '''
-            #string = string[1:]
             metas = self.getmollogic(string[1:])
             trues=[]
             falses=[]
@@ -1038,8 +971,7 @@ class Sdffile(object):
         else:
             pick = True
         
-        #opesplit=[item.strip() for item in re.split('(>=|<=|<|>|==|!=|=)',string)]
-        opesplit=compsplit(string)
+        opesplit = Sdfmeta.compsplit(string)
         
         if len(opesplit)==3:
             trues, falses = compar( opesplit )
@@ -1084,7 +1016,6 @@ class Sdffile(object):
                     'des':False 
                     }
         
-        #metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta))}
         def mlen(meta, conf):
             try:
                 return len(meta)
@@ -1100,19 +1031,7 @@ class Sdffile(object):
             for key in reva:
                 reva[key] = numify(reva[key].strip()) if type(reva[key]) == str else numify(reva[key]) 
             return reva
-            #return OrDi(conf.atomsGenerator(tabs=columns))
             
-            '''
-        def joiner(meta, conf):
-            if isinstance(meta, Sdfmeta):
-                meta = meta._data
-            if isinstance(meta, str):
-                newmetas = [tabiter(metastring.strip()) for metastring in meta.split(',')]
-                return metajoiner(newmetas)
-            else:
-                return None
-            '''
-        #metafunx = {'mlen':lambda meta: len(meta), 'mavg':lambda meta: avg((thing for thing in meta)), 'mmax':lambda meta: mmaxmin(meta, True), 'mmin':lambda meta: mmaxmin(meta, False)}
         metafunx = {'mlen':mlen, 
                     'mavg':lambda meta, conf: avg((thing for thing in meta)), 
                     'mmax':lambda meta, conf: mmaxmin(meta, True), 
@@ -1123,19 +1042,18 @@ class Sdffile(object):
                     'prod': lambda meta, conf : numpy.asscalar(numpy.prod([thing for thing in meta]))
                     } 
         
-        #maths = {'+':sum,'-':sub,'*':numpy.prod,'/':div,'**':mypow}
         maths = {'+':sum,
                  '-':sub,
                  '*':numpy.prod,
                  '/':div,
                  '**':mypow,
-                 '++':metajoiner,
-                 '--':metacut,
+                 '++':Sdfmeta.metajoiner,
+                 '--':Sdfmeta.metacut,
                  }
         
         pars = ('(','[','{','"',"'")
         
-        mylevel = levels(string)
+        mylevel = Sdfmeta.levels(string)
         metadic = dict()
         precalc = dict()
         
@@ -1144,8 +1062,6 @@ class Sdffile(object):
             collapse given levels tab generated from some meta expression into a single Sdfmeta or None
             '''
             molname = conf.getname()
-            #print tab
-            #print 'tabiter: {}'.format(tab)
             
             def listope(conf,tab,par=None):
                 #print 'listoper: {}'.format(tab)
@@ -1179,55 +1095,29 @@ class Sdffile(object):
                                 return None
                             
                         elif tab[0] in Sdfmeta.comps : 
-                            #return levjoin(tab)
                             return tab
                             
                         elif tab[0] in metafunx and tab[1][0] == '(':
-                            #tabin = tabiter(conf, tab[1] )
-                            #print tabin._data
-                            #return Sdfmeta.construct( metafunx[tab[0]](tabin, conf) )
                             return Sdfmeta.construct( metafunx[tab[0]](tabiter(conf, tab[1] ), conf) )
-                        '''
-                        elif tab[0] in maths:
-                            #single math like -meta --> 0-meta, also *meta --> 0*meta :P
-                            #return Sdfmeta.metaoper(maths[tab[0]],[tabiter(conf, 0),tabiter(conf, tab[1])])
-                            return Sdfmeta.metaoper(maths[tab[0]],[Sdfmeta.construct(0),tabiter(conf, tab[1])])
-                        '''
                     #slice
                     meta = tabiter(conf, tab[0])
                     if meta:
                         sli = tabiter(conf, tab[1]) #assumes tuple
-                        #print 'sli is '
-                        #print sli
                         if isinstance(sli, (slice,Sdfmeta)):
                             return meta.slicer(sli, tab[1][0])
                         elif sli:
-                            #print 'gotit'
-                            #print sli
                             meta.pickvalues(tabiter(conf, sli[1]), Sdfmeta.comps.get(sli[0], None))
                             return meta
-                    '''
-                    if tab[0] == '(' : #valuechop #test
-                        print 'PICKER!'
-                        rip = compsplit(tab[1])
-                        if len(rip)>1:
-                            meta.pickvalues(tabiter(conf, rip[1]), Sdfmeta.comps.get(rip[0], None))
-                            return meta
-                    '''
-                    #else: return None
                     return None
-                #else: #len(tab)>2 evaluate (first to second) to third, etc.
                 elif len(tab)>2:
                     if len(tab)==3 and type(tab[0]) == str and tab[0] in maths:
                         #do math
                         f1 = tabiter(conf, tab[1])
-                        #print f1._data
                         if not f1:
                             if tab[0] not in ('++','--'):
                                 f1 = Sdfmeta.construct(0)
                             else:
                                 f1 = Sdfmeta()
-                        #return Sdfmeta.metaoper(maths[tab[0]],[tabiter(conf, tab[1]),tabiter(conf, tab[2])])
                         return Sdfmeta.metaoper(maths[tab[0]],[f1,tabiter(conf, tab[2])])
                     else:
                         metaus = tabiter(conf, tab[:2], None)
@@ -1236,30 +1126,11 @@ class Sdffile(object):
                         return metaus
                 else:
                     return None
-                    
-                '''
-            def tuplope(conf,tab,par=None):
-                print 'tupleoper: {}'.format(tab)
-                #Work with tuples in given structure
-                if tab[0] in maths:
-                    #do math
-                    return Sdfmeta.metaoper(maths[tab[0]],[tabiter(conf, tab[1]),tabiter(conf, tab[2])])
-                    #pass
-                elif tab[0] in pars:
-                    #do slicing, etc.
-                    return tabiter(conf, tab[1], tab[0]) 
-                #return something. or not
-                '''
                 
             def striope(conf,tab,par=None):
-                #print 'strioper: {}'.format(tab)
-                #print 'par = {}'.format(par)
                 #Work with strings in given structure
                 if par in ('"',"'"):
-                    #return Sdfmeta.construct(tab)
                     return Sdfmeta.construct(tab,literal=True)
-                #elif tab in sortfunx or tab in molfunx:
-                #elif tab in sortfunx or tab in molfunx or tab in metafunx:
                 elif tab in (sortfunx, molfunx, metafunx) : #CHANGES
                     return tab
                 elif conf.hasmeta(tab):
@@ -1272,26 +1143,19 @@ class Sdffile(object):
                         try:
                             return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
                         except ValueError:
-                            rip = compsplit(tab)
-                            #print 'RIP is {}'.format(rip)
+                            rip = Sdfmeta.compsplit(tab)
                             if len(rip)>1 and par == '(':
-                                #print 'OMG its true'
                                 return rip
-                            #return Sdfmeta.construct( tab )
                             raise ValueError('Your logic makes no sense. '+str(tab))
                 else:
                     trytab = [numify(i) for i in re.split('\s*[ ,]{0,1}\s*', tab )]
                     if not str in lmap(type, trytab):
                         return Sdfmeta.construct( trytab )
-                    #else: return None
+                return None
                     
             def raiser(conf, tab, par=None):
-                #print 'raiser: {}'.format(tab)
-                #function for raising error
                 raise TypeError('Bad levels: '+str(tab))
             
-            #testdi = {list: listope, tuple: tuplope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, NoneType : lambda conf, me, par=None : None }
-            #testdi = {list: listope, tuple: tuplope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
             testdi = {list: listope, tuple: listope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
             return testdi.get(type(tab), raiser )(conf, tab, par)
         
@@ -1542,7 +1406,7 @@ class Sdffile(object):
         '''
         mol2 = Mol2File(path)
         #metaname = metaname.strip() #No logic meta
-        level = leveler(metaname)
+        level = Sdfmeta.leveler(metaname)
         for i, mol in enumerate(mol2):
             #mol.injectatomdata(self[i]._meta[metaname], column, defaultValue, precision) #No logic meta
             mol.injectatomdata(self[i].logicgetmeta(level), column, defaultValue, precision)
@@ -1666,17 +1530,8 @@ class Sdfmole(object):
         self.numerize()
         coord1 = Sdfmole.coorder(point1)
         if coord1 == None:
-            coord1 =  self.getatomloc(self.logicgetmeta(leveler(point1+'[0]'))._data[0])
+            coord1 =  self.getatomloc(self.logicgetmeta(Sdfmeta.leveler(point1+'[0]'))._data[0])
         alist=[]
-        '''
-        for i in range(len(self._atoms)):
-            #this responsibility will be taken elsewhere
-            if self.gettype(i+1).strip() in ignores:
-                continue
-            
-            #coord2 = numpy.array(self.getcoord(i+1)) #numpy.array([float(c) for c in atom[0:3]])
-            coord2 = self.getatomloc(i+1)
-        '''
         for anum, coord2 in self.atomsGenerator(ignores=ignores):
             dist = sum((coord1-coord2)**2)**0.5
             #alist.append([float(dist),i+1])
@@ -2103,25 +1958,9 @@ class Sdfmole(object):
                 atom=nextone
         return distances
     
-    '''
-    def pickmetavalues(self, meta, value, operator,copyme=False):
-        \'''
-        Removes entries in single Sdfmeta that won't fullfill given comparison
-        \'''
-        if self.hasmeta(meta):
-            if type(value)==str:
-                comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
-                operator = comps.get(operator.strip())
-            newmeta = self.getmeta(meta)
-            if copyme:
-                newmeta = copy.copy(newmeta)
-            newmeta.pickvalues(value, operator)
-            self._meta[meta] = newmeta
-    '''
-    
     def logicgetmetastr(self, string):
         #return meta defined in given meta expression
-        return self.logicgetmeta(leveler(string))
+        return self.logicgetmeta(Sdfmeta.leveler(string))
     
     def logicgetmeta(self, partab):
         #return meta defined in given list structure
@@ -2135,7 +1974,7 @@ class Sdfmole(object):
         if isinstance(tab, tuple):
             #if par and par in ('"',"'"):
             if tab[0] in ('"',"'"):
-                return Sdfmeta.construct(levjoin(tab[1]))
+                return Sdfmeta.construct(Sdfmeta.levjoin(tab[1]))
                 #return levjoin(tab[1])
             else:
                 return (tab[0], self.levopemap(tab[1], tab[0]))
@@ -2424,16 +2263,6 @@ class Sdfmeta(object):
         else:
             self._name = Sdfmeta.metaname.match(listofstrings[0]).groups()[1]
             fi = 1
-            #if Sdfmeta.ematch.match(self._name[0]):
-            #    self._name = ('  ', self._name[1])
-        #Remove the last empty line and linechanges
-        '''
-        if not len(listofstrings[-1].strip())==0:
-            #Raise error?
-            return
-        else: #             rstrip?
-            self._data = [listofstrings[i].strip('\n ') for i in range(fi,len(listofstrings)-1) ]
-        '''
         if len(listofstrings[-1].strip())==0:
             self._data = [listofstrings[i].strip('\n ') for i in xrange(fi,len(listofstrings)-1) ]
         
@@ -2563,8 +2392,169 @@ class Sdfmeta(object):
         if type(new._data) in (list, OrDi) and not 'delims' in dictarg:
             new._delims =  [ ', ' ]*(len(new._data)-1) 
         return new
+        
+    
+    @staticmethod
+    def leveler(string):
+        pair = {'"':'"',"'":"'",'(':')','[':']','{':'}'}
+        pars = [(item.group(), item.start()) for item in parre.finditer(string)]
+        
+        tab = []
+        
+        if len(pars)<2:
+            return [string]
+        
+        curpar = None
+        backpar = None
+        
+        if pars[0][1]>0:
+            stastring = string[:pars[0][1]]
+            #if len(stastring)>0:
+            tab.append(stastring)
             
+        for item in pars:
             
+            if not curpar:
+                curpar = item
+                level = 1
+                if backpar:
+                    addy = string[backpar[1]+1:curpar[1]]
+                    if len(addy) > 0:
+                        tab.append(addy)
+                    backpar = None
+            elif item[0] == pair[curpar[0]]:
+                level -= 1
+                if level == 0:
+                    if curpar[0] in ("'",'"'): ##testing
+                        tab.append((curpar[0],string[curpar[1]+1:item[1]])) #curpar[1],item[1],
+                        curpar = None
+                        backpar = item
+                    else:
+                        tab.append((curpar[0],Sdfmeta.leveler(string[curpar[1]+1:item[1]]))) #curpar[1],item[1],
+                        curpar = None
+                        backpar = item
+            elif item[0] == curpar[0]:
+                level += 1
+        endstring = string[pars[-1][1]+1:]
+        if len(endstring)>0:
+            tab.append(endstring)
+        #print(tab)
+        return tab
+    
+    @staticmethod
+    def dumb_levopemap(tab, par=None, length=None):
+        '''
+        Accepts lists made by leveler method. Maps this list for mathematical operators and metafield names. Doesn't understand local metafields. a dumb version.
+        '''
+        
+        if isinstance(tab, tuple):
+            #if par and par in ('"',"'"):
+            if tab[0] in ('"',"'"):
+                #return Sdfmeta.construct(levjoin(tab[1]))
+                return (tab[0], Sdfmeta.levjoin(tab[1]))
+            else:
+                return (tab[0], Sdfmeta.dumb_levopemap(tab[1], tab[0]))
+        elif isinstance(tab, list):
+            
+            searches = lmap(re.compile, ('[^\+](\+)[^\+]|[^-](-)[^-]', '[^\*](\*)[^\*]|(/)', '(\*{2})|(\+{2})|(-{2})'))
+            
+            for j, thing in enumerate(tab):
+                if not isinstance(thing, str):
+                    continue
+                thing = thing.strip()
+                thing = ' ' + thing + ' '
+                sear=None
+                for s in searches:
+                    sear = list(s.finditer(thing))
+                    if len(sear)>0:
+                        mygroup = next(item for item in sear.groups() if item is not None)
+                        i = sear.start() + sear.group().find(mygroup)
+                        ie = i +len(mygroup)
+                        break
+                
+                if sear:
+                    if i>0 and thing[i-1]=='\\' :  #Escape character for math operators
+                        tab[j] = thing[1:i-1]+thing[i:-1]
+                        continue
+                    tab1=[]
+                    tab1.extend(tab[:j])
+                    if i > 1:
+                        tab1.append(thing[1:i])
+                    if ie < len(thing)-1:
+                        tab2 = [thing[ie:-1]]
+                    else:
+                        tab2 = []
+                    tab2.extend(tab[j+1:])
+                    return (thing[i:ie], Sdfmeta.dumb_levopemap(tab1), Sdfmeta.dumb_levopemap(tab2))
+                #new ends
+            return [Sdfmeta.dumb_levopemap(item, par, len(tab)) for item in tab]
+        else:
+            return tab.strip()
+    
+    @staticmethod
+    def levels(string):
+        return Sdfmeta.dumb_levopemap(Sdfmeta.leveler(string))
+    
+    @staticmethod
+    def levjoin(taber):
+        #print taber
+        pair = {'(':')','[':']','{':'}',"'":"'",'"':'"'}
+        string = []
+        for item in taber:
+            if isinstance(item, str):
+                string.append(item)
+            elif isinstance(item, list):
+                string.append(Sdfmeta.levjoin(item))
+            elif isinstance(item, tuple):
+                if item[0] in pair:
+                    string.extend([ item[0], Sdfmeta.levjoin(item[1]), pair[item[0]] ])
+                else:
+                    string.extend([Sdfmeta.levjoin(item[1][0]), item[0], Sdfmeta.levjoin(item[1][1]) ])
+        return ''.join(string)
+    
+    @staticmethod
+    def compsplit(string, comps = ('==','<=','>=','!=','=>','=<','<','>','=')):
+        tab = Sdfmeta.leveler(string)
+        for i, item in enumerate(tab):
+            if isinstance(item, str):
+                j=-1
+                for comp in comps:
+                    j=item.find(comp)
+                    if j>=0:
+                        return Sdfmeta.compsplit(Sdfmeta.levjoin(tab[:i])+item[:j]) + [ item[j:j+len(comp)]] + Sdfmeta.compsplit(item[j+len(comp):]+Sdfmeta.levjoin(tab[i+1:]))
+        ret = []
+        if string.strip() != '':
+            ret.append(string.strip())
+        return ret
+    
+    @staticmethod
+    def metajoiner(metas, **params):
+        '''
+        Joins multiple metavalues into one
+        params : name, delims
+        '''
+        newmeta = Sdfmeta()
+        if 'name' in params:
+            newmeta.setname(params['name'])
+        else:
+            newmeta.setname(None)
+        for meta in metas:
+            newmeta.extend(meta)
+        if newmeta._datatype == str and newmeta._datastruct != OrDi:
+            newmeta._data = [''.join(newmeta._data)]  
+        newmeta.cleandelim(True)
+        return newmeta
+    
+    @staticmethod
+    def metacut(metas):
+        newmeta = copy.copy(metas[0])
+        for meta in metas[1:]:
+            newmeta.cut(meta)
+        #if newmeta._datatype == str and newmeta._datastruct != OrDi:
+        #    newmeta._data = [''.join(newmeta._data)]  
+        newmeta.cleandelim(True)
+        return newmeta
+    
     def __copy__(self):
         '''
         Shallow copy method
@@ -2974,7 +2964,7 @@ class Sdfmeta(object):
                 #'''
                 return Sdfmeta.construct(Sdfmeta.OrDioper(oper,workmetas))
         
-        elif oper in (metajoiner,metacut): #Therefore, it's joiner
+        elif oper in (Sdfmeta.metajoiner,Sdfmeta.metacut): #Therefore, it's joiner
             #print metas
             newmeta = oper(metas)
             newmeta.cleandelim(True)
@@ -3729,15 +3719,9 @@ class Findable(object):
 
 #End of findable
 
-    
 def listtostring(tab, fill):
     return ''.join([('{:>'+str(fill)+'}').format(i) for i in tab])
-    
-'''
-def nestfind(alist, subindex, tofind):
-    return next((i for i, sublist in  enumerate(alist) if sublist[subindex]==tofind),-1)
-'''
-    
+
 def numify(stri):
     if type(stri) == int:
         return stri
@@ -3783,7 +3767,6 @@ def numitest(string):
     else:
         return True
 
-
 def avg(num):
     try:
         return float(sum(num))/len(num)
@@ -3792,13 +3775,13 @@ def avg(num):
             return num
         else:
             raise TypeError()
-    
+
 def sub(num):
     if len(num)<2:
         return num
     else:
         return num[0]-sum(num[1:])
-        
+
 def div(num):
     try:
         if len(num)<2:
@@ -3807,46 +3790,13 @@ def div(num):
             return numpy.asscalar((num[0])/numpy.prod(num[1:]))
     except ZeroDivisionError:
         return float('inf')
-        
+
 def mypow(num):
     if type(num) in (tuple, list):
         return numpy.asscalar(numpy.power(*lmap(float,num[:2])))
     else:
         return None
 
-def metajoiner(metas, **params):
-    '''
-    Joins multiple metavalues into one
-    params : name, delims
-    '''
-    newmeta = Sdfmeta()
-    if 'name' in params:
-        newmeta.setname(params['name'])
-    else:
-        newmeta.setname(None)
-    for meta in metas:
-        newmeta.extend(meta)
-    if newmeta._datatype == str and newmeta._datastruct != OrDi:
-        newmeta._data = [''.join(newmeta._data)]  
-    newmeta.cleandelim(True)
-    return newmeta
-
-def metacut(metas):
-    newmeta = copy.copy(metas[0])
-    for meta in metas[1:]:
-        newmeta.cut(meta)
-    #if newmeta._datatype == str and newmeta._datastruct != OrDi:
-    #    newmeta._data = [''.join(newmeta._data)]  
-    newmeta.cleandelim(True)
-    return newmeta
-    '''
-def getcolumn(tab,head):
-    ind = tab[0].index(head.strip())
-    column = []
-    for row in tab[1:]:
-        column.append(row[ind])
-    return column
-    '''
 def readcsv(path):
     f=open(path,'r')
     matrix = csvtomatrix(f.readlines())
@@ -3937,199 +3887,6 @@ def allsame(listordict):
     else:
         return None
 
-    
-def leveler(string):
-    pair = {'"':'"',"'":"'",'(':')','[':']','{':'}'}
-    pars = [(item.group(), item.start()) for item in parre.finditer(string)]
-    
-    tab = []
-    
-    if len(pars)<2:
-        return [string]
-    
-    curpar = None
-    backpar = None
-    
-    if pars[0][1]>0:
-        stastring = string[:pars[0][1]]
-        #if len(stastring)>0:
-        tab.append(stastring)
-        
-    for item in pars:
-        
-        if not curpar:
-            curpar = item
-            level = 1
-            if backpar:
-                addy = string[backpar[1]+1:curpar[1]]
-                if len(addy) > 0:
-                    tab.append(addy)
-                backpar = None
-        elif item[0] == pair[curpar[0]]:
-            level -= 1
-            if level == 0:
-                if curpar[0] in ("'",'"'): ##testing
-                    tab.append((curpar[0],string[curpar[1]+1:item[1]])) #curpar[1],item[1],
-                    curpar = None
-                    backpar = item
-                else:
-                    tab.append((curpar[0],leveler(string[curpar[1]+1:item[1]]))) #curpar[1],item[1],
-                    curpar = None
-                    backpar = item
-        elif item[0] == curpar[0]:
-            level += 1
-    endstring = string[pars[-1][1]+1:]
-    if len(endstring)>0:
-        tab.append(endstring)
-    #print(tab)
-    return tab
-
-def dumb_levopemap(tab, par=None, length=None):
-    '''
-    Accepts lists made by leveler method. Maps this list for mathematical operators and metafield names. Doesn't understand local metafields. a dumb version.
-    '''
-    
-    if isinstance(tab, tuple):
-        #if par and par in ('"',"'"):
-        if tab[0] in ('"',"'"):
-            #return Sdfmeta.construct(levjoin(tab[1]))
-            return (tab[0], levjoin(tab[1]))
-        else:
-            return (tab[0], dumb_levopemap(tab[1], tab[0]))
-    elif isinstance(tab, list):
-        
-        searches = lmap(re.compile, ('[^\+](\+)[^\+]|[^-](-)[^-]', '[^\*](\*)[^\*]|(/)', '(\*{2})|(\+{2})|(-{2})'))
-        
-        for j, thing in enumerate(tab):
-            #print thing
-            if not isinstance(thing, str):
-                continue
-            thing = thing.strip()
-            
-            #warning
-            thing = ' ' + thing + ' '
-            #warning
-            
-            #new
-            
-            sear=None
-            for s in searches:
-                #sear = s.search(thing)
-                sear = list(s.finditer(thing))
-                #if sear:
-                if len(sear)>0:
-                    sear=sear[-1]
-                    #print sear.groups()
-                    #print sear.group()
-                    mygroup = next(item for item in sear.groups() if item is not None)
-                    i = sear.start() + sear.group().find(mygroup)
-                    ie = i +len(mygroup)
-                    #print i, ie, thing, thing[i:ie]
-                    break
-            
-            '''
-            sear = re.search('[+-]', thing)
-            if sear:
-                i = sear.start()
-                ie = sear.end()
-            ''
-            if not sear:
-                sear = re.search('(^|[^\*])[\*/]([^\*]|$)', thing)
-                if sear:
-                    helpse = re.search('[\*/]', thing[sear.start():sear.end()])
-                    i = sear.start()+helpse.start()
-                    ie = sear.start()+helpse.end()
-                    del(helpse)
-            if not sear:
-                sear = re.search('[\*]{2}', thing)
-                if sear:
-                    i = sear.start()
-                    ie = sear.end()
-            ''#
-            if not sear:
-                sear = re.search('[^\*](\*)[^\*]|/', thing)
-                if sear:
-                    i = sear.start()
-                    ie = sear.end()
-            if not sear:
-                sear = re.search('\*{2}|\+{2}', thing)
-                if sear:
-                    i = sear.start()
-                    ie = sear.end()
-            '''
-            
-            if sear:
-                if i>0 and thing[i-1]=='\\' :  #Escape character for math operators
-                    #tab[j] = thing[:i-1]+thing[i:]
-                    tab[j] = thing[1:i-1]+thing[i:-1]
-                    continue
-                tab1=[]
-                tab1.extend(tab[:j])
-                #tab1=[tab[:j]]
-                if i > 1:
-                    tab1.append(thing[1:i])
-                if ie < len(thing)-1:
-                    tab2 = [thing[ie:-1]]
-                else:
-                    tab2 = []
-                #if len(tab[j+1:])>0:
-                tab2.extend(tab[j+1:])
-                
-                #print 'tab1={}'.format(tab1)
-                #print 'ope={}'.format(thing[i:ie])
-                #print 'tab2={}'.format(tab2)
-                return (thing[i:ie],dumb_levopemap(tab1),dumb_levopemap(tab2))
-            #new ends
-        return [dumb_levopemap(item, par, len(tab)) for item in tab]
-    else:
-        return tab.strip()
-
-def levels(string):
-    return dumb_levopemap(leveler(string))
-
-def tabjoin(taber):
-    pair = {'(':')','[':']','{':'}'}
-    string = []
-    for item in taber:
-        if isinstance(item, str):
-            string.append(item)
-        elif isinstance(item, (list,tuple)):
-            string.extend([item[0],tabjoin(item[1]),pair[item[0]]])
-    return ''.join(string)
-    
-def levjoin(taber):
-    #print taber
-    pair = {'(':')','[':']','{':'}',"'":"'",'"':'"'}
-    string = []
-    for item in taber:
-        if isinstance(item, str):
-            string.append(item)
-        elif isinstance(item, list):
-            string.append(levjoin(item))
-        elif isinstance(item, tuple):
-            if item[0] in pair:
-                string.extend([ item[0], levjoin(item[1]), pair[item[0]] ])
-            else:
-                string.extend([levjoin(item[1][0]), item[0], levjoin(item[1][1]) ])
-    return ''.join(string)
-    
-def compsplit(string, comps = ('==','<=','>=','!=','=>','=<','<','>','=')):
-    tab = leveler(string)
-    for i, item in enumerate(tab):
-        if isinstance(item, str):
-            j=-1
-            for comp in comps:
-                j=item.find(comp)
-                if j>=0:
-                    return compsplit(levjoin(tab[:i])+item[:j]) + [ item[j:j+len(comp)]] + compsplit(item[j+len(comp):]+levjoin(tab[i+1:]))
-    ret = []
-    if string.strip() != '':
-        ret.append(string.strip())
-    return ret
-    
-
-    
-
 if __name__ == "__main__":
     
     #main should only collect arguments...
@@ -4151,8 +3908,8 @@ if __name__ == "__main__":
     arger.add_argument("-rcn", "--removeconfname",  action="store_true",    help = "remove conformation number from name.")
     arger.add_argument("-rcm", "--removeconfmeta",  action="store_true",    help = "remove conformation number from metafield 'confnum'.")
     
-    arger.add_argument("-aesc", "--addescape",  type=str, nargs='+', metavar="File,mol_num,range,name[,max[,nums]]", help = "Add metafield escapenum which is number of atoms not in range of atoms in other molecule.")
-    arger.add_argument("-ains", "--addinside",  type=str, nargs='+', metavar="File,mol_num,range,name[,max[,nums]]", help = "Add metafield insidenum which is number of atoms in range of atoms in other molecule.")
+    arger.add_argument("-aesc", "--addescape",  type=str, nargs='+', metavar="File,mol_num,range,name[,max]", help = "Add metafield name_escapenum which is a list of atoms not in range of atoms in other molecule. mol_num specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all.")
+    arger.add_argument("-ains", "--addinside",  type=str, nargs='+', metavar="File,mol_num,range,name[,max]", help = "Add metafield name_insidenum which is a list of atoms in range of atoms in other molecule. mol_num specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all.")
     
     #choicecombi = arger.add_mutually_exclusive_group()
     arger.add_argument("-co", "--combine", metavar='addition.sdf', type = str, nargs='+',     help = "Combine metadata from specified file to the data of original file. Confromation numbers must match.")
@@ -4183,7 +3940,7 @@ if __name__ == "__main__":
     arger.add_argument("-ca", "--closestatom", type = str, nargs='+',  metavar='(xx, yy, zz), my_poi', help = "Calculates the closest atoms (distances by atom number) to given point. Adds 'Closest_atoms' metafield with optional prefix. Needs either coordinates separated by ',' or or single atom number")
     arger.add_argument("-cla", "--closeratoms", type = str, nargs='+', help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
     arger.add_argument("-v", "--verbose", action = "store_true" ,      help = "More info on your run.")
-   #arger.add_argument("-mm", "--mergemeta", type = str, nargs='+',    help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes multiple arguments separated by |")
+    #arger.add_argument("-mm", "--mergemeta", type = str, nargs='+',    help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes multiple arguments separated by |")
     
     arger.add_argument("-mnm", "--makenewmeta", type = str, nargs='+', metavar='newmeta=statement[</>value]',     help = "Makes a new metafield based on logical statement and value picking inside the metafield. newmeta = meta1 + meta2 < 50. Takes multiple arguments separated by |")
     arger.add_argument("-cm", "--changemeta", type = str, nargs='+',   metavar='olname1>newname1' , help = "Changes names of metafields. [olname1>newname1|oldname2>newname2].")
@@ -4202,11 +3959,6 @@ if __name__ == "__main__":
     args = arger.parse_args()
     
     if not (args.input or args.config):
-        '''
-        class ArgumentError(Exception):
-            pass
-        raise ArgumentError('You must give at least one input file, or a config file.')
-        '''
         arger.print_help()
         sys.exit(1)
         #arger.error('You must give at least one input file, or a config file.')
