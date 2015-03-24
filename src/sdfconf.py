@@ -880,8 +880,10 @@ class Sdffile(object):
             for info in self._orderlist:
                 try: # added so comparisons to nonexistent metas won't crash
                     if Sdfmeta.comps[opera]( compares[0][info[0]][info[1]], compares[1][info[0]][info[1]] ):
+                        #print 'TRUE! {} {} {}'.format(compares[0][info[0]][info[1]], opera, compares[1][info[0]][info[1]])
                         trues.append(info)
                     else:
+                        #print 'NOT TRUE! {} {} {}'.format(compares[0][info[0]][info[1]], opera, compares[1][info[0]][info[1]])
                         falses.append(info)
                 except (ValueError, KeyError):
                     falses.append(info)
@@ -894,7 +896,7 @@ class Sdffile(object):
             '''
             tear = Sdfmeta.leveler(string)
             if len(tear) != 2:
-                raise ValueError('Weird logic.')
+                raise ValueError('Weird logic: {}'.format(str(tear)))
             matheus = Sdfmeta.levjoin(tear[1][1])
             rcomindex = matheus.rfind(',')
             if rcomindex == -1:
@@ -972,6 +974,7 @@ class Sdffile(object):
             pick = True
         
         opesplit = Sdfmeta.compsplit(string)
+        #print 'opesplit: {}'.format(opesplit)
         
         if len(opesplit)==3:
             trues, falses = compar( opesplit )
@@ -1005,12 +1008,6 @@ class Sdffile(object):
             
             return  rety((fu(items, key = la),))
         
-        molfunx = { 
-                   'max':lambda mets: max([met[0] for met in mets]), 
-                   'min': lambda mets: min([met[0] for met in mets]), 
-                   'avg': lambda mets: avg([met[0] for met in mets]) 
-                   }
-        
         sortfunx = { 
                     'asc':True,
                     'des':False 
@@ -1032,15 +1029,26 @@ class Sdffile(object):
                 reva[key] = numify(reva[key].strip()) if type(reva[key]) == str else numify(reva[key]) 
             return reva
             
-        metafunx = {'mlen':mlen, 
-                    'mavg':lambda meta, conf: avg((thing for thing in meta)), 
-                    'mmax':lambda meta, conf: mmaxmin(meta, True), 
-                    'mmin':lambda meta, conf: mmaxmin(meta, False), 
+        metafunx = {'len':mlen, 
+                    'avg':lambda meta, conf: avg([thing for thing in meta]), 
+                    'max':lambda meta, conf: mmaxmin(meta, True), 
+                    'min':lambda meta, conf: mmaxmin(meta, False), 
                     'confcol':getColumn, 
-                    'str': lambda meta, conf: Sdfmeta.construct( meta.getmetastr(), literal=True ), 
+                    #'str': lambda meta, conf: Sdfmeta.construct( meta.getmetastr(), literal=True ), 
+                    'str': lambda meta, conf: Sdfmeta.construct( meta.getmetastr()),
                     'sum': lambda meta, conf : sum((thing for thing in meta)), 
                     'prod': lambda meta, conf : numpy.asscalar(numpy.prod([thing for thing in meta]))
                     } 
+        
+        molfunx = { 
+                   #'max': lambda mets: max([met[0] for met in mets]), 
+                   'mmax': lambda mets: max([mmaxmin(met, True) for met in mets]),
+                   #'min': lambda mets: min([met[0] for met in mets]), 
+                   'mmin': lambda mets: min([mmaxmin(met, False) for met in mets]),
+                   #'avg': lambda mets: avg([met[0] for met in mets]), 
+                   'mavg': lambda mets: avg([metafunx['avg'](met,None) for met in mets]),
+                   }
+        
         
         maths = {'+':sum,
                  '-':sub,
@@ -1058,6 +1066,7 @@ class Sdffile(object):
         precalc = dict()
         
         def tabiter(conf, tab, par = None):
+            #print 'tab: {}'.format(tab)
             '''
             collapse given levels tab generated from some meta expression into a single Sdfmeta or None
             '''
@@ -1070,9 +1079,12 @@ class Sdffile(object):
                     return tabiter(conf, tab[0], par)
                 elif len(tab)==2: #it a slice / asc/max, or something like that
                     if type(tab[0])==str:
-                        if tab[0] in pars and not par:
+                        #print tab
+                        if tab[0] in pars:# and not par:
                             #do slicing, etc.
-                            return tabiter(conf, tab[1], tab[0]) 
+                            #print 'into parrer'
+                            if not par or tab[0] in ('"',"'"):
+                                return tabiter(conf, tab[1], tab[0])
                         elif tab[0] in molfunx and tab[1][0] == '(':
                             #do precalc, etc
                             if not tab[0] in precalc or not molname in precalc[tab[0]]:
@@ -1130,6 +1142,7 @@ class Sdffile(object):
             def striope(conf,tab,par=None):
                 #Work with strings in given structure
                 if par in ('"',"'"):
+                    #print tab
                     return Sdfmeta.construct(tab,literal=True)
                 elif tab in (sortfunx, molfunx, metafunx) : #CHANGES
                     return tab
@@ -2325,6 +2338,7 @@ class Sdfmeta(object):
             
             if 'literal' in dictarg and dictarg['literal']:
                 new._datastruct = 'single'
+                data = [data]
             else:
                 (newdata, newtype, newdelims) = Sdfmeta.whattype(data)
                 if newtype != str:
@@ -2467,8 +2481,8 @@ class Sdfmeta(object):
                 for s in searches:
                     sear = list(s.finditer(thing))
                     if len(sear)>0:
-                        mygroup = next(item for item in sear.groups() if item is not None)
-                        i = sear.start() + sear.group().find(mygroup)
+                        mygroup = next(item for item in sear[-1].groups() if item is not None)
+                        i = sear[-1].start() + sear[-1].group().find(mygroup)
                         ie = i +len(mygroup)
                         break
                 
@@ -2533,15 +2547,15 @@ class Sdfmeta(object):
         Joins multiple metavalues into one
         params : name, delims
         '''
-        newmeta = Sdfmeta()
+        newmeta = copy.copy(metas[0])
         if 'name' in params:
             newmeta.setname(params['name'])
         else:
             newmeta.setname(None)
-        for meta in metas:
+        for meta in metas[1:]:
             newmeta.extend(meta)
-        if newmeta._datatype == str and newmeta._datastruct != OrDi:
-            newmeta._data = [''.join(newmeta._data)]  
+        #if newmeta._datatype == str and newmeta._datastruct != OrDi:
+        #    newmeta._data = [''.join(newmeta._data)]  
         newmeta.cleandelim(True)
         return newmeta
     
@@ -3135,7 +3149,7 @@ class Sdfmeta(object):
         
         if paren == '{':
             toget = self._data.keys()
-        elif paren == '[' and type(self._data) == OrDi:
+        elif paren == '[' and self._datastruct == OrDi:
             toget = self._data.values()
         else:
             toget = self._data
