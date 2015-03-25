@@ -324,8 +324,9 @@ class Sdffile(object):
             self._dictomoles[name][nn] = mol
         self.dictmaint()
     
+    '''
     def mergenewmeta(self, newmetaname, metas, oper):
-        '''Merges multiple metavalues into one'''
+        \'''Merges multiple metavalues into one\'''
         for mol in self:
             newmeta = Sdfmeta()
             newmeta.setname(newmetaname)
@@ -346,11 +347,12 @@ class Sdffile(object):
             if newmet:
                 newmet.cleandelim(True)
                 mol.addmeta(newmetaname, newmet)
+    '''
     
     def makenewmetastr(self, string): #no more accepts new = old < 5; now you must write new = old(<5); you can also new = old2(old1(<5){})(>3)
         '''Frontend for makenewmeta'''
         
-        things = Sdfmeta.compsplit(string)
+        things = Sdfmeta.compsplit(string,comps=('=',))
         
         if len(things) == 3 and things[1] == '=': 
             self.makenewmeta(*(things[:1]+things[2:]))
@@ -394,13 +396,23 @@ class Sdffile(object):
         for mol in self:
             mol.changemetaname(oldname, newname)
             
+    '''
     def changemeta(self, who, towhat):
-        '''Change the content of given metafield by logical statement'''
+        \'''Change the content of given metafield by logical statement\'''
+        \'''
         state = Sdfmeta.leveler(towhat)
         for mol in self:
             if who in mol._meta:
                 mol._meta[who] = mol.logicgetmeta(state)
-    
+        \'''
+        #tab = levels(towhat)
+        metas = self.getmollogic(towhat)
+        for mol in metas:
+            for conf in metas[mol]:
+                #if who in self._dictomoles[mol][conf]._meta:
+                self._dictomoles[mol][conf]._meta[who] = metas[mol][conf]
+    '''
+                
     def dictmaint(self): 
         '''Maintenance of Sdffile dictionaries'''
         delkeys=[]
@@ -498,19 +510,29 @@ class Sdffile(object):
     
     def closestStr(self, string):
         #String frontend for closest
+        '''
         argus = splitter(string)
         if len(argus)==1:
             self.closest(argus[0])
         elif len(argus)==2:
             self.closest(argus[0], name=argus[1])
-    
-    def closest(self, point, **varargdict): #name, intrests, num
         '''
+        argus = splitter(string)
+        kwargs = {}
+        if len(argus)>1:
+            kwargs['name']=argus[1]
+        for arg in argus[2:]:
+            key, op, value = Sdfmeta.compsplit(arg, ('=',))
+            kwargs[key] = value
+        self.closest(argus[0],**kwargs)
+    '''
+    def closest_dep(self, point, **varargdict): #name, intrests, num
+        \'''
         Calculates distaces from atoms to point of interest. Distaces by 
         atomnumbers are added to a metafield. point is a coordinate in 3d 
         or a name of metafield. If later, first atom number in meta 
         is picked and it's location is used. 
-        '''
+        \'''
         if not 'name' in varargdict:
             name = 'Closest_atoms'
         else:
@@ -539,12 +561,54 @@ class Sdffile(object):
             for item in moles:
                 od[item[1]]=item[0]
             mol.addmeta(name,od)
-            
-    def closer(self, point, meta):
+    '''
+    
+    def closest(self, point, **varargdict): #name, intrests, num
         '''
+        Calculates distaces from atoms to point of interest. Distaces by 
+        atomnumbers are added to a metafield. point is a coordinate in 3d 
+        or a name of metafield. If later, first atom number in meta 
+        is picked and it's location is used. 
+        '''
+        if not 'name' in varargdict:
+            name = 'Closest_atoms'
+        else:
+            name = varargdict['name']
+        
+        if 'interests' in varargdict:
+            switch = {
+                      list: lambda : (varargdict['interests'],True),
+                      int:  lambda : ([varargdict['interests']],True),
+                      str:  lambda : (self.getmollogic(varargdict['interests']), False) }
+            intrestings, listbool = switch.get( type(varargdict['interests']), lambda : ([], True) )()
+            
+        for info in self._orderlist:
+            mol = self._dictomoles[info[0]][info[1]]
+            #is coord1 meta or not? If it was a metafield with atomnumber, it would give that one as closest, so no.
+            alist = mol.dists(point)
+            alist=sorted(alist, key=lambda item: item[0])
+            moles=[]
+            if 'interests' in varargdict:
+                mylist = intrestings if listbool else intrestings[info[0]][info[1]]._data
+                for atom in alist:
+                    if atom[1] in mylist:
+                        moles.append(atom)
+            else:
+                moles = alist
+            del(alist)
+            if 'num' in varargdict:
+                moles = moles[:varargdict['num']]
+            od = OrDi()
+            for item in moles:
+                od[item[1]]=item[0]
+            mol.addmeta(name,od)
+            
+    '''
+    def closer_dep(self, point, meta):
+        \'''
         Calculates how many atoms are closer to the given coordinate
         than the atom in given metafield.
-        '''
+        \'''
         log = Sdfmeta.leveler(meta)
         for mol in self:
             alist = sorted(mol.dists(point), key  = lambda x: x[0] )
@@ -554,7 +618,26 @@ class Sdffile(object):
                     mol.addmeta('Closer_atoms_than_'+meta.strip(), i)
                     mol.addmeta('Closest_atom_from_'+meta.strip(), atom[1])
                     break
-                
+    '''
+    
+    def closer(self, point, meta):
+        '''
+        Calculates how many atoms are closer to the given coordinate
+        than the atom in given metafield.
+        '''
+        #log = Sdfmeta.leveler(meta)
+        metas = self.getmollogic(meta)
+        for molname, conf in self._orderlist:
+            mol = self._dictomoles[molname][conf]
+            alist = sorted(mol.dists(point), key  = lambda x: x[0] )
+            #molmet = mol.logicgetmeta(log)
+            for i, atom in enumerate(alist):
+                #if atom[1] in molmet._data:
+                if atom[1] in metas[molname][conf]._data:
+                    mol.addmeta('Closer_atoms_than_'+meta.strip(), i)
+                    mol.addmeta('Closest_atom_from_'+meta.strip(), atom[1])
+                    break
+    
     def escapeStr(self, string, inside=False):
         '''
         Generate escapenum field for all molecules. (Number of atoms in self not in range of other molecule.)
@@ -586,12 +669,12 @@ class Sdffile(object):
             else:
                 warnings.warn('Metafield {} not created for all molecules.'.format(name))
     
-    
+    '''
     def closestatoms(self, point, metafield):
-        '''
+        \'''
         deprecated
         Was used to calculate
-        '''
+        \'''
         dot = Sdfmole.coorder(point)#self.coordormeta(point)
         if type(dot) != list:
             #if not a good point, use argument 'point' as metafield
@@ -610,7 +693,8 @@ class Sdffile(object):
             ind = mind.index(min(mind))
             mol.addmeta(metafield+'_closest_atom',str(mins[ind]))
             mol.addmeta(metafield+'_closest_distance',str(mind[ind]))
-
+    '''
+    
     def closestbybonds(self,fromwfield,towfield,newfield):
         for mol in self:
             if towfield in mol._meta and fromwfield in mol._meta:
@@ -973,7 +1057,7 @@ class Sdffile(object):
         else:
             pick = True
         
-        opesplit = Sdfmeta.compsplit(string)
+        opesplit = Sdfmeta.compsplit(string, comps=('==','<=','>=','!=','<','>'))
         #print 'opesplit: {}'.format(opesplit)
         
         if len(opesplit)==3:
@@ -1050,10 +1134,11 @@ class Sdffile(object):
                    }
         
         
-        maths = {'+':sum,
-                 '-':sub,
-                 '*':numpy.prod,
-                 '/':div,
+        maths = {'+' :sum,
+                 '-' :sub,
+                 '*' :numpy.prod,
+                 '/' :div,
+                 '%' :remainder ,
                  '**':mypow,
                  '++':Sdfmeta.metajoiner,
                  '--':Sdfmeta.metacut,
@@ -1419,10 +1504,13 @@ class Sdffile(object):
         '''
         mol2 = Mol2File(path)
         #metaname = metaname.strip() #No logic meta
-        level = Sdfmeta.leveler(metaname)
+        #level = Sdfmeta.leveler(metaname)
+        metas = self.getmollogic(metaname)
         for i, mol in enumerate(mol2):
             #mol.injectatomdata(self[i]._meta[metaname], column, defaultValue, precision) #No logic meta
-            mol.injectatomdata(self[i].logicgetmeta(level), column, defaultValue, precision)
+            #mol.injectatomdata(self[i].logicgetmeta(level), column, defaultValue, precision)
+            molname, conf = self._orderlist[i]
+            mol.injectatomdata(metas[molname][conf], column, defaultValue, precision)
         if not outpath:
             outpath=path
         mol2.writefile(outpath)
@@ -1910,10 +1998,11 @@ class Sdfmole(object):
         self.numerize()
         return sum((self.getatomloc(atom1)-self.getatomloc(atom2))**2)**0.5
     
+    '''
     def pointlistdists(self, point, metalist):
-        '''
+        \'''
         return lists of atoms and distances from given point to atoms in given metalist
-        '''
+        \'''
         alldists = self.dists(point)
         try:
             atoms = self.getmeta(metalist)
@@ -1923,7 +2012,7 @@ class Sdfmole(object):
         for oneatom in atoms:
             dists.append(alldists[oneatom-1])
         return (atoms,dists)
-    
+    '''
     
     def bonddists(self, atom1, intrests=None):
         '''
@@ -2470,7 +2559,7 @@ class Sdfmeta(object):
                 return (tab[0], Sdfmeta.dumb_levopemap(tab[1], tab[0]))
         elif isinstance(tab, list):
             
-            searches = lmap(re.compile, ('[^\+](\+)[^\+]|[^-](-)[^-]', '[^\*](\*)[^\*]|(/)', '(\*{2})|(\+{2})|(-{2})'))
+            searches = lmap(re.compile, ('[^\+](\+)[^\+]|[^-](-)[^-]', '[^\*](\*)[^\*]|(/)|(%)', '(\*{2})|(\+{2})|(-{2})'))
             
             for j, thing in enumerate(tab):
                 if not isinstance(thing, str):
@@ -2956,6 +3045,7 @@ class Sdfmeta(object):
                     else:
                         workmetas[i]._data = meta._data[:minlen]
                 return Sdfmeta.construct( Sdfmeta.listoper(oper, workmetas, singles) ) #Nameless meta
+            
             elif ostru == OrDi:
                 keys = None
                 keyorder = None
@@ -3805,6 +3895,13 @@ def div(num):
     except ZeroDivisionError:
         return float('inf')
 
+def remainder(num):
+    try:
+        if len(num)>1:
+            return numpy.asscalar(numpy.remainder(num[0],num[1]))
+    except ZeroDivisionError:
+        return float('inf')
+    
 def mypow(num):
     if type(num) in (tuple, list):
         return numpy.asscalar(numpy.power(*lmap(float,num[:2])))
@@ -3908,9 +4005,12 @@ if __name__ == "__main__":
     arger = argparse.ArgumentParser(description= 'Some bad-ass manipulation of SD-files. Also data retrieval/injection for .mol2-files. Notice that documentation is not up to date.' )
     
     arger.add_argument("input", metavar = 'input.sdf', nargs='*', type = str, default = None,  help="Specify the input  sd-file")
+    
     choicewrite = arger.add_mutually_exclusive_group()
     choicewrite.add_argument("-out", "--output", metavar='output.file', type = str, default=None,  help = "Specify output file. It may be sdf or csv, depending on other arguments.")
     choicewrite.add_argument("-o", "--overwrite", action='store_true',      help = "Overwrite to input file. You don't need to specify output file")
+    
+    arger.add_argument("-v", "--verbose", action = "store_true" ,      help = "More info on your run.")
     
     arger.add_argument("-con","--config", metavar = 'config.txt', nargs='+', type = str, help="Specify the config file. Config file includes lines of argument name, followed by '::' and argument value. Separate multiple values with ';;'.")
     
@@ -3951,12 +4051,12 @@ if __name__ == "__main__":
     outputtype.add_argument("-nm", "--counts", nargs='?', type = int, const=0, choices=(0,1,2),  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
     
-    arger.add_argument("-ca", "--closestatom", type = str, nargs='+',  metavar='(xx, yy, zz), my_poi', help = "Calculates the closest atoms (distances by atom number) to given point. Adds 'Closest_atoms' metafield with optional prefix. Needs either coordinates separated by ',' or or single atom number")
-    arger.add_argument("-cla", "--closeratoms", type = str, nargs='+', help = "Calculates number of atoms closer to the given point, than the ones given adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'. Needs point and metafield name separated by ',', point first. Takes multiple parameters separated by '|'")
-    arger.add_argument("-v", "--verbose", action = "store_true" ,      help = "More info on your run.")
+    arger.add_argument("-ca", "--closestatom", type = str, nargs='+',  metavar='(xx, yy, zz)[,name][,interests=value]', help = "Calculates the closest atoms (distances by atom number) to given point. Creates a metafield with given name, if no name is given 'Closest_atoms' is created. (xx, yy, zz) may be replaced by metastatement describing single atom number.")
+    arger.add_argument("-cla", "--closeratoms", type = str, nargs='+', metavar= "Point,meta", help = "Calculates number of atoms closer to the given point, than the ones given in meta. Adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'.")
+    
     #arger.add_argument("-mm", "--mergemeta", type = str, nargs='+',    help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes multiple arguments separated by |")
     
-    arger.add_argument("-mnm", "--makenewmeta", type = str, nargs='+', metavar='newmeta=statement[</>value]',     help = "Makes a new metafield based on logical statement and value picking inside the metafield. newmeta = meta1 + meta2 < 50. Takes multiple arguments separated by |")
+    arger.add_argument("-mnm", "--makenewmeta", type = str, nargs='+', metavar='newmeta=metastatement',     help = "Makes a new metafield based on metastatement.")
     arger.add_argument("-cm", "--changemeta", type = str, nargs='+',   metavar='olname1>newname1' , help = "Changes names of metafields. [olname1>newname1|oldname2>newname2].")
     
     arger.add_argument("-sm", "--sortmeta", type = str, nargs='+',     metavar='</>statement',         help = "Sorts cells of a metafield in ascending [<metaname] or descending [>metaname] order. Additional '+' as the last character sorts by key in dictionary type metas. Takes multiple values separated by |")
