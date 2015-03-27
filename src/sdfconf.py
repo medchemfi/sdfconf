@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 
-myversion = 'v0.75x'
+myversion = 'v0.751'
 
 #imports
 import os
@@ -1773,7 +1773,8 @@ class Sdfmole(object):
                     'confcol': self.getColumn, 
                     'str': lambda meta: Sdfmeta.construct( meta.getmetastr()),
                     'sum': lambda meta: sum((thing for thing in meta)), 
-                    'prod': lambda meta : numpy.asscalar(numpy.prod([thing for thing in meta]))
+                    'prod': lambda meta : numpy.asscalar(numpy.prod([thing for thing in meta])), 
+                    'rdup' : lambda meta : meta.withoutDuplicates()
                     } 
         
         molfunx = { 
@@ -1802,6 +1803,14 @@ class Sdfmole(object):
             def listope(conf,tab,par=None):
                 #print 'listoper: {}'.format(tab)
                 #Work with lists in given structures
+                
+                if len(tab)>1 and isinstance(tab[0], str):
+                    spli = Sdfmeta.compsplit(tab[0], ('==','<=','>=','!=','<','>'))
+                    if len(spli)>1:
+                        print spli + tab[1:]
+                        #return tabiter(conf, spli + tab[1:])
+                        return tabiter(conf, [spli[0], tabiter(conf,[spli[1:] + tab[1:]])])
+                
                 if len(tab)==1: #evaluate
                     return tabiter(conf, tab[0], par)
                 elif len(tab)==2: #it a slice / asc/max, or something like that
@@ -1814,7 +1823,7 @@ class Sdfmole(object):
                             #do precalc, etc
                             metastri = Sdfmeta.levjoin(tab)
                             if not metastri in precalc:
-                                print 'CALCULATE {} for {}!'.format(metastri,self.getname())
+                                #print 'CALCULATE {} for {}!'.format(metastri,self.getname())
                                 metas = []
                                 for confi in dictomo:
                                     metas.append(tabiter(dictomo[confi],tab[1]))
@@ -1840,6 +1849,7 @@ class Sdfmole(object):
                     meta = tabiter(conf, tab[0])
                     if meta:
                         sli = tabiter(conf, tab[1]) #assumes tuple
+                        #print sli
                         if isinstance(sli, (slice,Sdfmeta)):
                             return meta.slicer(sli, tab[1][0])
                         elif sli:
@@ -2597,6 +2607,19 @@ class Sdfmeta(object):
                     self._data[key] = float(self._data[key])
             else:
                 self._data = lmap(float, self._data)
+    
+    def withoutDuplicates(self):
+        if self._datastruct != OrDi:
+            newlist = []
+            for item in self.getvalues():
+                if item not in newlist:
+                    newlist.append(item)
+        else:
+            newlist = OrDi()
+            for key in self._data.keys():
+                if self._data[key] not in newlist:
+                    newlist[key] = self._data[key]
+        return newlist
         
     def getmetastrings(self, length=float('inf')):
         def floattosting(flo):
@@ -3664,8 +3687,8 @@ if __name__ == "__main__":
     outputtype.add_argument("-nm", "--counts", nargs='?', type = int, const=0, choices=(0,1,2),  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both.")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
     
-    arger.add_argument("-ca", "--closestatom", type = str, nargs='+',  metavar='(xx, yy, zz) [,name] [,interests=value]', help = "Calculates the closest atoms (distances by atom number) to given point. Creates a metafield with given name, if no name is given 'Closest_atoms' is created. (xx, yy, zz) may be replaced by metastatement describing single atom number.")
-    arger.add_argument("-cla", "--closeratoms", type = str, nargs='+', metavar= "Point,meta", help = "Calculates number of atoms closer to the given point, than the ones given in meta. Adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'.")
+    arger.add_argument("-ca", "--closestatom", type = str, nargs='+',  metavar='(x, y, z) [,name] [,interests=value]', help = "Calculates the closest atoms (distances by atom number) to given point. Creates a metafield with given name, if no name is given 'Closest_atoms' is created. (xx, yy, zz) may be replaced by metastatement describing single atom number.")
+    arger.add_argument("-cla", "--closeratoms", type = str, nargs='+', metavar= "(x, y, z),meta", help = "Calculates number of atoms closer to the given point, than the ones given in meta. Adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'.")
     
     #arger.add_argument("-mm", "--mergemeta", type = str, nargs='+',    help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes multiple arguments separated by |")
     
