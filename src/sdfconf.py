@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 
-myversion = 'v0.751'
+myversion = 'v0.752'
 
 #imports
 import os
