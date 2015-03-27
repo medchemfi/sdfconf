@@ -607,6 +607,7 @@ class Sdffile(object):
                 mol.addmeta(newfield+'_closest_bond_distance', str(mind))
         
     def coordormeta(self, canditate):
+        '''Test if string is a 3d coordinate. If it is, return it, otherwise return None'''
         cords = lmap(numify,re.split('\s*',canditate))
         if len(cords)==3:
             if  lmap(type,cords)==[float,float,float]:
@@ -629,8 +630,7 @@ class Sdffile(object):
         with open(path, 'r') as f:
             for mole in Sdffile.xsdfseparator(f):
                 self.add(mole)
-        
-        
+    
     def selftostring(self, output, **kwargs):
         if output=='getcsv':
             return '\n'.join(self.makecsv(kwargs['getcsv']))+'\n'
@@ -651,7 +651,16 @@ class Sdffile(object):
             return None
         else:
             return None
-
+    
+    def numerizeAll(self):
+        '''
+        Numerize all possible dumb data in the file.
+        '''
+        for mol in self:
+            mol.numerize()
+            for key in mol._meta:
+                mol._meta[key].numerize()
+    
     def histogrammer(self, Xname, Yname=None, **kwargs):
         import matplotlib.pyplot as plt
         import matplotlib as mpl
@@ -694,7 +703,6 @@ class Sdffile(object):
                 structs = set([meta._datastruct for meta in metas])-{'single'}
             except StopIteration:
                 pass
-            
             
             if OrDi in structs:
                 keys = None
@@ -785,8 +793,6 @@ class Sdffile(object):
                 plt.savefig(path, bbox_inches='tight')
         if showflag:
             self.show()
-                
-    
     
     def mollogicparse(self, string):
         '''
@@ -1198,12 +1204,12 @@ class Sdffile(object):
                 sdfmol.addmeta(metaname, newdic)
         del(mol2)
         
-    def injectMol2Data(self, metaname, column, path, defaultValue=0.0, precision=4, outpath = None):
+    def injectMol2Data(self, metastatement, column, path, defaultValue=0.0, precision=4, outpath = None):
         '''
         Inject atomwise information from current .sdf-file metadata to given wanted column in .mol2-file and make wanted output file.
         '''
         mol2 = Mol2File(path)
-        metas = self.getmollogic(metaname)
+        metas = self.getmollogic(metastatement)
         for i, mol in enumerate(mol2):
             molname, conf = self._orderlist[i]
             mol.injectatomdata(metas[molname][conf], column, defaultValue, precision)
@@ -1799,16 +1805,12 @@ class Sdfmole(object):
             '''
             collapse given levels tab generated from some meta expression into a single Sdfmeta or None
             '''
-            
             def listope(conf,tab,par=None):
-                #print 'listoper: {}'.format(tab)
                 #Work with lists in given structures
                 
                 if len(tab)>1 and isinstance(tab[0], str):
                     spli = Sdfmeta.compsplit(tab[0], ('==','<=','>=','!=','<','>'))
                     if len(spli)>1:
-                        print spli + tab[1:]
-                        #return tabiter(conf, spli + tab[1:])
                         return tabiter(conf, [spli[0], tabiter(conf,[spli[1:] + tab[1:]])])
                 
                 if len(tab)==1: #evaluate
@@ -1823,7 +1825,6 @@ class Sdfmole(object):
                             #do precalc, etc
                             metastri = Sdfmeta.levjoin(tab)
                             if not metastri in precalc:
-                                #print 'CALCULATE {} for {}!'.format(metastri,self.getname())
                                 metas = []
                                 for confi in dictomo:
                                     metas.append(tabiter(dictomo[confi],tab[1]))
@@ -1849,7 +1850,6 @@ class Sdfmole(object):
                     meta = tabiter(conf, tab[0])
                     if meta:
                         sli = tabiter(conf, tab[1]) #assumes tuple
-                        #print sli
                         if isinstance(sli, (slice,Sdfmeta)):
                             return meta.slicer(sli, tab[1][0])
                         elif sli:
@@ -2856,15 +2856,18 @@ class Sdfmeta(object):
             self.numerize()
         
         if self._datastruct == OrDi :
-            
+            skiplist = []
             if value._datastruct == OrDi:
                 for key in self._data.keys():
                     if not key in value._data.keys():
-                        raise InputException('Valuepick: keys {} not in {}.'.format(self._data.keys(),value._data.keys()))
+                        skiplist.append(key)
+                        continue
+                        #raise InputException('Valuepick: keys {} not in {}.'.format(self._data.keys(),value._data.keys()))
             elif len(value) != 1:
                 raise InputException('Valuepick: comparing OrDi-meta to non-single list.')
                     
         elif self._datastruct in (list, 'single') :
+        #else:
             if ( not  ( (len(value) == 1) or (len(value) == len(self))) ) or value._datastruct == OrDi :
                 raise InputException('Valuepick: comparing list to non-single, different lenght list or OrDi-meta.')
             
@@ -2891,7 +2894,7 @@ class Sdfmeta(object):
                 oval = lambda x : value._data[0]
             
             for key in self._data.keys():
-                if compar(self._data[key], oval(key)):
+                if key not in skiplist and compar(self._data[key], oval(key)):
                     newdata[key] = self._data[key]
         
         else:
@@ -3183,7 +3186,7 @@ class Runner(object):
              ('metatoname','mtn'), 
              ('removemeta','rm'), 
              ('pickmeta','pm'), 
-             ('putmol2','pm2'), 
+             ('','pm2'), 
              ('histogram','hg'), 
              ('getcsv','gc'), 
              ('getatomcsv','gac'), 
@@ -3699,10 +3702,10 @@ if __name__ == "__main__":
     #arger.add_argument("-sm", "--sortmeta", type = str, nargs='+',     metavar='</>statement',         help = "Sorts cells of a metafield in ascending [<metaname] or descending [>metaname] order. Additional '+' as the last character sorts by key in dictionary type metas.")
     
     arger.add_argument("-so", "--sortorder", type = str, nargs='+',    metavar='meta', help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name.")
-    arger.add_argument("-hg", "--histogram", type = str, nargs='+',    metavar="Xname,Yname,Xtitle=x-akseli,Ytitle=y-akseli,bins=[30,30]",        help = "Plots a 1D or 2D histogram, multiple plots with '|'.")
+    arger.add_argument("-hg", "--histogram", type = str, nargs='+',    metavar="X-metastatement [,Y-metastatement] [,title=figtitle] [,Xtitle=x-axel [,Ytitle=y-axel]] [,args]",        help = "Plots a 1D or 2D histogram, multiple plots with '|'.")
     
     arger.add_argument("-gm2", "--getmol2", type = str, nargs='+', metavar='pathto.mol2,column,metaname',         help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata.")#meta column path
-    arger.add_argument("-pm2", "--putmol2", type = str, nargs='+',     metavar='input.mol2,output.mol2, column, metaname, default, precision',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
+    arger.add_argument("-pm2", "--putmol2", type = str, nargs='+',     metavar='input.mol2,output.mol2, column, metastatement, default, precision',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
     
     arger.add_argument("-sbm", "--stripbutmeta", type = str, nargs='+', metavar='statement', help = "Removes all atoms from molecules, except for those in given logical statement.")
     
@@ -3741,4 +3744,3 @@ if __name__ == "__main__":
     
     if 'plt' in globals():
         onefile.plt.show()
-
