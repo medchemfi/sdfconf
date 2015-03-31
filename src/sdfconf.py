@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
+from types import NoneType
 
-myversion = 'v0.752'
+myversion = 'v0.753'
 
 #imports
 import os
@@ -53,13 +54,15 @@ class Sdffile(object):
     molchop = re.compile('^\${4}') #Separates molecules in file
     
     
-    def __init__(self, path=''):
+    def __init__(self, path=None, **kwargs ):
         '''
         Initianilizes an empty file. If path is specified, add data from it.
         '''
         self._dictomoles = dict() # {'aspirin':{1:aspi1, 2:aspi2, ...}, 'bentzene':{1:benz1, 2:benz2, ...}, ...}
         self._orderlist = list()
-        if path != '':
+        #self._ignores = kwargs.get('ignores', ['H'])
+        self.setIgnores(kwargs.get('ignores', ['H']))
+        if path is not None:
             self.xreadself(path)
     
     def __copy__(self):
@@ -71,6 +74,7 @@ class Sdffile(object):
         for key in self._dictomoles:
             new._dictomoles[key] = copy.copy( self._dictomoles[key] )
         new._orderlist = copy.copy(self._orderlist)
+        new._ignores = copy.copy(self._ignores)
         return new
     
     def __deepcopy__(self,memo):
@@ -80,6 +84,7 @@ class Sdffile(object):
         new = Sdffile()
         new._dictomoles = copy.deepcopy(self._dictomoles,memo)
         new._orderlist = copy.deepcopy(self._orderlist,memo)
+        new._ignores = copy.copy(self._ignores)
         return new
     
     def __iter__(self):
@@ -116,6 +121,12 @@ class Sdffile(object):
             return self._dictomoles[mols[0]][mols[1]]
         else:
             raise TypeError("Invalid argument type.")
+        
+    def setIgnores(self, ignores=['H']):
+        self._ignores = list(ignores)
+        #print self._ignores
+        for mol in self:
+            mol.setIgnores(self._ignores)
         
         
     @staticmethod
@@ -159,7 +170,7 @@ class Sdffile(object):
         Adds a molecule to datastructure. 
         stringsofone is a list of strings representing a single conformation
         '''
-        new = Sdfmole(stringsofone)
+        new = Sdfmole(stringsofone, ignores = self._ignores)
         name = new.getname()
         
         if not name in self._dictomoles:
@@ -516,13 +527,15 @@ class Sdffile(object):
                       str:  lambda : (self.getmollogic(varargdict['interests']), False) }
             intrestings, listbool = switch.get( type(varargdict['interests']), lambda : ([], True) )()
         
+        myignores = varargdict.get('ignores', self._ignores)
+        
         precalc = dict()
         for molname, conf in self._orderlist:
             if not molname in precalc:
                 precalc[molname]=dict()
             mol = self._dictomoles[molname][conf]
             #is coord1 meta or not? If it was a metafield with atomnumber, it would give that one as closest, so no.
-            alist = mol.dists(point, precalc=precalc[molname], dictomo=self._dictomoles[molname])
+            alist = mol.dists(point, precalc=precalc[molname], dictomo=self._dictomoles[molname], ignores = myignores)
             alist=sorted(alist, key=lambda item: item[0])
             moles=[]
             if 'interests' in varargdict:
@@ -552,14 +565,14 @@ class Sdffile(object):
             if not molname in precalc:
                 precalc[molname] = dict()
             mol = self._dictomoles[molname][conf]
-            alist = sorted(mol.dists(point, dictomo=self._dictomoles[molname], precalc=precalc[molname] ), key  = lambda x: x[0] )
+            alist = sorted(mol.dists(point, dictomo=self._dictomoles[molname], precalc=precalc[molname] ), key  = lambda x: x[0] , ignores=self._ignores )
             for i, atom in enumerate(alist):
                 if atom[1] in metas[molname][conf]._data:
                     mol.addmeta('Closer_atoms_than_'+meta.strip(), i)
                     mol.addmeta('Closest_atom_from_'+meta.strip(), atom[1])
                     break
     
-    def escapeStr(self, string, inside=False):
+    def escapeStr(self, string, inside=False, **kwargs):
         '''
         Generate escapenum field for all molecules. (Number of atoms in self not in range of other molecule.)
         '''
@@ -574,10 +587,17 @@ class Sdffile(object):
             manx = -manx
         else:
             name = name+'_insidenum' if len(name)>0 else 'insidenum'
+        
         omol = {'sdf':Sdffile, 'mol2':Mol2File}.get(otherpath.rpartition('.')[2],Sdffile)(otherpath)[int(molnum)]
-        matcher = Findable(omol)
+        
+        myignores = kwargs.get('ignores',self._ignores)
+        
+        matcher = Findable(omol, ignores=myignores)
+        
+        
+        
         for mmol in self:
-            numberIn, numberOut = mmol.calcEscapeNumberOrder(matcher,float(maxRange) , maxn=manx, anums = True) #also ignores
+            numberIn, numberOut = mmol.calcEscapeNumberOrder(matcher,float(maxRange) , maxn=manx, anums = True, ignores=myignores) #also ignores
             if not inside and numberIn is not None:
                 if isinstance(numberOut, (list,tuple)) and len(numberOut)==0:
                     continue
@@ -1232,7 +1252,7 @@ class Sdfmole(object):
     '''
     mes='Conformation number mismatch! {} vs {}'
     
-    def __init__(self, stringsofone=None):
+    def __init__(self, stringsofone=None, **kwargs):
         '''
         Initialize an empty molecule with no data at all
         Adds data if list of strings containing lines of sdf-file describing single molecule is given
@@ -1242,7 +1262,9 @@ class Sdfmole(object):
         self._metakeys = list()
         self._other = list()
         self._numeric = False
-        self._ignoretype = []
+        #self._ignoretype = []
+        #self._ignoretype = kwargs.get('ignores', ['H'])
+        self.setIgnores(kwargs.get('ignores', ['H']))
         
         if stringsofone:
             self.initialize(stringsofone)
@@ -1324,25 +1346,27 @@ class Sdfmole(object):
         return list of distances and atom numbers. single line describes distance of an atom in molecule to given point.
         Atom types in ignores are omitted.
         '''
-        ignores = [item.upper() for item in kwargs.get('ignores',['H'])]
+        myignores = [item.upper() for item in kwargs.get('ignores',self._ignoretype)]
         dictomo = kwargs.get('dictomo',dict())
         precalc = kwargs.get('precalc',dict())
         
         self.numerize()
         coord1 = Sdfmole.coorder(point1)
-        if coord1 == None:
+        #if coord1 == None:
+        if coord1 is None:
             self.molelogic(Sdfmeta.levels(point1+'[]'), precalc, dictomo)
             coord1 =  self.getatomloc()
         alist=[]
-        for anum, coord2 in self.atomsGenerator(ignores=ignores):
+        for anum, coord2 in self.atomsGenerator(ignores=myignores):
             dist = sum((coord1-coord2)**2)**0.5
             alist.append([float(dist),anum])
         return alist
     
+    '''
     def calcEscapeNumber(self,other,maxRange=2.0, **kwargs):
-        '''
-        calculate number of atoms in [self] that are farther than [range] from at least one atom in [other]. Returns number of atoms inside and outside.
-        '''
+        \'''
+        #calculate number of atoms in [self] that are farther than [range] from at least one atom in [other]. Returns number of atoms inside and outside.
+        \'''
         ignores=['H'] if not 'ignores' in kwargs else kwargs['ignores']
         maxn=0 if not 'maxn' in kwargs else kwargs['maxn']
             
@@ -1364,16 +1388,19 @@ class Sdfmole(object):
                     break
                     
             return inCount, outCount
-        
+    '''
+    
     def calcEscapeNumberOrder(self,matcher,maxRange=2.0, **kwargs):
         '''
         calculate number of atoms in [self] that are farther than [range] from at least one atom in [other]. Returns number of atoms inside and outside.
         '''
         
-        ignores=['H'] if not 'ignores' in kwargs else kwargs['ignores']
-        maxn=0 if not 'maxn' in kwargs else kwargs['maxn']
+        #ignores=['H'] if not 'ignores' in kwargs else kwargs['ignores']
+        myignores = kwargs.get('ignores',['H'])
+        #maxn=0 if not 'maxn' in kwargs else kwargs['maxn']
+        maxn= kwargs.get('maxn',0)
         
-        finder = {Findable:lambda : matcher, Sdfmole: lambda : Findable(matcher), Mol2Mol: lambda : Findable(matcher)}.get(type(matcher), lambda : None)()
+        finder = {Findable:lambda : matcher, Sdfmole: lambda : Findable(matcher, ignores=myignores), Mol2Mol: lambda : Findable(matcher, ignores=myignores)}.get(type(matcher), lambda : None)()
         if not finder:
             raise TypeError('Type must be of type Findable, Sdfmole or Mol2mol.')
         
@@ -1395,7 +1422,7 @@ class Sdfmole(object):
         else:
             test = lambda : False
         
-        for sAn, sCoord in self.atomsGenerator(ignores=ignores):
+        for sAn, sCoord in self.atomsGenerator(ignores=myignores):
             atoms = finder.findinrange(sCoord, maxRange)
             if len(atoms)>0:
                 inCount += adder(sAn) #1
@@ -1498,6 +1525,10 @@ class Sdfmole(object):
         if bolist[1] and already[1]:
             self._metakeys.remove(ckey)
             self._meta.pop(ckey)
+            
+    def setIgnores(self, ignores=['H']):
+        #print ignores
+        self._ignoretype = list(ignores)
             
     def getname(self):
         '''
@@ -1733,7 +1764,7 @@ class Sdfmole(object):
         columns = [item+1 for item in columns]
         
         reva = OrDi()
-        for item in self.atomsGenerator(tabs=columns):
+        for item in self.atomsGenerator(tabs=columns, ignores = self._ignoretype):
             if len(item)==2:
                 reva[item[0]]=item[1]
             else:
@@ -1808,10 +1839,23 @@ class Sdfmole(object):
             def listope(conf,tab,par=None):
                 #Work with lists in given structures
                 
-                if len(tab)>1 and isinstance(tab[0], str):
+                '''
+                if len(tab) > 1 and isinstance(tab[0], str):
                     spli = Sdfmeta.compsplit(tab[0], ('==','<=','>=','!=','<','>'))
                     if len(spli)>1:
                         return tabiter(conf, [spli[0], tabiter(conf,[spli[1:] + tab[1:]])])
+                '''
+                
+                if len(tab) > 1 and isinstance(tab[0], str):
+                    #spli = Sdfmeta.compsplit(tab[0], ('==','<=','>=','!=','<','>'))
+                    if tab[0] in Sdfmeta.comps.keys() and (not isinstance(tab[1],Sdfmeta)) and tab[1] is not None:
+                        #print tab
+                        #print tab[1:]
+                        slitab = tabiter(conf,tab[1:])
+                        #print slitab
+                        return tabiter(conf, [tab[0], slitab])
+                    #if len(spli)>1:
+                        #return tabiter(conf, [spli[0], tabiter(conf,[spli[1:] + tab[1:]])])
                 
                 if len(tab)==1: #evaluate
                     return tabiter(conf, tab[0], par)
@@ -1851,10 +1895,15 @@ class Sdfmole(object):
                     if meta:
                         sli = tabiter(conf, tab[1]) #assumes tuple
                         if isinstance(sli, (slice,Sdfmeta)):
+                            #return meta.slicer(sli, tab[1][0])
                             return meta.slicer(sli, tab[1][0])
-                        elif sli:
-                            meta.pickvalues(tabiter(conf, sli[1]), Sdfmeta.comps.get(sli[0], None))
-                            return meta
+                        elif sli: 
+                            if tab[1][0] == '(':
+                                meta.pickvalues(tabiter(conf, sli[1]), Sdfmeta.comps.get(sli[0], None), bykeys=False)
+                                return meta
+                            elif tab[1][0] == '{':
+                                meta.pickvalues(tabiter(conf, sli[1]), Sdfmeta.comps.get(sli[0], None), bykeys=True)
+                                return meta
                     return None
                 elif len(tab)>2:
                     if len(tab)==3 and type(tab[0]) == str and tab[0] in maths:
@@ -1891,7 +1940,7 @@ class Sdfmole(object):
                             return slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
                         except ValueError:
                             rip = Sdfmeta.compsplit(tab)
-                            if len(rip)>1 and par == '(':
+                            if len(rip)>1 and par in ('(','{'):
                                 return rip
                             raise ValueError('Your logic makes no sense. '+str(tab))
                 else:
@@ -2321,7 +2370,7 @@ class Sdfmeta(object):
         '''
         Accepts lists made by leveler method. Maps this list for mathematical operators and metafield names. Doesn't understand local metafields. a dumb version.
         '''
-        
+        #print tab
         if isinstance(tab, tuple):
             if tab[0] in ('"',"'"):
                 return (tab[0], Sdfmeta.levjoin(tab[1]))
@@ -2334,6 +2383,14 @@ class Sdfmeta(object):
             for j, thing in enumerate(tab):
                 if not isinstance(thing, str):
                     continue
+                for comp in Sdfmeta.comps:
+                    ma = re.match(comp,thing)
+                    if ma and len(thing) > len(ma.group()):
+                        interpret = Sdfmeta.dumb_levopemap([thing[len(ma.group()):]] + tab[j+1:])
+                        if not isinstance(interpret, list):
+                            interpret = [interpret]
+                        return tab[:j] + [ma.group(), interpret ]
+                    
                 thing = thing.strip()
                 thing = ' ' + thing + ' '
                 sear=None
@@ -2848,26 +2905,27 @@ class Sdfmeta(object):
         else:
             return [oper([meta._data[0] for meta in metas])]
         
-    def pickvalues(self, value, oper):
+    def pickvalues(self, value, oper, **kwargs):
         if type(value)!=Sdfmeta:
             value=Sdfmeta.construct(value)
+        
         
         if self.isdumb():
             self.numerize()
         
         if self._datastruct == OrDi :
             skiplist = []
+            compbykey = kwargs.get('bykeys', False)
             if value._datastruct == OrDi:
                 for key in self._data.keys():
                     if not key in value._data.keys():
                         skiplist.append(key)
                         continue
                         #raise InputException('Valuepick: keys {} not in {}.'.format(self._data.keys(),value._data.keys()))
-            elif len(value) != 1:
-                raise InputException('Valuepick: comparing OrDi-meta to non-single list.')
+            #elif len(value) != 1:
+            #    raise InputException('Valuepick: comparing OrDi-meta to non-single list.')
                     
         elif self._datastruct in (list, 'single') :
-        #else:
             if ( not  ( (len(value) == 1) or (len(value) == len(self))) ) or value._datastruct == OrDi :
                 raise InputException('Valuepick: comparing list to non-single, different lenght list or OrDi-meta.')
             
@@ -2889,14 +2947,26 @@ class Sdfmeta(object):
         if self._datastruct == OrDi:
             newdata = OrDi()
             if value._datastruct == OrDi:
-                oval = lambda x : value._data[x]
+                #oval = lambda x : value._data[x]
+                oval = lambda x : (value._data[x], )
             else:
-                oval = lambda x : value._data[0]
+                oval = lambda x : (val for val in value._data)
+            
+            myval = (lambda x : x) if compbykey else (lambda x: self._data[x])
             
             for key in self._data.keys():
-                if key not in skiplist and compar(self._data[key], oval(key)):
+                #if key not in skiplist and compar(self._data[key], oval(key)):
+                if key in skiplist:
+                    continue
+                flag = True
+                myva = myval(key)
+                for ova in oval(key):
+                    #print ova, myva
+                    if not compar(myva, ova):
+                        flag = False
+                        break
+                if flag:
                     newdata[key] = self._data[key]
-        
         else:
             newdata = []
             if len(value)>1:
@@ -3159,13 +3229,16 @@ class Mol2Mol(OrDi):
 class Runner(object):
 
     order = OrDi( (
+             ('verbose','v'), 
              ('input','in'), 
              ('tofield','cf'), 
              ('toname','cn'), 
              ('nametometa','ntm'), 
              ('removeconfname','rcn'), 
              ('removeconfmeta','rcm'), 
-             ('cut','cu'), ('allcut','acu'), 
+             ('ignores', 'ig'),
+             ('cut','cu'), 
+             ('allcut','acu'), 
              ('combine','co'), 
              ('allcombine','aco'), 
              ('addcsv','csv'), 
@@ -3173,20 +3246,20 @@ class Runner(object):
              ('addescape','aesc'), 
              ('addinside','ains'), 
              ('config','con'), 
-             ('closestatom','ca'), 
+             ('closestatoms','ca'), 
              ('closeratoms','cla'), 
              ('changemeta','cm'), 
-             #('mergemeta','mm'), 
              ('makenewmeta','mnm'), 
              ('sortmeta','sm'), 
              ('stripbutmeta','sbm'), 
              ('proportion','pro'), 
              ('sortorder','so'), 
+             ('proportion','pro'), 
              ('extract','ex'), 
              ('metatoname','mtn'), 
              ('removemeta','rm'), 
              ('pickmeta','pm'), 
-             ('','pm2'), 
+             ('putmol2','pm2'), 
              ('histogram','hg'), 
              ('getcsv','gc'), 
              ('getatomcsv','gac'), 
@@ -3201,16 +3274,18 @@ class Runner(object):
     
     
     simplelist =    ('tofield', 'toname', 'removeconfname', 'removeconfmeta', 
-                     'nametometa', 'metatoname', 'removemeta', 'pickmeta', 'input', 'proportion' ,
-                     'histogram', 
+                     'ignores', 'nametometa', 'metatoname', 'removemeta', 
+                     'pickmeta', 'input', 'proportion' , 'histogram', 'verbose', 
                      )
     
-    simpleloops =   ('getmol2', 'closestatom', 'closeratoms', 'changemeta', #'mergemeta',
+    simpleloops =   ('getmol2', 'closestatoms', 'closeratoms', 'changemeta', #'mergemeta',
                      'sortorder', 'sortmeta', 
                      'stripbutmeta', 'extract','makenewmeta','config',
                      'cut', 'allcut', 'combine', 'allcombine', 'addcsv', 
                      'putmol2', 'addescape', 'addinside', 
                      )
+    
+    listbatch = ()
     
     writers =       ('overwrite', 'output', 'stdout') #default stdout
     writetypes =    {'getcsv':True,'getatomcsv':True,'metalist':True,'counts':True,'donotprint':True,'sdf':True,'split':False,'makefolder':False} #default 'sdf'
@@ -3218,16 +3293,29 @@ class Runner(object):
     
     def __init__(self, options=dict()):
         self.options = options if options else dict()
+        
+        
+        for option, value in (('verbose', False),('proportion', False),('ignores',[])):
+            if not option in self.options:
+                self.options[option] = value
+        
         self.times = [time.time()]
         self.inpath = None
         #self.outpath = None
         self.wriarg = dict()
         self.writetype = 'sdf'
         self.writer = None
+        
+        self.setVerbose()
+        self.setIgnores()
+        
+        #self.verbose = options.pop('verbose', False)
+        #self.setPropor(options.pop('proportion', False))
+        #self.ignore = options.pop('ignores', [])
+        #self.setIgnores(options.pop('ignores', []))
+        #self.sdf = Sdffile(ignores=self.ignore)
+        
         self.sdf = Sdffile()
-
-        self.verbose = options.pop('verbose', False)
-        self.setPropor(options.pop('proportion', False))
         
     def setPropor(self,parameter=None):
         if not parameter or parameter is True:
@@ -3235,11 +3323,35 @@ class Runner(object):
         else:
             self.propor = parameter.strip()
     
+    def setVerbose(self, verbose=False):
+        #print 'set verbose to {}'.format(verbose)
+        if isinstance(verbose, (list, tuple)):
+            self.verbose = verbose[0]
+        else:
+            self.verbose = verbose
+    
+    def setIgnores(self,ignore=['H']):
+        #print ignore
+        #if ignore:
+        self.ignore = ignore
+        try:
+            self.sdf.setIgnores(self.ignore)
+            #print 'found sdf'
+        except AttributeError:
+            pass
+            #print 'no sdf'
+    
+    
     def runOptions(self):
         
         #after config, do the rest anyway.
+        #print self.options
+        
         for option in Runner.order:
             if option in self.options:
+                
+                #print 'option: {} : {}'.format(option,self.options[option])
+                
                 self.times.append(time.time())
                 self.funcselector(option, self.options[option])
         
@@ -3278,7 +3390,7 @@ class Runner(object):
     def taskLib(self,task,option,param=None,**kwargs):
         steps = kwargs.get('steps',1)
         timedif = lambda : '{:.3f}'.format(self.times[-1]-self.times[-(1+steps)])
-
+        
         NoLamb = lambda : None
         def extMes(n):
             mypropo = self.sdf.propomes(self.propor)
@@ -3301,7 +3413,7 @@ class Runner(object):
                     'removemeta'     :lambda i : (self.sdf.removemeta, lambda : (param, False),      lambda : ('Metafieldfield(s) in ({}) Removed. It took {} seconds.',(param,timedif())),NoLamb,NoLamb)[i], 
                     'pickmeta'       :lambda i : (self.sdf.removemeta, lambda : (param, True),       lambda : ('All metafields except those in ({}) Removed. It took {} seconds.',(param,timedif())),NoLamb,NoLamb)[i], 
                     'getmol2'        :lambda i : (self.sdf.getMol2DataStr, lambda : (param,),       NoLamb,NoLamb,NoLamb)[i], 
-                    'closestatom'    :lambda i : (self.sdf.closestStr, lambda : (param,),                  NoLamb,NoLamb,NoLamb)[i], 
+                    'closestatoms'   :lambda i : (self.sdf.closestStr, lambda : (param,),                  NoLamb,NoLamb,NoLamb)[i], 
                     'closeratoms'    :lambda i : (lambda x: self.sdf.closer(*splitter(x)), lambda : (param,),     NoLamb,NoLamb,NoLamb)[i], 
                     'changemeta'     :lambda i : (lambda x: self.sdf.changemetaname([item.strip() for item in x.split('>')]), lambda : (param,), NoLamb, NoLamb, NoLamb)[i], 
                     'sortorder'      :lambda i : (self.sdf.sortme, lambda : (param,),               lambda : ('Sort {} done.',(param,)),NoLamb,NoLamb)[i], 
@@ -3310,17 +3422,19 @@ class Runner(object):
                     'extract'        :lambda i : (self.sdf.mollogicparse, lambda : (param,),        extMes(0),extMes(1),extMes(2))[i],
                     'makenewmeta'    :lambda i : (self.sdf.makenewmetastr, lambda : (param,),       lambda : ('New metafield {} made.',(param,)), NoLamb, lambda : ('Making new metafields done. It took {} seconds.',(timedif(),)))[i], 
                     'addcsv'         :lambda i : (self.sdf.addcsvmeta, lambda : (param, self.verbose,), lambda : ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i], 
-                    'input'          :lambda i : (self.sdf.xreadself, lambda : (param,),            NoLamb, lambda : ('Starting to read file {}',(param,)), lambda : ('Reading file done. It took {} seconds.', (timedif(),)))[i], 
+                    'input'          :lambda i : (self.sdf.xreadself, lambda : (param,),            NoLamb, lambda : ('Starting to read file {}',(param,)), lambda : ('Reading file done. It took {} seconds.', (timedif(),)))[i],
+                    'verbose'        :lambda i : (self.setVerbose, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Verbose enabled.' if param else 'Verbose disabled.',(param,)))[i], 
+                    'ignores'        :lambda i : (self.setIgnores, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Ignores set to {}.',(param,)))[i], 
                     'config'         :lambda i : (self.runConfig, lambda : (param,),                lambda : ('Config-file {} done.',(param,)), lambda : ('Run config-files.',()), lambda : ('Running config-files done',()))[i], 
                     'histogram'      :lambda i : (self.sdf.histogramFromList, lambda : (param,),    NoLamb, lambda : ('Start plotting',()), lambda : ('Plotting done',()))[i], 
-                    'cut'           :lambda i : (lambda x :self.sdf.listremove(Sdffile(x.strip()),True), lambda : (param,), lambda : ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
-                    'allcut'        :lambda i : (lambda x :self.sdf.listremove(Sdffile(x.strip()),False), lambda : (param,), lambda : ('Removing all molecules (matching confnum) present in {} complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
-                    'combine'       :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,True),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), lambda : (param,), lambda : ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
-                    'allcombine'    :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,False),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), lambda : (param,), lambda : ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
-                    'proportion'    :lambda i : (self.setPropor, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Propor set to {}.',(param,)))[i], 
-                    'putmol2'       :lambda i : (lambda x :self.sdf.injectMol2DataStr(x.strip()), lambda : (param,), NoLamb, NoLamb, NoLamb)[i],
-                    'addescape'     :lambda i : (self.sdf.escapeStr, lambda : (param, False), lambda : ('Escape number from {} added. It took {} seconds.',(param, timedif())), lambda : ('Calculating escape numbers...', ()), NoLamb)[i],
-                    'addinside'     :lambda i : (self.sdf.escapeStr, lambda : (param, True), lambda : ('Inside number from {} added. It took {} seconds.',(param, timedif())), lambda : ('Calculating inside numbers...', ()), NoLamb)[i],
+                    'cut'            :lambda i : (lambda x :self.sdf.listremove(Sdffile(x.strip()),True), lambda : (param,), lambda : ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
+                    'allcut'         :lambda i : (lambda x :self.sdf.listremove(Sdffile(x.strip()),False), lambda : (param,), lambda : ('Removing all molecules (matching confnum) present in {} complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
+                    'combine'        :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,True),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), lambda : (param,), lambda : ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
+                    'allcombine'     :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,False),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), lambda : (param,), lambda : ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
+                    'proportion'     :lambda i : (self.setPropor, lambda : (param,) ,NoLamb, NoLamb, (lambda : ('Propor set to {}.',(param,))) if param else NoLamb )[i], 
+                    'putmol2'        :lambda i : (lambda x :self.sdf.injectMol2DataStr(x.strip()), lambda : (param,), NoLamb, NoLamb, NoLamb)[i],
+                    'addescape'      :lambda i : (self.sdf.escapeStr, lambda : (param, False), lambda : ('Escape number from {} added. It took {} seconds.',(param, timedif())), lambda : ('Calculating escape numbers...', ()), NoLamb)[i],
+                    'addinside'      :lambda i : (self.sdf.escapeStr, lambda : (param, True), lambda : ('Inside number from {} added. It took {} seconds.',(param, timedif())), lambda : ('Calculating inside numbers...', ()), NoLamb)[i],
                    }
         selector = {'func':0,'loop':2,'initial':3,'final':4}
         
@@ -3330,6 +3444,7 @@ class Runner(object):
                 mytask=tasks.get(option)
                 fu = mytask(0)
                 para = mytask(1)()
+                #print 'para: {}, fu: {}'.format(para,fu)
             else:
                 fu=tasks.get(option)(selector.get(task))
                 para=()
@@ -3346,6 +3461,7 @@ class Runner(object):
             #if task in ('final'):
                 #self.times.append(time.time())
             if self.verbose:
+            #if True:
                 mes = self.taskLib(task, option, mypara, **kwargs)
                 if mes:
                     #try:
@@ -3362,10 +3478,14 @@ class Runner(object):
         
         elif option in Runner.simpleloops or option in Runner.simplelist:
             if not fromconfig and option in Runner.simplelist:
+                
+                #print 'pair got through! {}:{}'.format(option, params)
+                
                 params = (params,)
                 
             messenger('initial')
             for oneparam in params:
+                #print oneparam
                 self.taskLib('func', option, oneparam)
                 messenger('loop',oneparam)
                 
@@ -3396,12 +3516,12 @@ class InputException(Exception):
 class Findable(object):
     
     
-    def __init__(self, iterable=None, ignores=['H']):
+    def __init__(self, iterable=None, **kwargs):
         self._maindict = None #ordered dict jonka alkiot sis‰lt‰v‰t koordinaatit listana, indeksi avaimena
         self._orders = [] #Lista joka tulee sis‰lt‰m‰‰ dimensioiden m‰‰r‰n listapareja (tuplessa), jotka sis‰lt‰v‰t kunkin koordinaattipisteen indeksin ja yhden dimension koordinaatin. Listat j‰rjestetty kunkin dimension mukaan kasvavaan j‰rjestykseen.
         self._thelen = 0 #Dimensioiden lukum‰‰r‰
         if iterable:
-            self.set_iterable(iterable, ignores) #Luodaan datarakenne
+            self.set_iterable(iterable, kwargs.get('ignores', ['H'])) #Luodaan datarakenne
                 
         else:
             self.set_iterable([]) #Tyhj‰ rakenne
@@ -3690,7 +3810,7 @@ if __name__ == "__main__":
     outputtype.add_argument("-nm", "--counts", nargs='?', type = int, const=0, choices=(0,1,2),  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both.")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
     
-    arger.add_argument("-ca", "--closestatom", type = str, nargs='+',  metavar='(x, y, z) [,name] [,interests=value]', help = "Calculates the closest atoms (distances by atom number) to given point. Creates a metafield with given name, if no name is given 'Closest_atoms' is created. (xx, yy, zz) may be replaced by metastatement describing single atom number.")
+    arger.add_argument("-ca", "--closestatoms", type = str, nargs='+',  metavar='(x, y, z) [,name] [,interests=value]', help = "Calculates the closest atoms (distances by atom number) to given point. Creates a metafield with given name, if no name is given 'Closest_atoms' is created. (xx, yy, zz) may be replaced by metastatement describing single atom number.")
     arger.add_argument("-cla", "--closeratoms", type = str, nargs='+', metavar= "(x, y, z),meta", help = "Calculates number of atoms closer to the given point, than the ones given in meta. Adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'.")
     
     #arger.add_argument("-mm", "--mergemeta", type = str, nargs='+',    help = "Makes a new metafield based on old ones. newmeta=sum(meta1,meta2). operator are sum, max, min, avg, prod, div, power and join. Takes†multiple arguments separated by |")
@@ -3708,6 +3828,8 @@ if __name__ == "__main__":
     arger.add_argument("-pm2", "--putmol2", type = str, nargs='+',     metavar='input.mol2,output.mol2, column, metastatement, default, precision',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
     
     arger.add_argument("-sbm", "--stripbutmeta", type = str, nargs='+', metavar='statement', help = "Removes all atoms from molecules, except for those in given logical statement.")
+    
+    arger.add_argument("-ig", "--ignores", type = str, nargs='*', metavar='Element', default=['H'], help = "Ignores given atoms in distance calculations, etc. Default is H.")
     
     
     args = arger.parse_args()
