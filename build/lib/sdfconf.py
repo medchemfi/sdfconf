@@ -16,6 +16,7 @@ import operator
 from collections import OrderedDict as OrDi
 import warnings
 import bisect as bi
+
 try:
     from future.utils import lmap
 except ImportError:
@@ -25,19 +26,6 @@ if sys.version_info[0]==2 and sys.version_info[1]>=7:
     pass
 else:
     raise SystemError('Python version must be 2.7. or later, but not 3.x.')
-
-#Common regular expressions used.  
-confchop= re.compile('\{\[.+\]\}') #re.compile('\{\[\d+\]\}') #gets conformation number #changed from number to everything
-
-#metachop = re.compile('>\s+<') #Detects beginning of metafield name
-stapa=re.compile('\{|\[|\(') #Starting parentesis
-endpa=re.compile('\}|\]|\)') #Ending parenthesis
-goodchop = re.compile('\s*,{0,1}\s*') #CSV-separator
-
-parre = re.compile('[\{\[\(\)\]\}\"\']') #Matches all parentheses
-
-ckey = "confnum"
-atomcut=(0, 10, 20, 30, 31, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69)
 
 class Sdffile(object):
     '''
@@ -232,10 +220,10 @@ class Sdffile(object):
         Remove conformations from current file that are present in the other csvfile.
         ''' 
         for moli in others:
-            oname = confchop.sub('',moli[0]).strip('\"\'')
+            oname = Sdfmole.confchop.sub('',moli[0]).strip('\"\'')
             if sameconf:
                 try:
-                    confn = confchop.search( moli[0] ).group().strip('{[]}\"\'')
+                    confn = Sdfmole.confchop.search( moli[0] ).group().strip('{[]}\"\'')
                     self.remove(oname,confn)
                 except KeyError:
                     pass
@@ -918,7 +906,6 @@ class Sdffile(object):
             return (trues, falses)
         
         def uniqu( string ):
-            ## TODO
             '''
             will remove duplicates of conformations by given metastatement
             '''
@@ -1045,7 +1032,7 @@ class Sdffile(object):
             csvdata[j] = newtab
         header = csvdata[0]
         for csvmol in csvdata[1:]:
-            m = confchop.search(csvmol[0])
+            m = Sdfmole.confchop.search(csvmol[0])
             if m:
                 n=m.group(0)[2:-2]
                 seeker = csvmol[0][:-(len(n)+4)]
@@ -1170,9 +1157,9 @@ class Sdffile(object):
         mol2 = Mol2File(path)
         for mol in mol2:
             newdic = mol.pickatomdata(column)
-            name = confchop.sub('',  mol['MOLECULE'][0])
+            name = Sdfmole.confchop.sub('',  mol['MOLECULE'][0])
             if name != mol['MOLECULE'][0] :
-                conf = confchop.search(mol['MOLECULE'][0]).group().strip('{[]}')
+                conf = Sdfmole.confchop.search(mol['MOLECULE'][0]).group().strip('{[]}')
             else:
                 conf = None
             mols = []
@@ -1213,6 +1200,9 @@ class Sdfmole(object):
     Class containing all information concerning a single conformation
     '''
     mes='Conformation number mismatch! {} vs {}'
+    confchop= re.compile('\{\[.+\]\}') #re.compile('\{\[\d+\]\}') #gets conformation number #changed from number to everything
+    atomcut=(0, 10, 20, 30, 31, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69)
+    ckey = "confnum"
     
     def __init__(self, stringsofone=None, **kwargs):
         '''
@@ -1400,7 +1390,7 @@ class Sdfmole(object):
         if not self._numeric:
             self._counts = [self._other[2][i:i+3].strip() for i in range(33)[::3]]+[self._other[2][33:39].strip()]
             blockdiv = [3,3+int(self._counts[0]),3+int(self._counts[0])+int(self._counts[1])]
-            self._atoms = [[atom[atomcut[i]:atomcut[i+1]] for i in range(len(atomcut)-1)] for atom in self._other[3:blockdiv[1]]]
+            self._atoms = [[atom[Sdfmole.atomcut[i]:Sdfmole.atomcut[i+1]] for i in range(len(Sdfmole.atomcut)-1)] for atom in self._other[3:blockdiv[1]]]
             self._bonds = [[bond[i:i+3].strip() for i in range(7*3)[::3]] for bond in self._other[blockdiv[1]:blockdiv[2]]]
             self._properties = self._other[blockdiv[2]:]
             del(self._other)
@@ -1411,11 +1401,11 @@ class Sdfmole(object):
         return conformation number in the name and meta for the conformation
         '''
         ans = [None, None]
-        m = confchop.search(self._name)
+        m = Sdfmole.confchop.search(self._name)
         if m:
             ans[0] = str( m.group(0)[2:-2] )
-        if ckey in self._meta:
-            ans[1] = str( self.getmeta(ckey)[0] )
+        if Sdfmole.ckey in self._meta:
+            ans[1] = str( self.getmeta(Sdfmole.ckey)[0] )
         if ans[0] and ans[1]:
             if ans[0]!=ans[1]:
                 print(self.mes.format(ans[0],ans[1]))
@@ -1440,7 +1430,7 @@ class Sdfmole(object):
                 if conf != str(already[1]):
                     print(Sdfmole.mes.format(already[0],already[1]))
             else:
-                self.addmeta(ckey, conf, literal = True)
+                self.addmeta(Sdfmole.ckey, conf, literal = True)
         if bolist[0]:
             if already[0]:
                 if already[0] != conf:
@@ -1455,10 +1445,10 @@ class Sdfmole(object):
         '''
         already = self.getconf()
         if bolist[0] and already[0]:
-            self._name = confchop.sub('',self._name)
+            self._name = Sdfmole.confchop.sub('',self._name)
         if bolist[1] and already[1]:
-            self._metakeys.remove(ckey)
-            self._meta.pop(ckey)
+            self._metakeys.remove(Sdfmole.ckey)
+            self._meta.pop(Sdfmole.ckey)
             
     def setIgnores(self, ignores=['H']):
         #print ignores
@@ -1468,7 +1458,7 @@ class Sdfmole(object):
         '''
         return name of molecule without possible conformation number
         '''
-        return confchop.sub('', self._name)
+        return Sdfmole.confchop.sub('', self._name)
     
     def gettype(self, N):
         '''
@@ -1510,7 +1500,7 @@ class Sdfmole(object):
         '''
         return boolean values if molecule names and conformation numbers are same
         '''
-        same = [confchop.sub('', self._name) == confchop.sub('', othersdfmol._name), self.getconfn() == othersdfmol.getconfn()]
+        same = [Sdfmole.confchop.sub('', self._name) == Sdfmole.confchop.sub('', othersdfmol._name), self.getconfn() == othersdfmol.getconfn()]
         return same
     
     def make_other(self):
@@ -1616,8 +1606,8 @@ class Sdfmole(object):
     @staticmethod
     def atomtostring(tab):
         d=[]
-        for i in range(len(atomcut)-1):
-            n=atomcut[i+1]-atomcut[i]
+        for i in range(len(Sdfmole.atomcut)-1):
+            n=Sdfmole.atomcut[i+1]-Sdfmole.atomcut[i]
             if n==10:
                 d.append('{:>10.4f}'.format(float(tab[i])))
             elif n==1:
@@ -1942,6 +1932,7 @@ class Sdfmole(object):
     
     @staticmethod
     def coorder(point):
+        goodchop = re.compile('\s*,{0,1}\s*') #CSV-separator
         coord = numpy.array( lmap(numify, goodchop.split(point.strip('{[()]}'))) )
         if type(coord) == numpy.ndarray and len(coord) > 1:
             return coord
@@ -2232,6 +2223,7 @@ class Sdfmeta(object):
     
     @staticmethod
     def leveler(string):
+        parre = re.compile('[\{\[\(\)\]\}\"\']') #Matches all parentheses
         pair = {'"':'"',"'":"'",'(':')','[':']','{':'}'}
         pars = [(item.group(), item.start()) for item in parre.finditer(string)]
         
@@ -3556,6 +3548,9 @@ def splitter(stringofparams):
     return parentifier([cell.strip() for cell in stringofparams.split(',')],',')
 
 def parentifier(original,separator):
+    stapa=re.compile('\{|\[|\(') #Starting parentesis
+    endpa=re.compile('\}|\]|\)') #Ending parenthesis
+    
     m=[]
     s=False
     pars=(stapa,endpa)
