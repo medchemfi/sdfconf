@@ -738,35 +738,35 @@ class Sdffile(object):
                         print(keyorder)
                         raise KeyError(str(key))
             
-        plt.figure()
+        self.plt.figure()
         if not Yname:
             larg=[datas[0]]
             if 'bins' in kwargs:
                 larg.append(kwargs['bins'])
                 del(kwargs['bins'])
-            plt.hist(*larg,**kwargs) #kwargs?
+            self.plt.hist(*larg,**kwargs) #kwargs?
         else:
             cmap = mpl.cm.jet
-            X=plt.hist2d(datas[0],datas[1],**kwargs)[0]
+            X=self.plt.hist2d(datas[0],datas[1],**kwargs)[0]
             
             ticks=list(numpy.arange(numpy.max(X)+1))
             skip = int(round(float(len(ticks))/20))
             if skip>1:
                 ticks = numpy.array(ticks[:1] + ticks[skip:-skip:skip] + ticks[-1:])
             norm = mpl.colors.BoundaryNorm(numpy.arange(-0.5,numpy.max(X)+1.5), cmap.N)
-            cbar = plt.colorbar()
+            cbar = self.plt.colorbar()
             cbar = mpl.colorbar.ColorbarBase(cbar.ax , cmap=cmap,norm=norm,ticks=ticks,spacing='proportional')
         
         if 'Xtitle' in newargs:
-            plt.xlabel(newargs['Xtitle'])
+            self.plt.xlabel(newargs['Xtitle'])
         else:
-            plt.xlabel(Xname)
+            self.plt.xlabel(Xname)
         if 'Ytitle' in newargs:
-            plt.ylabel(newargs['Ytitle'])
+            self.plt.ylabel(newargs['Ytitle'])
         elif Yname:
-            plt.ylabel(Yname)
+            self.plt.ylabel(Yname)
         if 'title' in newargs:
-            plt.title(newargs['title'])
+            self.plt.title(newargs['title'])
     
     def show(self):
         self.plt.show()
@@ -796,7 +796,7 @@ class Sdffile(object):
                 larg.remove('noplot')
             self.histogrammer(*larg,**darg)
             if path:
-                plt.savefig(path, bbox_inches='tight')
+                self.plt.savefig(path, bbox_inches='tight')
         if showflag:
             self.show()
     
