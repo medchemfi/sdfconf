@@ -1,4 +1,5 @@
-__all__ = [ 'sdf', 'mol2', 'runner', 'functions' ]
+#__all__ = [ 'sdf', 'mol2', 'runner', 'functions' ]
+__all__ = [ 'sdfconf' , 'runner']
 #from sdfconf import *
 #import sdfconf
 #print Sdffile
