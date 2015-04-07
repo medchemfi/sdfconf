@@ -26,8 +26,9 @@ if sys.version_info[0]==2 and sys.version_info[1]>=7:
 else:
     raise SystemError('Python version must be 2.7. or later, but not 3.x.')
 
-from sdf import Sdffile
-import functions
+from sdfconf.sdf import Sdffile
+#import functions
+from sdfconf import functions
 
 class Runner(object):
 
