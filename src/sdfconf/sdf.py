@@ -563,6 +563,8 @@ class Sdffile(object):
         '''
         Generate escapenum field for all molecules. (Number of atoms in self not in range of other molecule.)
         '''
+        from sdfconf.findable import Findable
+        
         try:
             spli = re.split('\s*,\s*', string)
             otherpath, molnum, maxRange, name = spli[:4]
@@ -579,7 +581,7 @@ class Sdffile(object):
         
         myignores = kwargs.get('ignores',self._ignores)
         
-        matcher = functions.Findable(omol, ignores=myignores)
+        matcher = Findable(omol, ignores=myignores)
         
         
         
@@ -1324,12 +1326,14 @@ class Sdfmole(object):
         calculate number of atoms in [self] that are farther than [range] from at least one atom in [other]. Returns number of atoms inside and outside.
         '''
         
+        from sdfconf.findable import Findable
+        
         #ignores=['H'] if not 'ignores' in kwargs else kwargs['ignores']
         myignores = kwargs.get('ignores',['H'])
         #maxn=0 if not 'maxn' in kwargs else kwargs['maxn']
         maxn= kwargs.get('maxn',0)
         
-        finder = {functions.Findable:lambda : matcher, Sdfmole: lambda : functions.Findable(matcher, ignores=myignores), mol2.Mol2Mol: lambda : functions.Findable(matcher, ignores=myignores)}.get(type(matcher), lambda : None)()
+        finder = {Findable:lambda : matcher, Sdfmole: lambda : Findable(matcher, ignores=myignores), mol2.Mol2Mol: lambda : Findable(matcher, ignores=myignores)}.get(type(matcher), lambda : None)()
         if not finder:
             raise TypeError('Type must be of type Findable, Sdfmole or Mol2mol.')
         

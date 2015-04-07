@@ -1,1 +1,1 @@
-__all__ = [ 'sdf', 'mol2', 'runner', 'functions' ]
+__all__ = [ 'functions', 'sdf', 'mol2', 'runner', 'findable' ]
