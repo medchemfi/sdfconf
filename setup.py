@@ -10,6 +10,6 @@ setup(name='sdfconf',
       #package_dir = { '':'src/sdfconf'},
       #py_modules=['sdfconf.sdf', 'sdfconf.mol2', 'sdfconf.functions', 'sdfconf.runner'],
       #py_modules=['sdfconf.sdfconf', 'sdfconf.runner'],
-      #scripts=['bin/sdfconf'],
-      scripts=['src/sdfconf/runner.py'],
+      scripts=['bin/sdfconf'],
+      #scripts=['src/sdfconf/runner.py'],
       )
