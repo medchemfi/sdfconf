@@ -28,8 +28,9 @@ else:
     import sdfconf.functions as functions
     import sdfconf.mol2 as mol2
 except ImportError:'''
-import mol2
-import functions
+#import mol2
+#import functions
+from sdfconf import functions, mol2
 
 class Sdffile(object):
     '''

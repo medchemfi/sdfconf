@@ -25,8 +25,10 @@ else:
     raise SystemError('Python version must be 2.7. or later, but not 3.x.')
 
 
-import sdf
-import mol2
+#import sdf
+#import mol2
+
+from sdfconf import sdf, mol2
 
 def listtostring(tab, fill):
     return ''.join([('{:>'+str(fill)+'}').format(i) for i in tab])

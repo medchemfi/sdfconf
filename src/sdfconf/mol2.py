@@ -7,7 +7,8 @@ import math
 import numpy
 from collections import OrderedDict as OrDi
 
-import functions
+#import functions
+from sdfconf import functions
 
 try:
     from future.utils import lmap
