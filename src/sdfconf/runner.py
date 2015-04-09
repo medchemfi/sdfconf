@@ -22,7 +22,7 @@ else:
 try:
     import functions
     from sdf import Sdffile
-except NameError:
+except ImportError:
     from sdfconf import functions
     from sdfconf.sdf import Sdffile
 #from sdfconf import functions

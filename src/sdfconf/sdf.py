@@ -27,7 +27,7 @@ except ImportError:'''
 #from sdfconf import functions, mol2
 try:
     import functions, mol2
-except NameError:
+except ImportError:
     from sdfconf import functions, mol2
 
 class Sdffile(object):

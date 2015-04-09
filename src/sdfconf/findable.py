@@ -4,7 +4,7 @@
 #from sdfconf import sdf, mol2
 try:
     import sdf, mol2
-except NameError:
+except ImportError:
     from sdfconf import sdf, mol2
 from collections import OrderedDict as OrDi
 import bisect as bi

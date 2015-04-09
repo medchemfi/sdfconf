@@ -9,7 +9,7 @@ from collections import OrderedDict as OrDi
 
 try:
     import functions
-except NameError:
+except ImportError:
     from sdfconf import functions
 
 #from sdfconf import functions
