@@ -1,18 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 
-#import os
 import sys
 import re
 import math
-#import argparse
 import numpy
-#import time
 import copy
 import operator
 from collections import OrderedDict as OrDi
 import warnings
-#import bisect as bi
 
 try:
     from future.utils import lmap
@@ -28,9 +24,11 @@ else:
     import sdfconf.functions as functions
     import sdfconf.mol2 as mol2
 except ImportError:'''
-#import mol2
-#import functions
-from sdfconf import functions, mol2
+#from sdfconf import functions, mol2
+try:
+    import functions, mol2
+except NameError:
+    from sdfconf import functions, mol2
 
 class Sdffile(object):
     '''
@@ -992,23 +990,29 @@ class Sdffile(object):
         
         molloop()
         return metadic
-
-    def sorter(self,sortstring):
+    
+    def orderbymeta(self,sortstring):
         '''
         Compares values of meta. If more than 1 element in requested meta, anything might happen.
         '''
-        sortstring=sortstring.strip()
-        sortstring=sortstring.strip('\"|\'')
+        #sortstring=sortstring.strip()
+        sortstring=sortstring.strip('\"|\' ')
         if sortstring[0]=='>':
             rever=True
         elif sortstring[0]=='<':
             rever=False
         else:
             return self._orderlist
-        metacomp = Sdffile.getmollogic( sortstring[1:] )
+        #print rever, sortstring[1:]
+        #metacomp = Sdffile.getmollogic( sortstring[1:] )
+        metacomp = self.getmollogic( sortstring[1:] )
+        #print metacomp
         test = lambda avain: functions.numify(metacomp[avain[0]][avain[1]].getvalues()) if (avain[0] in metacomp and avain[1] in metacomp[avain[0]]) else None
         return sorted(self._orderlist, key=test, reverse=rever)
         #return sorted(self._orderlist, key=lambda avain: numify(self._dictomoles[avain[0]][avain[1]].getmeta(sortstring[1:])[0]) if self._dictomoles[avain[0]][avain[1]].hasmeta(sortstring[1:]) else None, reverse=rever)
+        
+    def sortme(self, sortstring):
+        self._orderlist = self.orderbymeta(sortstring)
     
     def addcsvmeta(self, path, verbose=False):
         '''

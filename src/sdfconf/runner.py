@@ -1,20 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 
-myversion='0.801'
+myversion='0.803'
 
-#import os
 import sys
-#import re
-#import math
 import argparse
-#import numpy
 import time
-#import copy
-#import operator
 from collections import OrderedDict as OrDi
-#import warnings
-#import bisect as bi
 
 try:
     from future.utils import lmap
@@ -26,17 +18,23 @@ if sys.version_info[0]==2 and sys.version_info[1]>=7:
 else:
     raise SystemError('Python version must be 2.7. or later, but not 3.x.')
 
-from sdfconf.sdf import Sdffile
-#import functions
-from sdfconf import functions
+#from sdfconf.sdf import Sdffile
+try:
+    import functions
+    from sdf import Sdffile
+except NameError:
+    from sdfconf import functions
+    from sdfconf.sdf import Sdffile
+#from sdfconf import functions
+#from . import functions
 
 class Runner(object):
 
     order = OrDi( (
              ('verbose','v'), 
              ('input','in'), 
-             ('tofield','cf'), 
-             ('toname','cn'), 
+             ('conftofield','ctf'), 
+             ('conftoname','ctn'), 
              ('nametometa','ntm'), 
              ('removeconfname','rcn'), 
              ('removeconfmeta','rcm'), 
@@ -54,7 +52,6 @@ class Runner(object):
              ('closeratoms','cla'), 
              ('changemeta','cm'), 
              ('makenewmeta','mnm'), 
-             ('sortmeta','sm'), 
              ('stripbutmeta','sbm'), 
              ('proportion','pro'), 
              ('sortorder','so'), 
@@ -77,13 +74,13 @@ class Runner(object):
              ) )
     
     
-    simplelist =    ('tofield', 'toname', 'removeconfname', 'removeconfmeta', 
+    simplelist =    ('conftofield', 'conftoname', 'removeconfname', 'removeconfmeta', 
                      'ignores', 'nametometa', 'metatoname', 'removemeta', 
                      'pickmeta', 'input', 'proportion' , 'histogram', 'verbose', 
                      )
     
     simpleloops =   ('getmol2', 'closestatoms', 'closeratoms', 'changemeta', #'mergemeta',
-                     'sortorder', 'sortmeta', 
+                     'sortorder', 
                      'stripbutmeta', 'extract','makenewmeta','config',
                      'cut', 'allcut', 'combine', 'allcombine', 'addcsv', 
                      'putmol2', 'addescape', 'addinside', 
@@ -188,8 +185,8 @@ class Runner(object):
             return messes[n]
             
         tasks =   {
-                    'tofield'        :lambda i : (self.sdf.addconfs, lambda : ((False,True),),      NoLamb,NoLamb,lambda : ('Conformation numbers added to metadata. It took {} seconds.', (timedif(),)))[i], 
-                    'toname'         :lambda i : (self.sdf.addconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers added to names. It took {} seconds.', (timedif(),)))[i], 
+                    'conftofield'        :lambda i : (self.sdf.addconfs, lambda : ((False,True),),      NoLamb,NoLamb,lambda : ('Conformation numbers added to metadata. It took {} seconds.', (timedif(),)))[i], 
+                    'conftoname'         :lambda i : (self.sdf.addconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers added to names. It took {} seconds.', (timedif(),)))[i], 
                     'removeconfname' :lambda i : (self.sdf.remconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers removed from names. It took {} seconds.',(timedif(),)))[i], 
                     'removeconfmeta' :lambda i : (self.sdf.remconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers removed from metafield \'confnum\'. It took {} seconds.',(timedif(),)))[i], 
                     'nametometa'     :lambda i : (self.sdf.nametometa, lambda : (param,),           NoLamb,NoLamb,lambda : ('Name written to metafieldfield {}. It took {} seconds.',(param,timedif())))[i], 
@@ -295,9 +292,9 @@ if __name__ == "__main__":
     arger.add_argument("-v", "--verbose", action = "store_true" ,      help = "More info on your run.")
     
     arger.add_argument("-con","--config", metavar = 'config.txt', nargs='+', type = str, help="Specify the config file. Config file includes lines of argument name, followed by '::' and argument value. Separate multiple values with ';;'.")
-    arger.add_argument("-cf", "--tofield", action = "store_true",           help = "Add conformation number to metafielf 'confnum'. If number in name doesn't exist, makes a new one.")
+    arger.add_argument("-ctf", "--conftofield", action = "store_true",           help = "Add conformation number to metafielf 'confnum'. If number in name doesn't exist, makes a new one.")
     
-    arger.add_argument("-cn", "--toname",  action = "store_true",           help = "add conformation number to name from metafield 'confnum'. If number in metafield doesn't exist, make a new one.")
+    arger.add_argument("-ctn", "--conftoname",  action = "store_true",           help = "add conformation number to name from metafield 'confnum'. If number in metafield doesn't exist, make a new one.")
     arger.add_argument("-mtn", "--metatoname", metavar='meta' , type = str,                 help = "Change the name of molecule to the data in given metafield.")
     arger.add_argument("-ntm", "--nametometa",  metavar='meta', type = str,                 help = "Copy the name of molecule into given metafield.")
     arger.add_argument("-rcn", "--removeconfname",  action="store_true",    help = "remove conformation number from name.")

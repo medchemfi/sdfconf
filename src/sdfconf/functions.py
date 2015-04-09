@@ -4,15 +4,8 @@
 import os
 import sys
 import re
-#import math
-#import argparse
 import numpy
-#import time
-#import copy
-#import operator
 from collections import OrderedDict as OrDi
-#import warnings
-#import bisect as bi
 
 try:
     from future.utils import lmap
@@ -23,12 +16,6 @@ if sys.version_info[0]==2 and sys.version_info[1]>=7:
     pass
 else:
     raise SystemError('Python version must be 2.7. or later, but not 3.x.')
-
-
-#import sdf
-#import mol2
-
-#from sdfconf import sdf, mol2
 
 def listtostring(tab, fill):
     return ''.join([('{:>'+str(fill)+'}').format(i) for i in tab])
