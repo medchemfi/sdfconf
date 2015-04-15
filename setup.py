@@ -1,7 +1,7 @@
 # -*- coding: latin-1 -*-
 from distutils.core import setup
 setup(name='sdfconf',
-      version='0.803',
+      version='0.804',
       requires = ['numpy','matplotlib','argparse'],
       author = 'Sakari Lätti',
       author_email = 'sakari.latti@jyu.fi',
