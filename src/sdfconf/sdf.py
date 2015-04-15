@@ -561,7 +561,10 @@ class Sdffile(object):
         '''
         Generate escapenum field for all molecules. (Number of atoms in self not in range of other molecule.)
         '''
-        from sdfconf.findable import Findable
+        try:
+            from findable import Findable
+        except ImportError:
+            from sdfconf.findable import Findable
         
         try:
             spli = re.split('\s*,\s*', string)
@@ -1329,8 +1332,10 @@ class Sdfmole(object):
         '''
         calculate number of atoms in [self] that are farther than [range] from at least one atom in [other]. Returns number of atoms inside and outside.
         '''
-        
-        from sdfconf.findable import Findable
+        try:
+            from findable import Findable
+        except ImportError:
+            from sdfconf.findable import Findable
         
         #ignores=['H'] if not 'ignores' in kwargs else kwargs['ignores']
         myignores = kwargs.get('ignores',['H'])
@@ -1748,7 +1753,8 @@ class Sdfmole(object):
                     'str': lambda meta: Sdfmeta.construct( meta.getmetastr()),
                     'sum': lambda meta: sum((thing for thing in meta)), 
                     'prod': lambda meta : numpy.asscalar(numpy.prod([thing for thing in meta])), 
-                    'rdup' : lambda meta : meta.withoutDuplicates()
+                    'rdup' : lambda meta : meta.withoutDuplicates() ,
+                    'getmeta' : lambda meta : self.getmeta( ''.join(meta.getvalues()) ) ,
                     } 
         
         molfunx = { 
@@ -1773,6 +1779,7 @@ class Sdfmole(object):
             '''
             collapse given levels tab generated from some meta expression into a single Sdfmeta or None
             '''
+            
             def listope(conf,tab,par=None):
                 #Work with lists in given structures
                 
@@ -1977,7 +1984,7 @@ class Sdfmeta(object):
     metaname = re.compile('\>(.*)\<(.+)\>') #Match gets metafield name
     ematch =   re.compile('[ ]{0,2}')
     fisep  =   re.compile('[ ,;]')
-    comps = {'>=':operator.ge, '<=':operator.le, '<':operator.lt, '>':operator.gt, '==':operator.eq, '=':operator.eq, '!=':operator.ne }
+    comps = OrDi( ( ('>=',operator.ge), ('<=',operator.le), ('<',operator.lt), ('>',operator.gt), ('==',operator.eq), ('!=',operator.ne) , ('=',operator.eq) ) )
     
     def __init__(self, listofstrings=None):
         '''
@@ -2305,10 +2312,14 @@ class Sdfmeta(object):
             
             searches = lmap(re.compile, ('[^\+](\+)[^\+]|[^-](-)[^-]', '[^\*](\*)[^\*]|(/)|(%)', '(\*{2})|(\+{2})|(-{2})'))
             
+            mycomps = Sdfmeta.comps.keys()
+            mycomps.remove('=')
+            
             for j, thing in enumerate(tab):
                 if not isinstance(thing, str):
                     continue
-                for comp in Sdfmeta.comps:
+                #for comp in Sdfmeta.comps:
+                for comp in mycomps:
                     ma = re.match(comp,thing)
                     if ma and len(thing) > len(ma.group()):
                         interpret = Sdfmeta.dumb_levopemap([thing[len(ma.group()):]] + tab[j+1:])
