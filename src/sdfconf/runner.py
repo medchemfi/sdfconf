@@ -278,7 +278,7 @@ class Runner(object):
 #End of Runner
 
     
-def main(arguments):
+def run(arguments):
     #main should only collect arguments...
     
     arger = argparse.ArgumentParser(description='******************\nSome bad-ass manipulation of SDfiles. Also data retrieval/injection for .mol2-files. \n\nVersion {0} \n\nIf you publish work using sdfconf, please cite:\nmanuscript\n\nNotice that documentation is not completely up to date. \n******************\n'.format(__version__), formatter_class=argparse.RawTextHelpFormatter)
@@ -372,5 +372,8 @@ def main(arguments):
     if 'plt' in globals():
         onefile.plt.show()
         
+def main():
+    run(sys.argv[1:])
+
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
