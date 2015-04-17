@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: latin-1 -*-
 
 #from sdfconf import sdf, mol2

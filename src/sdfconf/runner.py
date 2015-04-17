@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 
-myversion='0.803'
+__version__ = '0.8.1.0'
 
 import sys
 import argparse
@@ -281,9 +281,9 @@ if __name__ == "__main__":
     
     #main should only collect arguments...
     
-    arger = argparse.ArgumentParser(description='Some bad-ass manipulation of SD-files. Also data retrieval/injection for .mol2-files. Notice that documentation is not completely up to date. Version '+myversion)
+    arger = argparse.ArgumentParser(description='******************\nSome bad-ass manipulation of SDfiles. Also data retrieval/injection for .mol2-files. \n\nVersion {0} \n\nIf you publish work using sdfconf, please cite:\nmanuscript\n\nNotice that documentation is not completely up to date. \n******************\n'.format(__version__), formatter_class=argparse.RawTextHelpFormatter)
     
-    arger.add_argument("input", metavar = 'input.sdf', nargs='*', type = str, default = None,  help="Specify the input  sd-file")
+    arger.add_argument("input", metavar = 'input.sdf', nargs='*', type = str, default = None,  help="Specify the input  SDfile")
     
     choicewrite = arger.add_mutually_exclusive_group()
     choicewrite.add_argument("-out", "--output", metavar='output.file', type = str, default=None,  help = "Specify output file. It may be sdf or csv, depending on other arguments.")
