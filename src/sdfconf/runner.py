@@ -277,8 +277,8 @@ class Runner(object):
     
 #End of Runner
 
-if __name__ == "__main__":
     
+def main(arguments):
     #main should only collect arguments...
     
     arger = argparse.ArgumentParser(description='******************\nSome bad-ass manipulation of SDfiles. Also data retrieval/injection for .mol2-files. \n\nVersion {0} \n\nIf you publish work using sdfconf, please cite:\nmanuscript\n\nNotice that documentation is not completely up to date. \n******************\n'.format(__version__), formatter_class=argparse.RawTextHelpFormatter)
@@ -340,7 +340,7 @@ if __name__ == "__main__":
     arger.add_argument("-sbm", "--stripbutmeta", type = str, nargs='+', metavar='statement', help = "Removes all atoms from molecules, except for those in given logical statement.")
     arger.add_argument("-ig", "--ignores", type = str, nargs='*', metavar='Element', default=['H'], help = "Ignores given atoms in distance calculations, etc. Default is H.")
     
-    args = arger.parse_args()
+    args = arger.parse_args(arguments)
     
     if not (args.input or args.config):
         arger.print_help()
@@ -371,3 +371,6 @@ if __name__ == "__main__":
     
     if 'plt' in globals():
         onefile.plt.show()
+        
+if __name__ == "__main__":
+    main(sys.argv[1:])
