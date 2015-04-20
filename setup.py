@@ -1,18 +1,27 @@
 # -*- coding: latin-1 -*-
 
 from setuptools import setup, find_packages
-#from distutils.core import setup
+import re
 import os
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+#verstrline = open("src/sdfconf/version.py", "rt").read()
+with open("src/sdfconf/version.py", "rt") as vf:
+    VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
+    for line in vf:
+        mo = re.search(VSRE, line, re.M)
+        if mo:
+            verstr = mo.group(1)
+            break
+    if not mo:
+        raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
+
 setup(name =                'sdfconf',
-      #version='0.804',
-      version =             '0.8.1.0',
+      version = verstr, 
       description =         ("Diverse manipulation and alysis tool for .sdf files."),
       long_description =    read('README'),
-      #requires = ['numpy','matplotlib','argparse'],
       install_requires =    ['numpy>=1.7.1','matplotlib>=1.4.2'],
       author =              'Sakari Lätti',
       author_email =        'sakari.latti@jyu.fi',
@@ -20,7 +29,6 @@ setup(name =                'sdfconf',
       maintainer_email =    'sakari.latti@jyu.fi',
       packages =            ['sdfconf'],
       package_dir =         {'sdfconf':'src/sdfconf'},
-      #scripts=['bin/sdfconf'],
       keywords =            'sdf mol2 conformation analyze histogram',
       url =                 'http://users.jyu.fi/~pentikai/',
       license =             'MIT/expat', 
@@ -41,4 +49,7 @@ setup(name =                'sdfconf',
                               'Topic :: Software Development :: Libraries',
                               
                               ], 
+       package_data =         {
+                               '': ['VERSION'],
+    }
       )

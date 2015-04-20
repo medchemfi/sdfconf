@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 
-__version__ = '0.8.1.0'
-
 import sys
 import argparse
 import time
+#import os
 from collections import OrderedDict as OrDi
+
 
 try:
     from future.utils import lmap
@@ -18,15 +18,21 @@ if sys.version_info[0]==2 and sys.version_info[1]>=7:
 else:
     raise SystemError('Python version must be 2.7. or later, but not 3.x.')
 
-#from sdfconf.sdf import Sdffile
 try:
     import functions
     from sdf import Sdffile
+    from version import __version__
 except ImportError:
     from sdfconf import functions
     from sdfconf.sdf import Sdffile
-#from sdfconf import functions
-#from . import functions
+    from sdfconf.version import __version__
+
+
+
+#__version__ = ""
+#execfile(os.path.dirname(os.path.realpath(__file__))+'/src/sdfconf/version.py')
+
+#__version__ = open(os.path.join(os.path.dirname(__file__), 'VERSION')).read()
 
 class Runner(object):
 
