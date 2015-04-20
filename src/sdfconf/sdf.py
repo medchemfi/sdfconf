@@ -2397,14 +2397,18 @@ class Sdfmeta(object):
         Joins multiple metavalues into one
         params : name, delims
         '''
-        newmeta = copy.copy(metas[0])
-        if 'name' in params:
+        newmeta = None
+        for meta in metas:
+            if meta:
+                if not newmeta:
+                    newmeta = copy.copy(meta)
+                else:
+                    newmeta.extend(meta)
+        newmeta.cleandelim(True)
+        if 'name' in params and newmeta:
             newmeta.setname(params['name'])
         else:
             newmeta.setname(None)
-        for meta in metas[1:]:
-            newmeta.extend(meta)
-        newmeta.cleandelim(True)
         return newmeta
     
     @staticmethod
