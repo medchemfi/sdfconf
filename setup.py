@@ -7,8 +7,7 @@ import os
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-#verstrline = open("src/sdfconf/version.py", "rt").read()
-with open("src/sdfconf/version.py", "rt") as vf:
+with open("src/sdfconf/_version.py", "rt") as vf:
     VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
     for line in vf:
         mo = re.search(VSRE, line, re.M)
@@ -49,7 +48,4 @@ setup(name =                'sdfconf',
                               'Topic :: Software Development :: Libraries',
                               
                               ], 
-       package_data =         {
-                               '': ['VERSION'],
-    }
       )

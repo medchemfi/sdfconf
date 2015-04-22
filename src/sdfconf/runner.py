@@ -21,11 +21,11 @@ else:
 try:
     import functions
     from sdf import Sdffile
-    from version import __version__
+    from _version import __version__
 except ImportError:
     from sdfconf import functions
     from sdfconf.sdf import Sdffile
-    from sdfconf.version import __version__
+    from sdfconf._version import __version__
 
 
 
