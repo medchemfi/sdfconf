@@ -13,10 +13,12 @@ try:
 except ImportError:
     lmap = map
 
+'''
 if sys.version_info[0]==2 and sys.version_info[1]>=7:
     pass
 else:
     raise SystemError('Python version must be 2.7. or later, but not 3.x.')
+'''
 
 try:
     import functions
@@ -180,13 +182,13 @@ class Runner(object):
         
         NoLamb = lambda : None
         def extMes(n):
-            mypropo = self.sdf.propomes(self.propor)
+            mypropo = ' ' + self.sdf.propomes(self.propor)
             mypropo = mypropo.replace('{','{{')
             mypropo = mypropo.replace('}','}}')
             messes = (
-                      lambda : ('\n'.join(('After logical chop {}, sdf-file has {} molecules and {} conformations left.',mypropo)).strip() ,(param,len(self.sdf._dictomoles),len(self.sdf))), 
+                      lambda : ('\n'.join((' After logical chop {}, sdf-file has {} molecules and {} conformations left.',mypropo)).strip('\n') ,(param,len(self.sdf._dictomoles),len(self.sdf))), 
                       lambda : ('\n'.join(('Initially sdf-file has {} molecules and {} conformations.',mypropo)).strip(),(len(self.sdf._dictomoles),len(self.sdf))), 
-                      lambda : ('Chopping complete, it took {} seconds.',(timedif(),)) 
+                      lambda : (' Chopping complete, it took {} seconds.',(timedif(),)) 
                       )
             return messes[n]
             
@@ -200,19 +202,19 @@ class Runner(object):
                     'removemeta'     :lambda i : (self.sdf.removemeta, lambda : (param, False),      lambda : ('Metafieldfield(s) in ({}) Removed. It took {} seconds.',(param,timedif())),NoLamb,NoLamb)[i], 
                     'pickmeta'       :lambda i : (self.sdf.removemeta, lambda : (param, True),       lambda : ('All metafields except those in ({}) Removed. It took {} seconds.',(param,timedif())),NoLamb,NoLamb)[i], 
                     'getmol2'        :lambda i : (self.sdf.getMol2DataStr, lambda : (param,),       NoLamb,NoLamb,NoLamb)[i], 
-                    'closestatoms'   :lambda i : (self.sdf.closestStr, lambda : (param,),                  NoLamb,NoLamb,NoLamb)[i], 
+                    'closestatoms'   :lambda i : (self.sdf.closestStr, lambda : (param,),                  lambda : (' Calculated distances to atoms from point {}.',(param, )), lambda : ('Calculate point of interest distances.',()), lambda : (' Distances calculated, it took {} seconds.',(timedif(),)))[i], 
                     'closeratoms'    :lambda i : (lambda x: self.sdf.closer(*functions.splitter(x)), lambda : (param,),     NoLamb,NoLamb,NoLamb)[i], 
                     'changemeta'     :lambda i : (lambda x: self.sdf.changemetaname([item.strip() for item in x.split('>')]), lambda : (param,), NoLamb, NoLamb, NoLamb)[i], 
                     'sortorder'      :lambda i : (self.sdf.sortme, lambda : (param,),               lambda : ('Sort {} done.',(param,)),NoLamb,NoLamb)[i], 
                     'stripbutmeta'   :lambda i : (self.sdf.stripbutmeta, lambda : (param,),         lambda : ('All atoms, execpt for those in statement {} removed!',(param,)),NoLamb,NoLamb)[i], 
                     'extract'        :lambda i : (self.sdf.mollogicparse, lambda : (param,),        extMes(0),extMes(1),extMes(2))[i],
-                    'makenewmeta'    :lambda i : (self.sdf.makenewmetastr, lambda : (param,),       lambda : ('New metafield {} made.',(param,)), NoLamb, lambda : ('Making new metafields done. It took {} seconds.',(timedif(),)))[i], 
+                    'makenewmeta'    :lambda i : (self.sdf.makenewmetastr, lambda : (param,),       lambda : (' New metafield {} made.',(param,)), lambda : ('Make new metafields.',()), lambda : (' Making new metafields done. It took {} seconds.',(timedif(),)))[i], 
                     'addcsv'         :lambda i : (self.sdf.addcsvmeta, lambda : (param, self.verbose,), lambda : ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i], 
-                    'input'          :lambda i : (self.sdf.xreadself, lambda : (param,),            NoLamb, lambda : ('Starting to read file {}',(param,)), lambda : ('Reading file done. It took {} seconds.', (timedif(),)))[i],
-                    'verbose'        :lambda i : (self.setVerbose, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Verbose enabled.' if param else 'Verbose disabled.',(param,)))[i], 
+                    'input'          :lambda i : (self.sdf.xreadself, lambda : (param,),            NoLamb, lambda : ('Starting to read file {}',(param,)), lambda : (' Reading file done. It took {} seconds.', (timedif(),)))[i],
+                    'verbose'        :lambda i : (self.setVerbose, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Verbose enabled.' if param else 'Verbose disabled.',()))[i], 
                     'ignores'        :lambda i : (self.setIgnores, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Ignores set to {}.',(param,)))[i], 
-                    'config'         :lambda i : (self.runConfig, lambda : (param,),                lambda : ('Config-file {} done.',(param,)), lambda : ('Run config-files.',()), lambda : ('Running config-files done',()))[i], 
-                    'histogram'      :lambda i : (self.sdf.histogramFromList, lambda : (param,),    NoLamb, lambda : ('Start plotting',()), lambda : ('Plotting done',()))[i], 
+                    'config'         :lambda i : (self.runConfig, lambda : (param,),                lambda : (' Config-file {} done.',(param,)), lambda : ('Run config-files.',()), lambda : (' Running config-files done',()))[i], 
+                    'histogram'      :lambda i : (self.sdf.histogramFromList, lambda : (param,),    NoLamb, lambda : ('Start plotting',()), lambda : (' Plotting done',()))[i], 
                     'cut'            :lambda i : (lambda x :self.sdf.listremove(Sdffile(x.strip()),True), lambda : (param,), lambda : ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
                     'allcut'         :lambda i : (lambda x :self.sdf.listremove(Sdffile(x.strip()),False), lambda : (param,), lambda : ('Removing all molecules (matching confnum) present in {} complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
                     'combine'        :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,True),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), lambda : (param,), lambda : ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
@@ -284,7 +286,7 @@ class Runner(object):
 #End of Runner
 
     
-def run(arguments):
+def main(arguments=None):
     #main should only collect arguments...
     
     arger = argparse.ArgumentParser(description='******************\nSome bad-ass manipulation of SDfiles. Also data retrieval/injection for .mol2-files. \n\nVersion {0} \n\nIf you publish work using sdfconf, please cite:\nmanuscript\n\nNotice that documentation is not completely up to date. \n******************\n'.format(__version__), formatter_class=argparse.RawTextHelpFormatter)
@@ -346,7 +348,7 @@ def run(arguments):
     arger.add_argument("-sbm", "--stripbutmeta", type = str, nargs='+', metavar='statement', help = "Removes all atoms from molecules, except for those in given logical statement.")
     arger.add_argument("-ig", "--ignores", type = str, nargs='*', metavar='Element', default=['H'], help = "Ignores given atoms in distance calculations, etc. Default is H.")
     
-    args = arger.parse_args(arguments)
+    args = arger.parse_args(arguments) if arguments else arger.parse_args() 
     
     if not (args.input or args.config):
         arger.print_help()
@@ -355,7 +357,7 @@ def run(arguments):
     manyfiles = args.input
     
     
-    def main(inputfile, options):
+    def run(inputfile, options):
         options['input'] = inputfile
         onerun = Runner(options)
         onerun.runOptions()
@@ -373,13 +375,13 @@ def run(arguments):
                 deli.append(key)
         options = dict([(key, options[key]) for key in options if not key in deli])
         del(deli)
-        main(onefile, dict(options))
+        run(onefile, dict(options))
     
     if 'plt' in globals():
         onefile.plt.show()
         
-def main():
-    run(sys.argv[1:])
+'''def main():
+    run(sys.argv[1:])'''
 
 if __name__ == "__main__":
     main()

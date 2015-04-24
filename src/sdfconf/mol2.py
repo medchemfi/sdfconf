@@ -1,6 +1,6 @@
 # -*- coding: latin-1 -*-
 
-import sys
+#import sys
 import re
 import math
 import numpy
@@ -19,11 +19,12 @@ try:
 except ImportError:
     lmap = map
 
+'''
 if sys.version_info[0]==2 and sys.version_info[1]>=7:
     pass
 else:
     raise SystemError('Python version must be 2.7. or later, but not 3.x.')
-
+'''
 
 class Mol2File(object):
     def __init__(self, path = None):
