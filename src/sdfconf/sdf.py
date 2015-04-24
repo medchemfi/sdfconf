@@ -1,4 +1,4 @@
-# -*- coding: latin-1 -*-
+# -*- coding: utf-8 -*-
 
 import sys
 import re
@@ -128,7 +128,6 @@ class Sdffile(object):
         lists of strings represent single conformations
         return list of lists of strings
         '''
-        #Hajoittaa .sdf tiedoston listaksi listoja, joista yksi sisaltaa yhden tiedoston molekyyleista
         _moles = []
         _lines = []
         for line in strings:
@@ -147,7 +146,6 @@ class Sdffile(object):
         lists of strings represent single conformations
         return list of lists of strings
         '''
-        #Hajoittaa .sdf tiedoston listaksi listoja, joista yksi sisaltaa yhden tiedoston molekyyleista
         _lines = []
         for line in xfile:
             if Sdffile.molchop.match(line):

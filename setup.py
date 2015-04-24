@@ -1,4 +1,4 @@
-# -*- coding: latin-1 -*-
+# -*- coding: utf-8 -*-
 
 from setuptools import setup, find_packages
 import re
@@ -22,9 +22,9 @@ setup(name =                'sdfconf',
       description =         ("Diverse manipulation and alysis tool for .sdf files."),
       long_description =    read('README.rst'),
       install_requires =    ['numpy>=1.7.1','matplotlib>=1.4.2'],
-      author =              'Sakari Lätti',
+      author =              'Sakari LÃ¤tti',
       author_email =        'sakari.latti@jyu.fi',
-      maintainer =          'Sakari Lätti',
+      maintainer =          'Sakari LÃ¤tti',
       maintainer_email =    'sakari.latti@jyu.fi',
       packages =            ['sdfconf'],
       package_dir =         {'sdfconf':'src/sdfconf'},
