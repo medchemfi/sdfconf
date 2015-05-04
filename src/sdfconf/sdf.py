@@ -412,15 +412,79 @@ class Sdffile(object):
         '''Test wether molecules are "the same" as described in bolist.'''
         return (bolist[0] <= samelist[0]) and (bolist[1] <= samelist[1])
         
-    def makecsv(self,stringofmetas,separator='\t'):
-        '''Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields'''
-        listofmeta = [met.strip() for met in re.split('\s*,|;\s*',stringofmetas)]
-        if '?' in listofmeta:
-            metalist = self.listmetas()
-            for meta in listofmeta[1:]:
-                metalist.remove(meta)
-            listofmeta = metalist
+    def csvStrSplit(self,stringofmetas, sepa = ',;'):
+        '''
+        Separate string of metanames by characters in listsepa to a list. If list includes '?', all other metas except those in list are returned.
+        '''
+        #listofmetas = [met.strip() for met in re.split('\s*{}\s*'.format('|'.join(lmap(lambda x : '('+x+')', listsepa ))) , stringofmetas)]
+        listofmetas = [met.strip() for met in re.split('\s*[{}]\s*'.format(sepa) , stringofmetas)]
+        return self.getMetas(listofmetas)
         
+    def getMetas(self, listofmetas):
+        '''
+        Returns list of existing metas by argument list. If plain list, 
+        removes those that doesn't exist. If includes '?', returns all 
+        except for those in that list.
+        '''
+        metalist = self.listmetas()
+        if '?' in listofmetas:
+            for meta in listofmetas:
+                if meta == '?':
+                    continue
+                metalist.remove(meta)
+            listofmetas = metalist
+        else:
+            for meta in list(listofmetas):
+                if meta not in metalist:
+                    listofmetas.remove(meta)
+        return listofmetas
+    
+    
+    def makeCsvStr(self, stringofmetas, **kwargs):
+        '''
+        Generate a csv-file from a string containing list of metanames.
+        Setting atomic True generates atomic csv.
+        '''
+        
+        liargs, diargs = kwarger(stringofmetas, [',',';'])
+        kwargs = dict(kwargs)
+        for key in diargs:
+            kwargs[key] = diargs[key]
+        
+        atomic    = kwargs.get('atomic', False)
+        separator = kwargs.get('separator','\t')
+        
+        #metalist = self.csvStrSplit(stringofmetas)
+        metalist = self.getMetas(liargs)
+        
+        
+        if not atomic:
+            return self.makeCsv(metalist, separator)
+        else:
+            return self.makeAtomicCsv(metalist, separator)
+        
+    '''
+    def makeCsvStr(self, stringofmetas, **kwargs):
+        \'''
+        Generate a csv-file from a string containing list of metanames.
+        Setting atomic True generates atomic csv.
+        \'''
+        
+        separator = kwargs.get('separator','\t')
+        atomic    = kwargs.get('atomic', False)
+        
+        metalist = self.csvStrSplit(stringofmetas)
+        
+        if not atomic:
+            return self.makeCsv(metalist, separator)
+        else:
+            return self.makeAtomicCsv(metalist, separator)
+    '''
+        
+    def makeCsv(self,listofmeta,separator='\t'):
+        '''
+        Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields
+        '''
         csv = [separator.join(listofmeta)]
         for info in self._orderlist:
             mol = self._dictomoles[info[0]][info[1]]
@@ -436,16 +500,14 @@ class Sdffile(object):
                     line.append('""')
             csv.append(separator.join(line))
         return csv
-        
     
-    def makeatomiccsv(self,stringofmetas,separator='\t'):
-        #Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields
-        listofmeta = [met.strip() for met in re.split('\s*,|;\s*',stringofmetas)]
-        if '?' in listofmeta:
-            metalist = self.listmetas()
-            for meta in listofmeta[1:]:
-                metalist.remove(meta)
-            listofmeta = metalist
+    def makeAtomicCsv(self,listofmeta,separator='\t'):
+        '''
+        Make a csv-list containing all molecules and given metafields as 
+        columns. '?' gives all fields
+        '''
+        #listofmeta = [met.strip() for met in re.split('\s*[,;]\s*',stringofmetas)]
+        
         csv = [separator.join(['atom_number'] + listofmeta)]
         for info in self._orderlist:
             mol = self._dictomoles[info[0]][info[1]]
@@ -649,9 +711,9 @@ class Sdffile(object):
     
     def selftostring(self, output, **kwargs):
         if output=='getcsv':
-            return '\n'.join(self.makecsv(kwargs['getcsv']))+'\n'
+            return '\n'.join(self.makeCsvStr(kwargs['getcsv']), atomic = False)+'\n'
         elif output=='getatomcsv':
-            return '\n'.join(self.makeatomiccsv(kwargs['getatomcsv']))+'\n'
+            return '\n'.join(self.makeCsvStr(kwargs['getatomcsv']), atomic = True)+'\n'
         elif output=='metalist':
             return '\n'.join(self.listmetas())+'\n'
         elif output=='counts':
@@ -1023,60 +1085,167 @@ class Sdffile(object):
     def sortme(self, sortstring):
         self._orderlist = self.orderbymeta(sortstring)
     
-    def addcsvmeta(self, path, verbose=False):
+    @staticmethod
+    def readcsv(path, separators = [';',',','\t']):
+        #chop = re.compile('\s*{}\s*'.format(''.join(separators)))
+        with open(path) as f:
+            csvdata = [[cell.strip('"\'') for cell in Sdfmeta.compsplit(line, separators)[::2]] for line in f] #lukee tiedoston, splittaa pilkuista ja poistaa alkioista rivinvaihdot
+        return csvdata
+    
+    @staticmethod
+    def xreadcsv(path, separators = [';',',','\t']):
+        #chop = re.compile('\s*{}\s*'.format(''.join(separators)))
+        with open(path) as f: 
+            for line in f:
+                yield [cell.strip('"\'') for cell in Sdfmeta.compsplit(line, separators)[::2]] 
+    
+    @staticmethod
+    def headToCol(header, path, head, messageHead=''):
+        headn = header.index(head) if isinstance(head, string_types) and head in header else functions.numify( head )
+        if not (isinstance(headn, int) and headn >= 0):
+            if messageHead != '':
+                messageHead = messageHead + ' '
+            #print headn
+            #print head
+            #print header
+            raise IndexError('No {}{} in {}!'.format(messageHead,head, path))
+        return headn
+    
+    def addCsvMeta(self, strArg, **kwargs):
         '''
         Add metadata from given csv-file path
         '''
-        f = open(path)
-        chop = re.compile('\s*[;,\t]\s*')
-        csvdata = [[cell.strip('\n ') for cell in chop.split(line)] for line in f.readlines()] #lukee tiedoston, splittaa pilkuista ja poistaa alkioista rivinvaihdot
-        f.close()
-        for j, line in enumerate(csvdata):
-            line = functions.parentifier(line, ',')
-            s=-1
-            newtab=[]
-            for i, cell in enumerate(line):
-                if s<0 and len(cell)==0:
-                    newtab.append('')
-                elif s>=0 and len(cell)==0:
-                    continue
-                elif s < 0 and cell[0] == '"' and cell[-1] != '"':
-                    s = i
-                elif s >= 0 and cell[0] != '"' and cell[-1] == '"':
-                    newtab.append(','.join(line[s:i+1]).strip('"'))
-                    s = -1
-                elif s>=0:
-                    continue
-                else:
-                    newtab.append(cell.strip('"'))
-            csvdata[j] = newtab
-        header = csvdata[0]
-        for csvmol in csvdata[1:]:
-            m = Sdfmole.confchop.search(csvmol[0])
+        
+        liargs, diargs = kwarger(strArg)
+        path = liargs[0]
+        kwargs = dict(kwargs)
+        for key in diargs:
+            kwargs[key] = diargs[key]
+        
+        csvdata = Sdffile.xreadcsv(path) #separators?
+        
+        #header = csvdata[0]
+        header = next(csvdata)
+        
+        ckey    = kwargs.get('confkey', Sdfmole.ckey)
+        molcol = Sdffile.headToCol(header, path, kwargs.get('molcol', 0), 'molname field')
+        
+        molcol = header.index(molcol) if isinstance(molcol, string_types) and molcol in header else molcol
+        if isinstance(molcol, string_types):
+            raise IndexError('No {} in {}!'.format(molcol, path))
+        ckeyindex = header.index(ckey ) if ckey in header else None
+        
+        for csvmol in csvdata:
+            m = Sdfmole.confchop.search(csvmol[molcol])
             if m:
-                n=m.group(0)[2:-2]
-                seeker = csvmol[0][:-(len(n)+4)]
+                n = m.group(0)[2:-2]
+                seeker = csvmol[molcol][:-(len(n)+4)]
+            elif ckeyindex:
+                seeker = csvmol[molcol]
+                n = csvmol[ckeyindex]
             else:
-                seeker = csvmol[0]
+                seeker = csvmol[molcol]
+                n = None
+            
             if not seeker in self._dictomoles:
                 continue
-            if m:
+            
+            if n is not None:
                 keys = [n]
             else:
-                if seeker in self._dictomoles:
-                    keys = list(self._dictomoles[seeker].keys())
-                else:
-                    continue
+                keys = list(self._dictomoles[seeker].keys())
+            
             for key in keys:
                 if key in self._dictomoles[seeker]:
                     mol = self._dictomoles[seeker][key]
                 else:
                     continue
-                for i, newmeta in enumerate(csvmol[1:]):
-                    if len(newmeta)!=0:
-                        mol.addmeta(header[i+1], newmeta, overwrite=True)
-                        mol.getmeta(header[i+1]).cleandelim(True)
-        del(csvdata)
+                for i, value in enumerate(csvmol):
+                    if i != molcol and len(value)!=0:
+                        newmeta = Sdfmeta.construct(value)
+                        mol.addmeta(header[i], newmeta, overwrite=True)
+                        #mol.getmeta(header[i]).cleandelim(True)
+        #del(csvdata)
+        
+    def addAtomicCsvMeta(self, strArg, **kwargs):
+        '''
+        Add metadata from given atomic csv-file path
+        '''
+        
+        liargs, diargs = kwarger(strArg)
+        path = liargs[0]
+        kwargs = dict(kwargs)
+        for key in diargs:
+            kwargs[key] = diargs[key]
+        
+        csvdata = Sdffile.xreadcsv(path)
+        
+        header = next(csvdata)
+        
+        ckey    = kwargs.get('confkey', Sdfmole.ckey)
+        atomn   = Sdffile.headToCol(header, path, kwargs.get('atomnumber', 'atom_number'), 'atom number field')
+        molcol  = Sdffile.headToCol(header, path, kwargs.get('molcol', 0), 'molname field')
+        
+        '''
+        molcol = header.index(molcol) if isinstance(molcol, string_types) and molcol in header else functions.numify( molcol )
+        if not (isinstance(molcol, int) and molcol > 0):
+            raise IndexError('No molname field {} in {}!'.format(molcol, path))
+        
+        atomn = header.index(atomn) if isinstance(atomn, string_types) and atomn in header else functions.numify( atomn )
+        if not (isinstance(atomn, int) and atomn > 0):
+            raise IndexError('No atom number field {} in {}!'.format(atomn, path))
+        '''
+        
+        ckeyindex = header.index(ckey ) if ckey in header else None
+        
+        entries = dict()
+        
+        #if not atomn in header:
+        #    raise IndexError('{} not found in {}!'.format(atomn, path))
+        #    return
+        #else:
+        #    atomnindex = header.index(atomn)
+        
+        for csvatom in csvdata:
+            if len(csvatom) != len(header):
+                raise IndexError('Number of columns not constant in {}!'.format(path))
+            an = functions.numify(csvatom[atomn])
+            
+            m = Sdfmole.confchop.search(csvatom[molcol])
+            if m:
+                n = m.group(0)[2:-2]
+                seeker = csvatom[molcol][:-(len(n)+4)]
+            elif ckeyindex:
+                seeker = csvatom[molcol]
+                n = csvatom[ckeyindex]
+            else:
+                seeker = csvatom[molcol]
+                n = None
+            
+            if not seeker in self._dictomoles:
+                continue
+            
+            if n is not None:
+                keys = [n]
+            else:
+                keys = list(self._dictomoles[seeker].keys())
+            
+            for key in keys:
+                if key in self._dictomoles[seeker]:
+                    if not (seeker, key) in entries.keys():
+                        entries[(seeker, key)] = dict([(head,OrDi()) for head in header[1:] if head not in (ckey, atomn)])
+                    for k, head in enumerate(header):
+                        if k in (molcol, atomn) or head == ckey:
+                            continue
+                        if csvatom[k].strip() != '':
+                            entries[(seeker, key)][head][an] = csvatom[k]
+                else:
+                    continue
+        
+        for (mol, conf) in entries.keys():
+            for meta in entries[(mol, conf)]:
+                if len(entries[(mol, conf)][meta])!=0:
+                    self._dictomoles[mol][conf].addmeta(meta, entries[(mol, conf)][meta], overwrite = True)
     
     def removemeta(self, metaliststring, pick = False):
         #Remove metafields given in list of metanames
@@ -2394,14 +2563,15 @@ class Sdfmeta(object):
     @staticmethod
     def compsplit(string, comps = ('==','<=','>=','!=','=>','=<','<','>','=')):
         tab = Sdfmeta.leveler(string)
+        ret = []
         for i, item in enumerate(tab):
             if isinstance(item, string_types):
                 j=-1
                 for comp in comps:
                     j=item.find(comp)
                     if j>=0:
-                        return Sdfmeta.compsplit(Sdfmeta.levjoin(tab[:i])+item[:j]) + [ item[j:j+len(comp)]] + Sdfmeta.compsplit(item[j+len(comp):]+Sdfmeta.levjoin(tab[i+1:]))
-        ret = []
+                        #return Sdfmeta.compsplit(Sdfmeta.levjoin(tab[:i])+item[:j]) + [ item[j:j+len(comp)]] + Sdfmeta.compsplit(item[j+len(comp):]+Sdfmeta.levjoin(tab[i+1:]))
+                        return [Sdfmeta.levjoin(tab[:i])+item[:j] , item[j:j+len(comp)] ] + Sdfmeta.compsplit( item[j+len(comp):]+Sdfmeta.levjoin(tab[i+1:]) , comps)
         if string.strip() != '':
             ret.append(string.strip())
         return ret
@@ -2646,10 +2816,10 @@ class Sdfmeta(object):
         dictflag = self._datastruct == OrDi
         
         if dictflag:
-            key = self._data.keys()[0]
+            key = list(self._data.keys())[0]
             tmp=[str(key)+':'+strifu(self._data[key])]
             del(key)
-            itera = enumerate(self._data.keys()[1:])
+            itera = enumerate(list(self._data.keys())[1:])
         else:
             tmp=[strifu(self._data[0])]
             itera = enumerate(self._data[1:])
@@ -3036,3 +3206,25 @@ class Sdfmeta(object):
         return ([onestring],str,[])
     
 #End of Sdfmeta
+
+def kwarger(argumentstr, separators = [',',';']):
+    arguments = Sdfmeta.compsplit(argumentstr, separators )[::2]
+    args = []
+    kwargs = dict()
+    for arg in arguments:
+        split = Sdfmeta.compsplit(arg, '=')[::2]
+        if len(split) == 1:
+            try:
+                data = eval(split[0])
+            except NameError:
+                data = split[0].strip()
+            args.append(data)
+            #args.append(split[0].strip())
+        elif  len(split) == 2:
+            try:
+                data = eval(split[1])
+            except NameError:
+                data = split[1].strip()
+            kwargs[split[0].strip()] = data  #functions.numify(split[1])
+    return args, kwargs
+    

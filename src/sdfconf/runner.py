@@ -52,6 +52,7 @@ class Runner(object):
              ('combine','co'), 
              ('allcombine','aco'), 
              ('addcsv','csv'), 
+             ('addatomiccsv','acsv'), 
              ('getmol2','gm2'), 
              ('addescape','aesc'), 
              ('addinside','ains'), 
@@ -88,10 +89,10 @@ class Runner(object):
                      )
     
     simpleloops =   ('getmol2', 'closestatoms', 'closeratoms', 'changemeta', #'mergemeta',
-                     'sortorder', 
-                     'stripbutmeta', 'extract','makenewmeta','config',
-                     'cut', 'allcut', 'combine', 'allcombine', 'addcsv', 
-                     'putmol2', 'addescape', 'addinside', 
+                     'sortorder', 'stripbutmeta', 'extract','makenewmeta', 
+                     'config', 'cut', 'allcut', 'combine', 'allcombine', 
+                     'addcsv', 'addatomiccsv', 'putmol2', 'addescape', 
+                     'addinside', 
                      )
     
     listbatch = ()
@@ -209,7 +210,8 @@ class Runner(object):
                     'stripbutmeta'   :lambda i : (self.sdf.stripbutmeta, lambda : (param,),         lambda : ('All atoms, execpt for those in statement {} removed!',(param,)),NoLamb,NoLamb)[i], 
                     'extract'        :lambda i : (self.sdf.mollogicparse, lambda : (param,),        extMes(0),extMes(1),extMes(2))[i],
                     'makenewmeta'    :lambda i : (self.sdf.makenewmetastr, lambda : (param,),       lambda : (' New metafield {} made.',(param,)), lambda : ('Make new metafields.',()), lambda : (' Making new metafields done. It took {} seconds.',(timedif(),)))[i], 
-                    'addcsv'         :lambda i : (self.sdf.addcsvmeta, lambda : (param, self.verbose,), lambda : ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i], 
+                    'addcsv'         :lambda i : (self.sdf.addCsvMeta, lambda : (param, ), lambda : ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i],
+                    'addatomiccsv'   :lambda i : (self.sdf.addAtomicCsvMeta, lambda : (param, ), lambda : ('Dictionary metadata from atomic csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i], 
                     'input'          :lambda i : (self.sdf.xreadself, lambda : (param,),            NoLamb, lambda : ('Starting to read file {}',(param,)), lambda : (' Reading file done. It took {} seconds.', (timedif(),)))[i],
                     'verbose'        :lambda i : (self.setVerbose, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Verbose enabled.' if param else 'Verbose disabled.',()))[i], 
                     'ignores'        :lambda i : (self.setIgnores, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Ignores set to {}.',(param,)))[i], 
@@ -316,9 +318,10 @@ def main(arguments=None):
     arger.add_argument("-cu", "--cut", metavar='unwanted.sdf', type = str, nargs='+',           help = "Remove molecules in specified file from original file. Confromations must match.")
     arger.add_argument("-acu", "--allcut", metavar='unwanted.sdf', type = str, nargs='+',       help = "Remove molecules in specified file from original file. Names must match. Not tested.")
     
-    arger.add_argument("-csv", "--addcsv", metavar='data.csv', type = str, nargs='+',           help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. Names of molecules must be leftmost. If name includes confnumber, meta is only added molecules with same confnumber.")
-    arger.add_argument("-ex", "--extract", metavar='statement', type = str, nargs='+',           help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID='benzene'.")
-    arger.add_argument("-pro", "--proportion", metavar='statement', type = str,                  help = "Takes one exctract-like metastatement and prints proportion of molecules and conformations fulfilling it after every chop, if you are on verbose mode.")
+    arger.add_argument("-csv", "--addcsv", metavar='path [,molcol=<column>] [,confkey=<column>]', type = str, nargs='+',           help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. By default reads molecule names from column 0. If name includes confnumber, meta is only added molecules with same confnumber. Columns including molecule names and conformation numbers may also be specified with either column number or header name.")
+    arger.add_argument("-acsv", "--addatomiccsv", metavar='path[,molcol=<column>] [,confkey=<column>] [,atomnnumber=<column>]', type = str, nargs='+',    help = "Add atomic metadata from csv-file. File must have a 1-line header, it gives names to metafields. By default reads molecule names from column 0 and atom numbers from column 'atomn_number'. If name includes confnumber, meta is only added molecules with same confnumber. Columns including molecule names, conformation numbers and atom numbers may also be specified with either column number or header name.")
+    arger.add_argument("-ex", "--extract", metavar='statement', type = str, nargs='+',          help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID='benzene'.")
+    arger.add_argument("-pro", "--proportion", metavar='statement', type = str,                 help = "Takes one exctract-like metastatement and prints proportion of molecules and conformations fulfilling it after every chop, if you are on verbose mode.")
     
     choiceremo = arger.add_mutually_exclusive_group()
     choiceremo.add_argument("-rm", "--removemeta", metavar='unwanted1,unwanted2,...', type = str,              help = "Remove metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'.")
@@ -351,7 +354,8 @@ def main(arguments=None):
     args = arger.parse_args(arguments) if arguments else arger.parse_args() 
     
     if not (args.input or args.config):
-        arger.print_help()
+        print('You must specify either an sdf or config file.')
+        arger.print_usage()
         sys.exit(1)
     
     manyfiles = args.input
@@ -384,4 +388,5 @@ def main(arguments=None):
     run(sys.argv[1:])'''
 
 if __name__ == "__main__":
+    #print(os.getcwd())
     main()
