@@ -711,9 +711,9 @@ class Sdffile(object):
     
     def selftostring(self, output, **kwargs):
         if output=='getcsv':
-            return '\n'.join(self.makeCsvStr(kwargs['getcsv']), atomic = False)+'\n'
+            return '\n'.join(self.makeCsvStr(kwargs['getcsv'], atomic = False ))+'\n'
         elif output=='getatomcsv':
-            return '\n'.join(self.makeCsvStr(kwargs['getatomcsv']), atomic = True)+'\n'
+            return '\n'.join(self.makeCsvStr(kwargs['getatomcsv'], atomic = True ))+'\n'
         elif output=='metalist':
             return '\n'.join(self.listmetas())+'\n'
         elif output=='counts':
