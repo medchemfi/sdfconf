@@ -496,7 +496,7 @@ class Sdffile(object):
                     #print(len(memeta), memeta.isStr())
                     #print('{} : struct={}, type={}, length={}, str?={}'.format(str(memeta), memeta._datastruct,  memeta.dtype(),len(memeta),memeta.isStr()))
                     #if memeta._datastruct != 'single' or  memeta.isStr():
-                    if len(memeta)>1 or memeta.isStr():
+                    if len(memeta)>1 or memeta.isStr() or memeta._datastruct == OrDi:
                         line.append('"'+memeta.getmetastr()+'"')
                     else:
                         line.append(mol.getmeta(meta).getmetastr())
