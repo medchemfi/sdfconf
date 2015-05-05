@@ -5,6 +5,7 @@ import os
 import re
 import numpy
 from collections import OrderedDict as OrDi
+from six import string_types
 
 try:
     from future.utils import lmap
@@ -184,7 +185,13 @@ def allsame(listordict):
         stuff = listordict.values()
     else:
         stuff = listordict
-    types = set(lmap(type, stuff))
+    #types = set(lmap(type, stuff))
+    types = set()
+    for thing in stuff:
+        if isinstance(thing, string_types):
+            types.add(str)
+        else:
+            types.add(type(thing))
     if len(types) == 1:
         return types.pop()
     elif not str in types:

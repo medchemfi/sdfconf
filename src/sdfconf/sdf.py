@@ -492,7 +492,11 @@ class Sdffile(object):
             for meta in listofmeta:
                 if meta in mol._meta:
                     memeta = mol.getmeta(meta) #.getmetastr()
-                    if memeta._datastruct != 'single' or  memeta.dtype() == 'str':
+                    #if memeta._datastruct != 'single' or  memeta.dtype() == 'str':
+                    #print(len(memeta), memeta.isStr())
+                    #print('{} : struct={}, type={}, length={}, str?={}'.format(str(memeta), memeta._datastruct,  memeta.dtype(),len(memeta),memeta.isStr()))
+                    #if memeta._datastruct != 'single' or  memeta.isStr():
+                    if len(memeta)>1 or memeta.isStr():
                         line.append('"'+memeta.getmetastr()+'"')
                     else:
                         line.append(mol.getmeta(meta).getmetastr())
@@ -525,9 +529,11 @@ class Sdffile(object):
                 
                 for meta in listofmeta:
                     if not meta in mol._meta:
-                        newline.append("NA")
+                        #newline.append("NA")
+                        newline.append('""')
                     elif mol.getmeta(meta)._datastruct == OrDi:
-                        newline.append(str(mol.getmeta(meta)._data.get(key,"NA")))
+                        #newline.append(str(mol.getmeta(meta)._data.get(key,"NA")))
+                        newline.append(str(mol.getmeta(meta)._data.get(key,'""')))
                     else:
                         newline.append(mol.getmeta(meta).getmetastr())
                 csv.append(separator.join(newline))
@@ -1926,7 +1932,7 @@ class Sdfmole(object):
                     'min':lambda meta: mmaxmin(meta, False), 
                     'confcol': self.getColumn, 
                     'str': lambda meta: Sdfmeta.construct( meta.getmetastr()),
-                    #'str': lambda meta: Sdfmeta.construct( meta.getmetastr()),
+                    'int': lambda meta: Sdfmeta.metamap(int, meta),
                     'sum': lambda meta: sum((thing for thing in meta)), 
                     'prod': lambda meta : numpy.asscalar(numpy.prod([thing for thing in meta])), 
                     'rdup' : lambda meta : meta.withoutDuplicates() ,
@@ -2260,7 +2266,9 @@ class Sdfmeta(object):
         li2 = list(othermeta.getvalues())
         
         #print '{}, {}'.format(self.dtype(), other.dtype())
-        if self.dtype() == 'str' and other.dtype() == 'str':
+        #if self.dtype() == 'str' and other.dtype() == 'str':
+        if self.isStr() and other.isStr():
+            #print 'bang'
             def compar(string1, string2):
                 test = lambda x: x[:6].upper() == 'REGEX:'
                 if test(string1):
@@ -2269,8 +2277,11 @@ class Sdfmeta(object):
                     return bool(re.search(string2[6:], string1 ))
                 else:
                     return operator.eq(string1, string2)
-            oper = compar if oper == operator.eq else lambda x,y : not compar(x,y)
-        
+            if oper == operator.eq:
+                oper = compar
+            elif oper == operator.ne:
+                oper = lambda x,y : not compar(x,y)
+            #else crash
         for item2 in li2:
             for item1 in li1:
                 if oper(item1, item2):
@@ -2318,21 +2329,23 @@ class Sdfmeta(object):
     
             #if string, it's special
             if dtype == str and type(data) != OrDi:
-                self._datatype = 'str'
+                #self._datatype = 'str'
+                self.setType(dtype)
                 self._data = [line.strip('\n') for line in mylines]
                 self._datastruct = list
                 self._delims = ['' for line in mylines[:-1]]
-                return
+                #return
             #not just string
-            
-            self._data = data
-            self._datatype = dtype if dtype != str else 'str'
-            if type(data) == list and len(data)==1:
-                self._datastruct = 'single'
             else:
-                self._datastruct = type(data)
-                self._delims = delims
-            
+                self._data = data
+                #self._datatype = dtype if dtype != str else 'str'
+                self.setType(dtype)
+                if type(data) == list and len(data)==1:
+                    self._datastruct = 'single'
+                else:
+                    self._datastruct = type(data)
+                    self._delims = delims
+                
             self._dumb = False
         else:
             return
@@ -2375,6 +2388,7 @@ class Sdfmeta(object):
             data = [data]
         elif isinstance(data, Sdfmeta):
             out = copy.deepcopy(data)
+            #out.numerize()
             out.setname(name)
             if 'delims' in dictarg:
                 out._delims = dictarg['delims']
@@ -2403,13 +2417,15 @@ class Sdfmeta(object):
             raise TypeError('Data type not str, int or float.')
         if len(types)==1:
             #new._datatype = iter(types).next()
-            new._datatype = next( iter(types) )
-            if new._datatype == str:
-                new._datatype = 'str'
+            #new._datatype = next( iter(types) )
+            new.setType(next( iter(types) ))
+            #if new._datatype == str:
+            #    new._datatype = 'str'
         elif len(types)>1 and str in types:
             raise TypeError('Mixed datatypes. Strings and numbers.')
         else:
-            new._datatype = float
+            #new._datatype = float
+            new.setType(float)
             if type(new._data) == list:
                 new._data = lmap(float, new._data)
             elif type(new._data) == OrDi:
@@ -2615,7 +2631,8 @@ class Sdfmeta(object):
         '''
         new = Sdfmeta()
         new._name = self._name
-        new._datatype = self.dtype()
+        #new._datatype = self.dtype()
+        new.setType(self.dtype())
         new._datastruct = self._datastruct
         new._dumb = self._dumb
         if len(self)>0:
@@ -2629,7 +2646,8 @@ class Sdfmeta(object):
         '''
         new = Sdfmeta()
         new._name = self._name
-        new._datatype = self.dtype()
+        #new._datatype = self.dtype()
+        new.setType(self.dtype())
         new._datastruct = self._datastruct
         new._dumb = self._dumb
         if len(self)>0:
@@ -2679,10 +2697,18 @@ class Sdfmeta(object):
         '''
         set datatype for meta.
         '''
-        if isinstance(datatype, string_types):
-            datatype = 'str'
+        try:
+            if datatype == 'str' or isinstance(datatype(''), string_types):
+                datatype = 'str'
+        except ValueError:
+            pass
         self._datatype = datatype
         
+    def isStr(self):
+        '''
+        string test
+        '''
+        return self.dtype() == 'str'
         
     def extend(self, other):
         '''
@@ -2698,7 +2724,8 @@ class Sdfmeta(object):
         if not self._datastruct:
             self._data =       copy.deepcopy( other._data )
             self._datastruct = other._datastruct
-            self._datatype =   other.dtype()
+            #self._datatype =   other.dtype()
+            self.setType( other.dtype() )
             self._delims =     list( other._delims )
             self._dumb =       other._dumb 
             self._dumbcontent =list( other._dumbcontent )
@@ -2706,12 +2733,16 @@ class Sdfmeta(object):
         
         floatflag = False
         if self.dtype() != other.dtype():
-            if self.dtype() == 'str':
-                other._datatype = 'str'
+            #if self.dtype() == 'str':
+            if self.isStr() :
+                #other._datatype = 'str'
+                other.setType(str)
                 other._data = OrDi(((key,str(other._data[key])) for key in other._data)) if other._datastruct == OrDi else lmap(str, other._data) 
                 self.extend(other)
-            elif other.dtype() == 'str':
-                self._datatype = 'str'
+            #elif other.dtype() == 'str':
+            elif other.isStr() :
+                #self._datatype = 'str'
+                self.setType(str)
                 self._data = OrDi(((key,str(self._data[key])) for key in self._data)) if self._datastruct == OrDi else lmap(str, self._data)
                 self.extend(other)
                 
@@ -2763,7 +2794,8 @@ class Sdfmeta(object):
         
         floatflag = False
         if self.dtype() != other.dtype():
-            if self.dtype() == 'str' or other.dtype() == 'str':
+            #if self.dtype() == 'str' or other.dtype() == 'str':
+            if self.isStr() or other.isStr():
                 return None
             else:
                 floatflag = True
@@ -2878,7 +2910,7 @@ class Sdfmeta(object):
     @staticmethod
     def metamap(fu, meta):
         if fu not in (str, int, float):
-            return None
+            raise TypeError('Given type must be int, str or float! It was {}!'.format(fu))
         meta = Sdfmeta.construct(meta)
         if meta._datastruct == OrDi:
             for key in meta._data.keys():
@@ -2886,7 +2918,6 @@ class Sdfmeta(object):
                     meta._data[key] = fu(meta._data[key])
                 except ValueError:
                     del(meta._data[key])
-            meta._datatype = fu
         else:
             new = []
             for item in meta.getvalues():
@@ -2894,8 +2925,9 @@ class Sdfmeta(object):
                     new.append(fu(item))
                 except ValueError:
                     continue
-        if meta._datatype == str:
-            meta._datatype = 'str'
+            meta._data = new
+        meta.setType(fu)
+        meta.cleandelim()
         return meta
         
     
@@ -3088,7 +3120,8 @@ class Sdfmeta(object):
             if ( not  ( (len(value) == 1) or (len(value) == len(self))) ) or value._datastruct == OrDi :
                 raise functions.InputException('Valuepick: comparing list to non-single, different lenght list or OrDi-meta.')
             
-        if oper in (operator.eq, operator.ne) and (self.dtype() == 'str' and value.dtype() == 'str'):
+        #if oper in (operator.eq, operator.ne) and (self.dtype() == 'str' and value.dtype() == 'str'):
+        if oper in (operator.eq, operator.ne) and (self.isStr() and value.isStr()):
             def comparator(string1, string2):
                 test = lambda x: x[:6].upper() == 'REGEX:'
                 if test(string1):
@@ -3098,7 +3131,12 @@ class Sdfmeta(object):
                 else:
                     return (string1 == string2)
             
-            compar = comparator if oper == operator.eq else lambda x,y : not comparator(x, y)
+            if oper == operator.eq:
+                compar = comparator
+            elif oper == operator.ne:
+                compar = lambda x,y : not comparator(x,y)
+            #else crash
+            #compar = comparator if oper == operator.eq else lambda x,y : not comparator(x, y)
             
         else:
             compar = oper
