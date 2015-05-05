@@ -1888,7 +1888,7 @@ class Sdfmole(object):
                 reva[item[0]]=str(item[1:]).strip('() ')
         
         for key in reva:
-            reva[key] = functions.numify(reva[key].strip()) if type(reva[key]) == str else functions.numify(reva[key]) 
+            reva[key] = functions.numify(reva[key].strip()) if isinstance(reva[key], string_types) else functions.numify(reva[key]) 
         return reva
     
     def molelogic(self, mylevel, precalc=dict(), dictomo=dict()):
@@ -1926,6 +1926,7 @@ class Sdfmole(object):
                     'min':lambda meta: mmaxmin(meta, False), 
                     'confcol': self.getColumn, 
                     'str': lambda meta: Sdfmeta.construct( meta.getmetastr()),
+                    #'str': lambda meta: Sdfmeta.construct( meta.getmetastr()),
                     'sum': lambda meta: sum((thing for thing in meta)), 
                     'prod': lambda meta : numpy.asscalar(numpy.prod([thing for thing in meta])), 
                     'rdup' : lambda meta : meta.withoutDuplicates() ,
@@ -1966,7 +1967,7 @@ class Sdfmole(object):
                 if len(tab)==1: #evaluate
                     return tabiter(conf, tab[0], par)
                 elif len(tab)==2: #it a slice / asc/max, or something like that
-                    if type(tab[0])==str:
+                    if isinstance(tab[0], string_types):
                         if tab[0] in pars:
                             #do slicing, etc.
                             if not par or tab[0] in ('"',"'"):
@@ -2011,7 +2012,7 @@ class Sdfmole(object):
                                 return meta
                     return None
                 elif len(tab)>2:
-                    if len(tab)==3 and type(tab[0]) == str and tab[0] in maths:
+                    if len(tab)==3 and isinstance(tab[0], string_types) and tab[0] in maths:
                         #do math
                         f1 = tabiter(conf, tab[1])
                         if not f1:
@@ -2253,12 +2254,14 @@ class Sdfmeta(object):
             othermeta = Sdfmeta.construct( functions.numify(other))
         else:
             othermeta = other
+            othermeta.numerize()
         
         li1 = list(self.getvalues())
         li2 = list(othermeta.getvalues())
         
+        #print '{}, {}'.format(self.dtype(), other.dtype())
         if self.dtype() == 'str' and other.dtype() == 'str':
-            def oper(string1, string2):
+            def compar(string1, string2):
                 test = lambda x: x[:6].upper() == 'REGEX:'
                 if test(string1):
                     return bool(re.search(string1[6:], string2 ))
@@ -2266,7 +2269,7 @@ class Sdfmeta(object):
                     return bool(re.search(string2[6:], string1 ))
                 else:
                     return operator.eq(string1, string2)
-                    
+            oper = compar if oper == operator.eq else lambda x,y : not compar(x,y)
         
         for item2 in li2:
             for item1 in li1:
@@ -2323,7 +2326,7 @@ class Sdfmeta(object):
             #not just string
             
             self._data = data
-            self._datatype = dtype
+            self._datatype = dtype if dtype != str else 'str'
             if type(data) == list and len(data)==1:
                 self._datastruct = 'single'
             else:
@@ -2347,7 +2350,7 @@ class Sdfmeta(object):
             name = None
         new.setname(name)
         
-        if type(data) == str:
+        if isinstance(data, string_types):
             
             if 'literal' in dictarg and dictarg['literal']:
                 new._datastruct = 'single'
@@ -2401,6 +2404,8 @@ class Sdfmeta(object):
         if len(types)==1:
             #new._datatype = iter(types).next()
             new._datatype = next( iter(types) )
+            if new._datatype == str:
+                new._datatype = 'str'
         elif len(types)>1 and str in types:
             raise TypeError('Mixed datatypes. Strings and numbers.')
         else:
@@ -2657,7 +2662,7 @@ class Sdfmeta(object):
         '''
         Change the name of Sdfmeta
         '''
-        if type(newname) == str:
+        if isinstance(newname, string_types):
             self._name = newname
         elif not newname:
             self._name = None
@@ -2669,6 +2674,15 @@ class Sdfmeta(object):
         
     def dtype(self):
         return self._datatype
+    
+    def setType(self, datatype):
+        '''
+        set datatype for meta.
+        '''
+        if isinstance(datatype, string_types):
+            datatype = 'str'
+        self._datatype = datatype
+        
         
     def extend(self, other):
         '''
@@ -2860,6 +2874,30 @@ class Sdfmeta(object):
         
     def getmetastr(self):
         return self.getmetastrings()[0]
+    
+    @staticmethod
+    def metamap(fu, meta):
+        if fu not in (str, int, float):
+            return None
+        meta = Sdfmeta.construct(meta)
+        if meta._datastruct == OrDi:
+            for key in meta._data.keys():
+                try:
+                    meta._data[key] = fu(meta._data[key])
+                except ValueError:
+                    del(meta._data[key])
+            meta._datatype = fu
+        else:
+            new = []
+            for item in meta.getvalues():
+                try:
+                    new.append(fu(item))
+                except ValueError:
+                    continue
+        if meta._datatype == str:
+            meta._datatype = 'str'
+        return meta
+        
     
     def selftolistofstrings(self):
         '''return in .sdf-file format. No linechanges'''
@@ -3144,7 +3182,7 @@ class Sdfmeta(object):
         Tries to find out what type your string is
         Return (parsed,parsedtype,delim)
         '''
-        if type(onestring) == str:
+        if isinstance(onestring, string_types): #type(onestring) == str:
             if functions.numitest(onestring):
                 numoutof = functions.numify(onestring)
             else:
