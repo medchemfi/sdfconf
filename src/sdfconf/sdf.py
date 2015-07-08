@@ -1368,25 +1368,30 @@ class Sdffile(object):
                 sdfmol.addmeta(metaname, newdic)
         del(mymol2)
         
-    def injectMol2Data(self, metastatement, column, path, defaultValue=0.0, precision=4, outpath = None):
+    def injectMol2Data(self, path,  outpath, column, metastatement, defaultValue=0.0, precision=4):
         '''
         Inject atomwise information from current .sdf-file metadata to given wanted column in .mol2-file and make wanted output file.
         '''
-        mol2 = mol2.Mol2File(path)
+        molli2 = mol2.Mol2File(path)
         metas = self.getmollogic(metastatement)
-        for i, mol in enumerate(mol2):
+        
+        for i, mol in enumerate(molli2):
             molname, conf = self._orderlist[i]
             mol.injectatomdata(metas[molname][conf], column, defaultValue, precision)
+            del(metas[molname][conf])
         if not outpath:
             outpath=path
-        mol2.writefile(outpath)
+        molli2.writefile(outpath)
         
     def injectMol2DataStr(self, string):
         try:
-            inputf, output, column, metaname, default, precision = re.split('\s*,\s*', string)
+            injargs = re.split('\s*,\s*', string)
         except ValueError:
             raise ValueError('Give: input, output, column, metaname, default, precision')
-        self.injectMol2Data(metaname, int(column), inputf, functions.numify(default), int(precision), output)
+        
+        for i, things in enumerate(zip((str, str, int, str, functions.numify, int),injargs)):
+            injargs[i] = things[0](things[1]) 
+        self.injectMol2Data(*injargs)
     
 #end of Sdffile
 
@@ -2147,14 +2152,27 @@ class Sdfmole(object):
         '''
         self.numerize()
         #atoms = self.logicgetmeta(levemeta)
-        atoms = metaobj
+        #atoms = sorted(metaobj.getvalues())
+        atoms = metaobj.getvalues()
+        
         newatoms = []
-        for n in atoms._data:
+        
+        toNew = OrDi()
+        toOld = OrDi()
+        
+        #for n in atoms._data:
+        for i, n in enumerate(atoms):
+            toNew[int(n)]=i+1
+            toOld[i+1]=int(n)
             newatoms.append(self._atoms[n-1])
         self._atoms = newatoms
         self._bonds = []
         self._counts[0] = len(newatoms)
         self._counts[1] = 0
+        
+        self.addmeta('toNew', toNew)
+        self.addmeta('toOld', toOld)
+        
 
 #end of Sdfmole
 
@@ -2666,7 +2684,7 @@ class Sdfmeta(object):
         return values of meta. For OrDi keys are neglected.
         '''
         if self._datastruct == OrDi:
-            return list(self._data.values)
+            return list(self._data.values())
         else:
             return list(self._data)
     

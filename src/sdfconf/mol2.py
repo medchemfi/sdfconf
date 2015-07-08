@@ -131,6 +131,30 @@ class Mol2Mol(OrDi):
         
         form = '{:.' + str(prec) +'f}'
         injectinfo = []
+        
+        def numinject(inject,things, mycol):
+            try:
+                if math.isnan(inject) or math.isinf(inject):
+                    inject = defaultValue
+            except TypeError:
+                print data
+            stachar = sum( lmap(len, things[:mycol]) )
+            endchar = stachar+len(things[mycol])
+            injectinfo.append( (form.format(inject), stachar, endchar))
+        
+        def strinject(inject, things, ind):
+            stachar = sum( lmap(len, things[:mycol]) )
+            endchar = stachar+len(things[mycol])
+            injectinfo.append( (str(inject), stachar, endchar))
+        
+        def tester(inject, things, ind):
+            print(data)
+            print(inject)
+            print(things)
+            print(ind)
+        
+        injecter = { 'str':strinject, int:numinject, float:numinject}.get(data._datatype, tester)
+        
         for line in self['ATOM']:
             things = re.split( '(\s+)', line)
             mycol = None
@@ -144,11 +168,7 @@ class Mol2Mol(OrDi):
                     inject = data._data[functions.numify(things[ind])+offset]
                 except KeyError :
                     inject = defaultValue
-                if math.isnan(inject) or math.isinf(inject):
-                    inject = defaultValue
-                stachar = sum( lmap(len, things[:mycol]) )
-                endchar = stachar+len(things[mycol])
-                injectinfo.append( (form.format(inject), stachar, endchar))
+                injecter(inject, things, mycol)
             else:
                 continue
         
