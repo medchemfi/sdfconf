@@ -2610,7 +2610,7 @@ class Sdfmeta(object):
                     j=item.find(comp)
                     if j>=0:
                         #return Sdfmeta.compsplit(Sdfmeta.levjoin(tab[:i])+item[:j]) + [ item[j:j+len(comp)]] + Sdfmeta.compsplit(item[j+len(comp):]+Sdfmeta.levjoin(tab[i+1:]))
-                        return [Sdfmeta.levjoin(tab[:i])+item[:j] , item[j:j+len(comp)] ] + Sdfmeta.compsplit( item[j+len(comp):]+Sdfmeta.levjoin(tab[i+1:]) , comps)
+                        return [(Sdfmeta.levjoin(tab[:i])+item[:j]).strip() , (item[j:j+len(comp)]).strip() ] + Sdfmeta.compsplit( item[j+len(comp):]+Sdfmeta.levjoin(tab[i+1:]) , comps)
         if string.strip() != '':
             ret.append(string.strip())
         return ret
