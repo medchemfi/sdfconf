@@ -2414,7 +2414,7 @@ class Sdfmeta(object):
         else:
             print(type(data))
             raise TypeError('Datastructure type not list, dict, OrderedDict, str, int or float.')
-        if not ('literal' in dictarg and dictarg['literal']):
+        if not dictarg.get('literal',False): #('literal' in dictarg and dictarg['literal']):
             if type(data) == list:
                 data = lmap(functions.numify, data)
                 
@@ -3006,8 +3006,9 @@ class Sdfmeta(object):
             if len(set(structs))>2:
                 raise TypeError('Mixed datastructs')
             
-            
+            kwargs = {}
             if 'str' in types:
+                kwargs['literal'] = True
                 if oper == sum:
                     for mtype in types:
                         if mtype != 'str':
@@ -3039,7 +3040,7 @@ class Sdfmeta(object):
                         workmetas[i]._data = meta._data * minlen
                     else:
                         workmetas[i]._data = meta._data[:minlen]
-                return Sdfmeta.construct( Sdfmeta.listoper(oper, workmetas, singles) ) #Nameless meta
+                return Sdfmeta.construct( Sdfmeta.listoper(oper, workmetas, singles), **kwargs ) #Nameless meta
             
             elif ostru == OrDi:
                 keys = None
@@ -3059,9 +3060,9 @@ class Sdfmeta(object):
                         for key in keyorder:
                             if key in keys:
                                 newdict[key]=meta._data[0]
-                        workmetas[i]=Sdfmeta.construct(newdict, name = meta.getname())
+                        workmetas[i]=Sdfmeta.construct(newdict, name = meta.getname(), **kwargs)
                 #'''
-                return Sdfmeta.construct(Sdfmeta.OrDioper(oper,workmetas))
+                return Sdfmeta.construct(Sdfmeta.OrDioper(oper,workmetas), **kwargs)
         
         elif oper in (Sdfmeta.metajoiner,Sdfmeta.metacut): #Therefore, it's joiner
             newmeta = oper(metas)
@@ -3075,7 +3076,7 @@ class Sdfmeta(object):
     def listoper(oper, metas, singles=True):
         tab = []
         i=0
-        while True:
+        while i<max(lmap(len, metas)):
             caltab = []
             for meta in metas:
                 try:
