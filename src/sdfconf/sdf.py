@@ -485,6 +485,9 @@ class Sdffile(object):
         '''
         Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields
         '''
+        ###TESTI!!!
+        if len(listofmeta) == 0:
+            listofmeta = self.listmetas()
         csv = [separator.join(listofmeta)]
         for info in self._orderlist:
             mol = self._dictomoles[info[0]][info[1]]
@@ -1484,14 +1487,16 @@ class Sdfmole(object):
         
         add = first
         for i in range(first,len(strings)):
-            if strings[i] == '\n':
+            if strings[i].strip() == '': #strings[i] == '\n':
                 if i-add < 2:
                     add = i+1
+                    #print("bong!")
                     continue
                 newmeta = Sdfmeta(strings[add:i+1])
                 add = i+1
                 if newmeta._data is not None:
                     self.addmeta(newmeta.getname(), newmeta)
+                #    print("ding!")
                 
     def dists(self, point1, **kwargs):
         '''
@@ -2029,8 +2034,15 @@ class Sdfmole(object):
                         if not f1:
                             if tab[0] not in ('++','--'):
                                 f1 = Sdfmeta.construct(0)
+                            #elif tab[0] == '--':
+                            #    f1 = Sdfmeta()
                             else:
+                                print "no f1"
                                 f1 = Sdfmeta()
+                            #else:
+                            #    f1 = Sdfmeta()
+                        if tab[0] in ('++','--'):
+                            print "join/cut {}".format(tab)
                         return Sdfmeta.metaoper(maths[tab[0]],[f1,tabiter(conf, tab[2])])
                     else:
                         metaus = tabiter(conf, tab[:2], None)
@@ -2069,8 +2081,13 @@ class Sdfmole(object):
             def raiser(conf, tab, par=None):
                 raise TypeError('Bad levels: '+str(tab))
             
-            testdi = {list: listope, tuple: listope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
-            return testdi.get(type(tab), raiser )(conf, tab, par)
+            #testdi = {list: listope, tuple: listope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
+            testdi = {list: listope, tuple: listope, string_types: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
+            for key in testdi:
+                if isinstance(tab, key):
+                    return testdi[key](conf, tab, par)
+            return raiser(conf, tab, par)
+            #return testdi.get(type(tab), raiser )(conf, tab, par)
         
         return tabiter(self, mylevel)
     
@@ -2623,7 +2640,7 @@ class Sdfmeta(object):
         '''
         newmeta = None
         for meta in metas:
-            if meta:
+            if meta is not None and len(meta)>0:
                 if not newmeta:
                     newmeta = copy.copy(meta)
                 else:
@@ -2720,6 +2737,8 @@ class Sdfmeta(object):
                 datatype = 'str'
         except ValueError:
             pass
+        except TypeError:
+            pass
         self._datatype = datatype
         
     def isStr(self):
@@ -2732,6 +2751,8 @@ class Sdfmeta(object):
         '''
         Used to merge more data to a Sdfmeta
         '''
+        if other is None:# or len(other)==0:
+            return
         
         if other._datastruct == 'single':
             other._datastruct = list
@@ -2996,6 +3017,7 @@ class Sdfmeta(object):
         return resulting metavalue of operation.
         resulting Sdfmeta is nameless
         '''
+        print metas
         structs = [meta._datastruct for meta in metas]
         types   = [meta.dtype()   for meta in metas]
         mathopers = (sum, functions.sub, numpy.prod, max, min, functions.avg, functions.div, functions.mypow, functions.remainder)
