@@ -1480,11 +1480,13 @@ class Sdfmole(object):
                 first = i+1
                 break
             else:
-                self._other.append(line.rstrip('\n'))
+                #self._other.append(line.rstrip('\n'))
+                self._other.append(line.rstrip())
         
         add = first
         for i in range(first,len(strings)):
-            if strings[i] == '\n':
+            #if strings[i] == '\n':
+            if strings[i].rstrip() == '':
                 if i-add < 2:
                     add = i+1
                     continue
@@ -2191,6 +2193,7 @@ class Sdfmeta(object):
         Initializes an empty metafield
         If listofstrings is given (a single metafield in .sdf-file) adds that data
         '''
+        #print 'mmmm... meta...'
         self._name = None #Metafield name
         self._datatype = None #int, float, 'str'
         self._datastruct = None #list, dict, single
@@ -2349,7 +2352,8 @@ class Sdfmeta(object):
             if dtype == str and type(data) != OrDi:
                 #self._datatype = 'str'
                 self.setType(dtype)
-                self._data = [line.strip('\n') for line in mylines]
+                #self._data = [line.strip('\n') for line in mylines]
+                self._data = [line.rstrip() for line in mylines]
                 self._datastruct = list
                 self._delims = ['' for line in mylines[:-1]]
                 #return
