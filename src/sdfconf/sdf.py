@@ -1951,10 +1951,26 @@ class Sdfmole(object):
                    'mmin': lambda mets: min([mmaxmin(met, False) for met in mets]),
                    'mavg': lambda mets: functions.avg([metafunx['avg'](met) for met in mets]),
                    }
-        
+        '''           
+        def myprod(num):
+            print(num)
+            print(type(num))
+            
+            try:
+                if len(num)==1:
+                    return numpy.asscalar(num)
+                elif len(num)==0:
+                    return numpy.asscalar(1.0)
+                else:
+                    return numpy.asscalar(float(num[0])*numpy.prod(num[1:]))
+            except ZeroDivisionError:
+                return float('inf')
+        '''        
         maths = {'+' :sum,
                  '-' :functions.sub,
-                 '*' :numpy.prod,
+                 '*' :functions.myprod,
+                 #'*' :numpy.prod,
+                 #'*' :lambda x: functions.numify(numpy.prod(x)),
                  '/' :functions.div,
                  '%' :functions.remainder ,
                  '**':functions.mypow,
@@ -3002,7 +3018,8 @@ class Sdfmeta(object):
         '''
         structs = [meta._datastruct for meta in metas]
         types   = [meta.dtype()   for meta in metas]
-        mathopers = (sum, functions.sub, numpy.prod, max, min, functions.avg, functions.div, functions.mypow, functions.remainder)
+        #mathopers = (sum, functions.sub, numpy.prod, max, min, functions.avg, functions.div, functions.mypow, functions.remainder)
+        mathopers = (sum, functions.sub, functions.myprod, max, min, functions.avg, functions.div, functions.mypow, functions.remainder)
         workmetas = [copy.copy(meta) for meta in metas] 
         if oper in mathopers:
             

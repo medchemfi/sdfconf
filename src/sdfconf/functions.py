@@ -91,6 +91,15 @@ def div(num):
     except ZeroDivisionError:
         return float('inf')
 
+def myprod(num):
+    try:
+        if len(num)<2:
+            return 1.0*num
+        else:
+            return numpy.asscalar(float(num[0])*numpy.prod(num[1:]))
+    except ZeroDivisionError:
+        return float('inf')
+
 def remainder(num):
     return numpy.asscalar(numpy.remainder(num[0],num[1]))
     
@@ -99,7 +108,14 @@ def mypow(num):
         return numpy.asscalar(numpy.power(*lmap(float,num[:2])))
     else:
         return None
-
+'''        
+def myprod(num):
+    if type(num) in (tuple, list):
+        #return numpy.asscalar(numpy.prod(*lmap(float,num[:2])))
+        return numpy.asscalar(numpy.prod(*lmap(float,num)))
+    else:
+        return None
+'''
 def readcsv(path,sep='\t'):
     f=open(path,'r')
     matrix = csvtomatrix(f.readlines(),sep)
