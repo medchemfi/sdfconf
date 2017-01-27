@@ -15,18 +15,6 @@ try:
 except ImportError:
     lmap = map
 
-'''
-if sys.version_info[0]==2 and sys.version_info[1]>=7:
-    pass
-else:
-    raise SystemError('Python version must be 2.7. or later, but not 3.x.')
-'''
-
-'''try:
-    import sdfconf.functions as functions
-    import sdfconf.mol2 as mol2
-except ImportError:'''
-#from sdfconf import functions, mol2
 try:
     import functions, mol2
 except ImportError:
@@ -343,6 +331,7 @@ class Sdffile(object):
         Changes the name of molecules to whatever found in given metafield.
         Applies only for metafields of type str
         '''
+        '''
         for i, molord in enumerate(self._orderlist):
             olname = molord[0]
             n = molord[1]
@@ -357,7 +346,26 @@ class Sdffile(object):
                 self._dictomoles[name] = dict()
             self._dictomoles[name][nn] = mol
         self.dictmaint()
-    
+        '''
+        metas = self.getmollogic(meta)
+        #print('{} names found.'.format(sum([len(a) for a in metas.values()])))
+        for i, molord in enumerate(self._orderlist):
+            olname = molord[0]
+            n = molord[1]
+            mol = self._dictomoles[olname][n]
+            try:
+                name = joiner.join(metas[molord[0]][molord[1]].getmetastrings())
+            except KeyError:
+                raise KeyError('Field "{}" not found for molecule {}, conformation {}!'.format(meta,molord[0],molord[1]))
+            mol._name = name
+            nn = self.uniconfn(mol)
+            self._orderlist[i]=[name,nn]
+            del(self._dictomoles[olname][n])
+            if not name in self._dictomoles:
+                self._dictomoles[name] = dict()
+            self._dictomoles[name][nn] = mol
+        self.dictmaint()
+        
     def makenewmetastr(self, string): #no more accepts new = old < 5; now you must write new = old(<5); you can also new = old2(old1(<5){})(>3)
         '''Frontend for makenewmeta'''
         things = Sdfmeta.compsplit(string,comps=('=',))
@@ -490,7 +498,8 @@ class Sdffile(object):
             mol = self._dictomoles[info[0]][info[1]]
             line = []#[mol._name]
             for meta in listofmeta:
-                if meta in mol._meta:
+                #if meta in mol._meta:
+                if mol.hasmeta(meta):
                     memeta = mol.getmeta(meta) #.getmetastr()
                     #if memeta._datastruct != 'single' or  memeta.dtype() == 'str':
                     #print(len(memeta), memeta.isStr())
@@ -748,6 +757,7 @@ class Sdffile(object):
     def histogrammer(self, Xname, Yname=None, **kwargs):
         import matplotlib.pyplot as plt
         import matplotlib as mpl
+        from matplotlib  import cm
         self.plt=plt
         if 'ex' in kwargs:
             sdf = copy.copy(self)
@@ -824,7 +834,9 @@ class Sdffile(object):
                 del(kwargs['bins'])
             self.plt.hist(*larg,**kwargs) #kwargs?
         else:
-            cmap = mpl.cm.jet
+            #cmap = mpl.cm.jet
+            #cmap = cm.jet
+            cmap = cm.get('jet')
             X=self.plt.hist2d(datas[0],datas[1],**kwargs)[0]
             
             ticks=list(numpy.arange(numpy.max(X)+1))
@@ -1432,7 +1444,7 @@ class Sdfmole(object):
         Shallow copy method
         '''
         new = Sdfmole()
-        new._name           = self.name
+        new._name           = self._name
         new._meta           = dict(self._meta)
         new._metakeys       = list(self._metakeys)
         new._numeric        = self._numeric
@@ -1509,7 +1521,7 @@ class Sdfmole(object):
         #if coord1 == None:
         if coord1 is None:
             self.molelogic(Sdfmeta.levels(point1+'[]'), precalc, dictomo)
-            coord1 =  self.getatomloc()
+            coord1 =  self.getatomloc(1) #Why 1? #FIXME
         alist=[]
         for anum, coord2 in self.atomsGenerator(ignores=myignores):
             dist = sum((coord1-coord2)**2)**0.5
@@ -2216,7 +2228,7 @@ class Sdfmeta(object):
         self._data = None #The actual data
         self._delims = []
         self._dumb = True
-        self._dumbcontent = []
+        #self._dumbcontent = []
         if listofstrings:
             self.initialize(listofstrings)
         
@@ -2682,6 +2694,8 @@ class Sdfmeta(object):
         '''
         Deep copy method is the same as __copy__
         '''
+        
+        '''
         new = Sdfmeta()
         new._name = self._name
         #new._datatype = self.dtype()
@@ -2692,6 +2706,8 @@ class Sdfmeta(object):
             new._data = type(self._data)(( self._data ))
             new._delims = list( self._delims )
         return new
+        '''
+        return self.__copy__()
     
     def getname(self):
         '''
@@ -2766,7 +2782,7 @@ class Sdfmeta(object):
             self.setType( other.dtype() )
             self._delims =     list( other._delims )
             self._dumb =       other._dumb 
-            self._dumbcontent =list( other._dumbcontent )
+            #self._dumbcontent =list( other._dumbcontent )
             return
         
         floatflag = False
@@ -3324,23 +3340,35 @@ class Sdfmeta(object):
 #End of Sdfmeta
 
 def kwarger(argumentstr, separators = [',',';']):
+    '''
+    Reads a string of arguments and parses list like *args and dict like **kwargs.
+    '''
     arguments = Sdfmeta.compsplit(argumentstr, separators )[::2]
+    boostrings = {'True':True, 'T':True, 'False':False, 'F':False}
     args = []
     kwargs = dict()
     for arg in arguments:
         split = Sdfmeta.compsplit(arg, '=')[::2]
         if len(split) == 1:
+            '''
             try:
                 data = eval(split[0])
             except NameError:
                 data = split[0].strip()
+            '''
+            data = functions.numify(split[0])
+            data = boostrings.get(data, data)
             args.append(data)
             #args.append(split[0].strip())
         elif  len(split) == 2:
+            '''
             try:
                 data = eval(split[1])
             except NameError:
                 data = split[1].strip()
+            '''
+            data = functions.numify(split[1])
+            data = boostrings.get(data, data)
             kwargs[split[0].strip()] = data  #functions.numify(split[1])
     return args, kwargs
     
