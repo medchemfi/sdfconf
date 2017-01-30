@@ -331,7 +331,6 @@ class Sdffile(object):
         Changes the name of molecules to whatever found in given metafield.
         Applies only for metafields of type str
         '''
-        '''
         for i, molord in enumerate(self._orderlist):
             olname = molord[0]
             n = molord[1]
@@ -346,26 +345,7 @@ class Sdffile(object):
                 self._dictomoles[name] = dict()
             self._dictomoles[name][nn] = mol
         self.dictmaint()
-        '''
-        metas = self.getmollogic(meta)
-        #print('{} names found.'.format(sum([len(a) for a in metas.values()])))
-        for i, molord in enumerate(self._orderlist):
-            olname = molord[0]
-            n = molord[1]
-            mol = self._dictomoles[olname][n]
-            try:
-                name = joiner.join(metas[molord[0]][molord[1]].getmetastrings())
-            except KeyError:
-                raise KeyError('Field "{}" not found for molecule {}, conformation {}!'.format(meta,molord[0],molord[1]))
-            mol._name = name
-            nn = self.uniconfn(mol)
-            self._orderlist[i]=[name,nn]
-            del(self._dictomoles[olname][n])
-            if not name in self._dictomoles:
-                self._dictomoles[name] = dict()
-            self._dictomoles[name][nn] = mol
-        self.dictmaint()
-        
+    
     def makenewmetastr(self, string): #no more accepts new = old < 5; now you must write new = old(<5); you can also new = old2(old1(<5){})(>3)
         '''Frontend for makenewmeta'''
         things = Sdfmeta.compsplit(string,comps=('=',))
@@ -493,6 +473,9 @@ class Sdffile(object):
         '''
         Make a csv-list containing all molecules and given metafields as columns. '?' gives all fields
         '''
+        ###TESTI!!!
+        if len(listofmeta) == 0:
+            listofmeta = self.listmetas()
         csv = [separator.join(listofmeta)]
         for info in self._orderlist:
             mol = self._dictomoles[info[0]][info[1]]
@@ -1963,21 +1946,7 @@ class Sdfmole(object):
                    'mmin': lambda mets: min([mmaxmin(met, False) for met in mets]),
                    'mavg': lambda mets: functions.avg([metafunx['avg'](met) for met in mets]),
                    }
-        '''           
-        def myprod(num):
-            print(num)
-            print(type(num))
-            
-            try:
-                if len(num)==1:
-                    return numpy.asscalar(num)
-                elif len(num)==0:
-                    return numpy.asscalar(1.0)
-                else:
-                    return numpy.asscalar(float(num[0])*numpy.prod(num[1:]))
-            except ZeroDivisionError:
-                return float('inf')
-        '''        
+        
         maths = {'+' :sum,
                  '-' :functions.sub,
                  '*' :functions.myprod,
@@ -2059,8 +2028,15 @@ class Sdfmole(object):
                         if not f1:
                             if tab[0] not in ('++','--'):
                                 f1 = Sdfmeta.construct(0)
+                            #elif tab[0] == '--':
+                            #    f1 = Sdfmeta()
                             else:
+                                print "no f1"
                                 f1 = Sdfmeta()
+                            #else:
+                            #    f1 = Sdfmeta()
+                        if tab[0] in ('++','--'):
+                            print "join/cut {}".format(tab)
                         return Sdfmeta.metaoper(maths[tab[0]],[f1,tabiter(conf, tab[2])])
                     else:
                         metaus = tabiter(conf, tab[:2], None)
@@ -2099,8 +2075,13 @@ class Sdfmole(object):
             def raiser(conf, tab, par=None):
                 raise TypeError('Bad levels: '+str(tab))
             
-            testdi = {list: listope, tuple: listope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
-            return testdi.get(type(tab), raiser )(conf, tab, par)
+            #testdi = {list: listope, tuple: listope, str: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
+            testdi = {list: listope, tuple: listope, string_types: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
+            for key in testdi:
+                if isinstance(tab, key):
+                    return testdi[key](conf, tab, par)
+            return raiser(conf, tab, par)
+            #return testdi.get(type(tab), raiser )(conf, tab, par)
         
         return tabiter(self, mylevel)
     
@@ -2221,7 +2202,6 @@ class Sdfmeta(object):
         Initializes an empty metafield
         If listofstrings is given (a single metafield in .sdf-file) adds that data
         '''
-        #print 'mmmm... meta...'
         self._name = None #Metafield name
         self._datatype = None #int, float, 'str'
         self._datastruct = None #list, dict, single
@@ -2655,7 +2635,7 @@ class Sdfmeta(object):
         '''
         newmeta = None
         for meta in metas:
-            if meta:
+            if meta is not None and len(meta)>0:
                 if not newmeta:
                     newmeta = copy.copy(meta)
                 else:
@@ -2756,6 +2736,8 @@ class Sdfmeta(object):
                 datatype = 'str'
         except ValueError:
             pass
+        except TypeError:
+            pass
         self._datatype = datatype
         
     def isStr(self):
@@ -2768,6 +2750,8 @@ class Sdfmeta(object):
         '''
         Used to merge more data to a Sdfmeta
         '''
+        if other is None:# or len(other)==0:
+            return
         
         if other._datastruct == 'single':
             other._datastruct = list
