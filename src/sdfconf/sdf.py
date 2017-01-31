@@ -818,8 +818,8 @@ class Sdffile(object):
             self.plt.hist(*larg,**kwargs) #kwargs?
         else:
             #cmap = mpl.cm.jet
-            #cmap = cm.jet
-            cmap = cm.get('jet')
+            cmap = cm.jet
+            #cmap = cm.get('jet')
             X=self.plt.hist2d(datas[0],datas[1],**kwargs)[0]
             
             ticks=list(numpy.arange(numpy.max(X)+1))
