@@ -9,6 +9,7 @@ import operator
 from collections import OrderedDict as OrDi
 import warnings
 from six import string_types
+from exceptions import KeyError
 
 try:
     from future.utils import lmap
@@ -74,7 +75,28 @@ class Sdffile(object):
         for molkey in self._dictomoles:
             for confkey in self._dictomoles[molkey]:
                 yield self._dictomoles[molkey][confkey]
+                
+    def keys(self):
+        '''
+        Generator that yields key pairs (molecule name, conformation number) to be used with getMolecule.
+        '''
+        for molname, confnum in self._orderlist:
+            yield molname, confnum
     
+    def getMolecule(self, molname, confnum = None):
+        '''
+        Get conformation with key (pair).
+        '''
+        modi = self._dictomoles.get(molname, None)
+        if not modi:
+            raise KeyError('No molucule named {}!'.format(molname))
+        if not confnum:
+            confnum = iter(modi).next()
+        mol = modi.get(confnum, None)
+        if not mol:
+            raise KeyError('No conformation {} for molecule {}!'.format(confnum, molname))
+        else:
+            return mol
     
     def __len__(self):
         #Return total number of conformations in file.
@@ -532,7 +554,9 @@ class Sdffile(object):
         return csv
         
     def listmetas(self):
-        #Make a list of all metafields present in the file.
+        '''
+        Make a list of all metafields present in the file.
+        '''
         metas = []
         for mol in self:
             for meta in mol._metakeys:
@@ -541,14 +565,18 @@ class Sdffile(object):
         return metas
     
     def counts(self):
-        #Get counts of different conformations and molecules
+        '''
+        Get counts of different conformations and molecules
+        '''
         counts = []
         for mol in self._dictomoles:
             counts.append((mol,len(self._dictomoles[mol])))
         return counts
     
     def closestStr(self, string):
-        #String frontend for closest
+        '''
+        'String frontend for closest
+        '''
         argus = functions.splitter(string)
         kwargs = {}
         if len(argus)>1:
@@ -740,8 +768,13 @@ class Sdffile(object):
     def histogrammer(self, Xname, Yname=None, **kwargs):
         import matplotlib.pyplot as plt
         import matplotlib as mpl
-        from matplotlib  import cm
-        self.plt=plt
+        #from matplotlib  import cm
+        
+        #print(Xname)
+        #print(Yname)
+        #print(kwargs)
+        
+        self.plt = plt
         if 'ex' in kwargs:
             sdf = copy.copy(self)
             sdf.mollogicparse(kwargs['ex'])
@@ -758,15 +791,24 @@ class Sdffile(object):
         
         datas = [[]]
         almetas = [sdf.getmollogic(Xname)]
+        
+        #print(almetas)
+        
         if Yname:
             datas.append([])
             almetas.append(sdf.getmollogic(Yname))
         
-        for mol in sdf:
-            molname = mol.getname()
-            confn = mol.getconfn()
+        for molname, confn in self.keys():
+            #for mol in sdf:
+            #    molname = mol.getname()
+            #    confn = mol.getconfn()
+            
+            #print('{}:{}'.format(molname,mol.getconf()))
+            
+            mol = self.getMolecule(molname, confn)
             
             try:
+                #metas = tuple( almeta[molname][confn] for almeta in almetas )
                 metas = tuple( almeta[molname][confn] for almeta in almetas )
             except KeyError:
                 continue
@@ -812,13 +854,16 @@ class Sdffile(object):
         self.plt.figure()
         if not Yname:
             larg=[datas[0]]
+            #print(len(datas))
+            #print(datas)
             if 'bins' in kwargs:
                 larg.append(kwargs['bins'])
                 del(kwargs['bins'])
+            
             self.plt.hist(*larg,**kwargs) #kwargs?
         else:
-            #cmap = mpl.cm.jet
-            cmap = cm.jet
+            cmap = mpl.cm.jet
+            #cmap = cm.jet
             #cmap = cm.get('jet')
             X=self.plt.hist2d(datas[0],datas[1],**kwargs)[0]
             
@@ -844,11 +889,17 @@ class Sdffile(object):
     def show(self):
         self.plt.show()
     
-    def histogramFromList(self,plots):
+    def histogramFromListOfStrings(self,plots):
+        '''
+        plots is a list of strings, as in command line.
+        '''
+        print(plots)
         showflag=True
         for plot in plots:
             path=None
-            params = functions.splitter(plot)
+            #params = functions.splitter(plot)
+            larg, darg = kwarger(plot)
+            '''
             larg = []
             darg = dict()
             for para in params:
@@ -858,9 +909,11 @@ class Sdffile(object):
                 else:
                     larg.append(para)
                 
+            
             for key in darg:
                 darg[key]=functions.lister(darg[key])
                 darg[key]=functions.numify(darg[key])
+            '''
             if 'save' in darg:
                 path=darg['save']
                 del(darg['save'])
@@ -872,6 +925,7 @@ class Sdffile(object):
                 self.plt.savefig(path, bbox_inches='tight')
         if showflag:
             self.show()
+            
     
     def mollogicparse(self, string):
         '''

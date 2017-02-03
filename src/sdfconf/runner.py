@@ -64,7 +64,7 @@ class Runner(object):
              ('stripbutmeta','sbm'), 
              ('proportion','pro'), 
              ('sortorder','so'), 
-             ('proportion','pro'), 
+             #('proportion','pro'), 
              ('extract','ex'), 
              ('metatoname','mtn'), 
              ('removemeta','rm'), 
@@ -85,14 +85,16 @@ class Runner(object):
     
     simplelist =    ('conftofield', 'conftoname', 'removeconfname', 'removeconfmeta', 
                      'ignores', 'nametometa', 'metatoname', 'removemeta', 
-                     'pickmeta', 'input', 'proportion' , 'histogram', 'verbose', 
+                     #'pickmeta', 'input', 'proportion' , 'histogram', 'verbose', 
+                     'pickmeta', 'input', 'proportion' , 'verbose', ##CHANGED: removed histogram
                      )
     
     simpleloops =   ('getmol2', 'closestatoms', 'closeratoms', 'changemeta', #'mergemeta',
                      'sortorder', 'stripbutmeta', 'extract','makenewmeta', 
                      'config', 'cut', 'allcut', 'combine', 'allcombine', 
                      'addcsv', 'addatomiccsv', 'putmol2', 'addescape', 
-                     'addinside', 
+                     'addinside',
+                     'histogram' ##CHANGED: added histogram 
                      )
     
     listbatch = ()
@@ -167,8 +169,10 @@ class Runner(object):
                 return (params[0], [functions.numify(cell.strip()) for cell in params[2].split(';;')])
             else:
                 return (params[0], (True,))
+        
         with open(confpath, 'r') as confile:
             configures = (parsecon(confline)  for confline in confile)
+            #print(list(configures))
             for option in configures:
                 if option is None:
                     continue
@@ -194,8 +198,8 @@ class Runner(object):
             return messes[n]
             
         tasks =   {
-                    'conftofield'        :lambda i : (self.sdf.addconfs, lambda : ((False,True),),      NoLamb,NoLamb,lambda : ('Conformation numbers added to metadata. It took {} seconds.', (timedif(),)))[i], 
-                    'conftoname'         :lambda i : (self.sdf.addconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers added to names. It took {} seconds.', (timedif(),)))[i], 
+                    'conftofield'    :lambda i : (self.sdf.addconfs, lambda : ((False,True),),      NoLamb,NoLamb,lambda : ('Conformation numbers added to metadata. It took {} seconds.', (timedif(),)))[i], 
+                    'conftoname'     :lambda i : (self.sdf.addconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers added to names. It took {} seconds.', (timedif(),)))[i], 
                     'removeconfname' :lambda i : (self.sdf.remconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers removed from names. It took {} seconds.',(timedif(),)))[i], 
                     'removeconfmeta' :lambda i : (self.sdf.remconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers removed from metafield \'confnum\'. It took {} seconds.',(timedif(),)))[i], 
                     'nametometa'     :lambda i : (self.sdf.nametometa, lambda : (param,),           NoLamb,NoLamb,lambda : ('Name written to metafieldfield {}. It took {} seconds.',(param,timedif())))[i], 
@@ -216,7 +220,7 @@ class Runner(object):
                     'verbose'        :lambda i : (self.setVerbose, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Verbose enabled.' if param else 'Verbose disabled.',()))[i], 
                     'ignores'        :lambda i : (self.setIgnores, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Ignores set to {}.',(param,)))[i], 
                     'config'         :lambda i : (self.runConfig, lambda : (param,),                lambda : (' Config-file {} done.',(param,)), lambda : ('Run config-files.',()), lambda : (' Running config-files done',()))[i], 
-                    'histogram'      :lambda i : (self.sdf.histogramFromList, lambda : (param,),    NoLamb, lambda : ('Start plotting',()), lambda : (' Plotting done',()))[i], 
+                    'histogram'      :lambda i : (self.sdf.histogramFromListOfStrings, lambda : (param,),    NoLamb, lambda : ('Start plotting',()), lambda : (' Plotting done',()))[i], 
                     'cut'            :lambda i : (lambda x :self.sdf.listremove(Sdffile(x.strip()),True), lambda : (param,), lambda : ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
                     'allcut'         :lambda i : (lambda x :self.sdf.listremove(Sdffile(x.strip()),False), lambda : (param,), lambda : ('Removing all molecules (matching confnum) present in {} complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
                     'combine'        :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,True),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), lambda : (param,), lambda : ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
@@ -245,6 +249,8 @@ class Runner(object):
         
     def funcselector(self,option,params, fromconfig=False):
         
+        #print('option:{}; params:{}, fromconfig:{}'.format(option,params,fromconfig))
+        
         def messenger(task, mypara=params,**kwargs):
             if self.verbose:
                 mes = self.taskLib(task, option, mypara, **kwargs)
@@ -259,10 +265,13 @@ class Runner(object):
         
         elif option in Runner.simpleloops or option in Runner.simplelist:
             if not fromconfig and option in Runner.simplelist:
+            #if  option in Runner.simplelist: ##TODO
                 
                 params = (params,)
                 
             messenger('initial')
+            print('option:{}; params:{}, fromconfig:{}'.format(option,params,fromconfig))
+        
             for oneparam in params:
                 self.taskLib('func', option, oneparam)
                 messenger('loop',oneparam)
@@ -305,8 +314,8 @@ def main(arguments=None):
     arger.add_argument("-ctf", "--conftofield", action = "store_true",           help = "Add conformation number to metafielf 'confnum'. If number in name doesn't exist, makes a new one.")
     
     arger.add_argument("-ctn", "--conftoname",  action = "store_true",           help = "add conformation number to name from metafield 'confnum'. If number in metafield doesn't exist, make a new one.")
-    arger.add_argument("-mtn", "--metatoname", metavar='meta' , type = str,                 help = "Change the name of molecule to the data in given metafield.")
-    arger.add_argument("-ntm", "--nametometa",  metavar='meta', type = str,                 help = "Copy the name of molecule into given metafield.")
+    arger.add_argument("-mtn", "--metatoname", metavar='meta' , type = str,                 help = "Change the name of molecules to the data in given metafield.")
+    arger.add_argument("-ntm", "--nametometa",  metavar='meta', type = str,                 help = "Copy the name of molecules into given metafield.")
     arger.add_argument("-rcn", "--removeconfname",  action="store_true",    help = "remove conformation number from name.")
     arger.add_argument("-rcm", "--removeconfmeta",  action="store_true",    help = "remove conformation number from metafield 'confnum'.")
     
