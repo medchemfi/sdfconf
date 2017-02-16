@@ -56,7 +56,7 @@ def numitest(string):
     if tststr != string:
         tststr = tststr.rstrip('0')
         string = string.rstrip('0')
-        if string == tststr and re.search('\.\d*$', tststr):
+        if string == tststr and re.search(r'\.\d*$', tststr):
             return True
         string = string.strip('0')
         tststr = tststr.strip('0')
@@ -123,7 +123,7 @@ def readcsv(path,sep='\t'):
     return matrix
 
 def csvtomatrix(lines,sep):
-    chibuti=re.compile('[\s\n;]+')
+    chibuti=re.compile(r'[\s\n;]+')
     spli = re.compile(sep)
     return [[numify(chibuti.sub('',cell)) for cell in spli.split(line)] for line in lines]
 
@@ -137,8 +137,8 @@ def splitter(stringofparams):
     return parentifier([cell.strip() for cell in stringofparams.split(',')],',')
 
 def parentifier(original,separator):
-    stapa=re.compile('\{|\[|\(') #Starting parentesis
-    endpa=re.compile('\}|\]|\)') #Ending parenthesis
+    stapa=re.compile(r'\{|\[|\(') #Starting parentesis
+    endpa=re.compile(r'\}|\]|\)') #Ending parenthesis
     
     m=[]
     s=False

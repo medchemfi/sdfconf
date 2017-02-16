@@ -4,8 +4,9 @@
 import sys
 import argparse
 import time
+#from kitchen.iterutils import isiterable
 #import os
-from collections import OrderedDict as OrDi
+#from collections import OrderedDict as OrDi
 
 
 try:
@@ -37,8 +38,9 @@ except ImportError:
 #__version__ = open(os.path.join(os.path.dirname(__file__), 'VERSION')).read()
 
 class Runner(object):
-
-    order = OrDi( (
+    
+    #Order of excecution. Also includes both long and short names.
+    order = ((
              ('verbose','v'), 
              ('input','in'), 
              ('conftofield','ctf'), 
@@ -82,7 +84,7 @@ class Runner(object):
              ('overwrite','o'), 
              ) )
     
-    
+    '''
     simplelist =    ('conftofield', 'conftoname', 'removeconfname', 'removeconfmeta', 
                      'ignores', 'nametometa', 'metatoname', 'removemeta', 
                      #'pickmeta', 'input', 'proportion' , 'histogram', 'verbose', 
@@ -94,20 +96,26 @@ class Runner(object):
                      'config', 'cut', 'allcut', 'combine', 'allcombine', 
                      'addcsv', 'addatomiccsv', 'putmol2', 'addescape', 
                      'addinside',
-                     'histogram' ##CHANGED: added histogram 
+                     #'histogram' ##CHANGED: added histogram 
+                     )
+    '''
+    
+    singulars =    ('overwrite', 'verbose', 'conftofield', 'conftoname', 'removeconfname',
+                     'removeconfmeta', 'makefolder', 'metalist', 'donotprint',
                      )
     
-    listbatch = ()
+    #listbatch = ()
     
     writers =       ('overwrite', 'output', 'stdout') #default stdout
     writetypes =    {'getcsv':True,'getatomcsv':True,'metalist':True,'counts':True,'donotprint':True,'sdf':True,'split':False,'makefolder':False} #default 'sdf'
-    #graphers =      ('histogram')
+    parametricwrite =   ('getcsv', 'getatomcsv', )
+    graphers =      ('histogram', 'scatter')
     
     def __init__(self, options=dict()):
+        
         self.options = options if options else dict()
         
-        
-        for option, value in (('verbose', False),('proportion', False),('ignores',[])):
+        for option, value in (('verbose', False),('proportion', []),('ignores',[])):
             if not option in self.options:
                 self.options[option] = value
         
@@ -116,6 +124,7 @@ class Runner(object):
         self.wriarg = dict()
         self.writetype = 'sdf'
         self.writer = None
+        self.propor = []
         
         self.setVerbose()
         self.setIgnores()
@@ -124,9 +133,10 @@ class Runner(object):
         
     def setPropor(self,parameter=None):
         if not parameter or parameter is True:
-            self.propor = False
+            self.propor = []
         else:
-            self.propor = parameter.strip()
+            #self.propor = parameter.strip()
+            self.propor.append(parameter)
     
     def setVerbose(self, verbose=False):
         if isinstance(verbose, (list, tuple)):
@@ -145,38 +155,24 @@ class Runner(object):
     def runOptions(self):
         #after config, do the rest anyway.
         #print self.options
-        for option in Runner.order:
-            if option in self.options:
+        for optionpair in Runner.order:
+            if optionpair[0] in self.options or optionpair[1] in self.options:
                 self.times.append(time.time())
-                self.funcselector(option, self.options[option])
+                self.funcselector(optionpair[0], self.options[optionpair[0]], False)
         
         if self.verbose:
             print('Run complete, it took {:.3f} seconds.'.format(self.times[-1]-self.times[0]))
         
     def runConfig(self,confpath):
-        
-        def parsecon(oneline):
-            
-            params = [para.strip() for para in oneline.partition('#')[0].partition('::')]
-            if params[0] == '':
-                return None
-            if params[0] not in Runner.order:
-                for longname in Runner.order:
-                    if params[0] == Runner.order[longname]:
-                        params[0] = longname
-                        break
-            if params[1] == '::' and params[2] != '':
-                return (params[0], [functions.numify(cell.strip()) for cell in params[2].split(';;')])
-            else:
-                return (params[0], (True,))
-        
         with open(confpath, 'r') as confile:
-            configures = (parsecon(confline)  for confline in confile)
+            configures = (Runner.parsecon(confline)  for confline in confile)
             #print(list(configures))
             for option in configures:
+                #print option
                 if option is None:
                     continue
-                elif option[0] in Runner.order: #self.options:
+                #elif option[0] in Runner.order: #self.options:
+                elif option[0] in zip(*Runner.order)[0]: #self.options:
                     self.times.append(time.time())
                     self.funcselector(option[0], option[1], True)
         
@@ -216,6 +212,8 @@ class Runner(object):
                     'makenewmeta'    :lambda i : (self.sdf.makenewmetastr, lambda : (param,),       lambda : (' New metafield {} made.',(param,)), lambda : ('Make new metafields.',()), lambda : (' Making new metafields done. It took {} seconds.',(timedif(),)))[i], 
                     'addcsv'         :lambda i : (self.sdf.addCsvMeta, lambda : (param, ), lambda : ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i],
                     'addatomiccsv'   :lambda i : (self.sdf.addAtomicCsvMeta, lambda : (param, ), lambda : ('Dictionary metadata from atomic csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i], 
+                    #'addcsv'         :lambda i : (self.sdf.addCsvMeta, lambda : param, lambda : ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i],
+                    #'addatomiccsv'   :lambda i : (self.sdf.addAtomicCsvMeta, lambda : param, lambda : ('Dictionary metadata from atomic csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i], 
                     'input'          :lambda i : (self.sdf.xreadself, lambda : (param,),            NoLamb, lambda : ('Starting to read file {}',(param,)), lambda : (' Reading file done. It took {} seconds.', (timedif(),)))[i],
                     'verbose'        :lambda i : (self.setVerbose, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Verbose enabled.' if param else 'Verbose disabled.',()))[i], 
                     'ignores'        :lambda i : (self.setIgnores, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Ignores set to {}.',(param,)))[i], 
@@ -237,50 +235,65 @@ class Runner(object):
                 mytask=tasks.get(option)
                 fu = mytask(0)
                 para = mytask(1)()
-            else:
+            elif option in tasks:#else:
+                #print('**task: {}, option: {}'.format(task, option))
                 fu=tasks.get(option)(selector.get(task))
                 para=()
+            else:
+                fu = None
         except KeyError:
             raise KeyError('Wrong task={} or option={}'.format(task,option))
-        retu = fu(*para)
+        if fu:
+            retu = fu(*para)
+        else:
+            retu = None
         if task == 'func':
             self.times.append(time.time())
         return retu
+    
+    #def messenger(self, task, mypara=params,**kwargs):
+    def messenger(self, task, option, params,**kwargs):
+        if self.verbose:
+            #mes = self.taskLib(task, option, mypara, **kwargs)
+            mes = self.taskLib(task, option, params, **kwargs)
+            if mes:
+                print(mes[0].format(*mes[1]))
+    
         
+    
     def funcselector(self,option,params, fromconfig=False):
+        '''
+        Takes an option handle and its parameters and executes them accordingly.
+        Parameters may include list of parameters.
+        '''
         
         #print('option:{}; params:{}, fromconfig:{}'.format(option,params,fromconfig))
         
-        def messenger(task, mypara=params,**kwargs):
-            if self.verbose:
-                mes = self.taskLib(task, option, mypara, **kwargs)
-                if mes:
-                    print(mes[0].format(*mes[1]))
-        
-        if option == 'input':
-            messenger('initial')
-            self.inpath = params
-            self.taskLib('func', option, params)
-            messenger('final')
-        
-        elif option in Runner.simpleloops or option in Runner.simplelist:
-            if not fromconfig and option in Runner.simplelist:
+        #elif option in Runner.simpleloops or option in Runner.simplelist:
+        if option in Runner.singulars:
+            #if not fromconfig and option in Runner.simplelist:
             #if  option in Runner.simplelist: ##TODO
                 
-                params = (params,)
+            params = (params,)
                 
-            messenger('initial')
-            print('option:{}; params:{}, fromconfig:{}'.format(option,params,fromconfig))
+            self.messenger('initial', option, params)
+            #print('option:{}; params:{}, fromconfig:{}'.format(option,params,fromconfig))
         
-            for oneparam in params:
-                self.taskLib('func', option, oneparam)
-                messenger('loop',oneparam)
-                
-            messenger('final', steps=len(params))
+        if option == 'input':
+            self.messenger('initial', option, params)
+            self.inpath = params
+            self.taskLib('func', option, params)
+            self.messenger('final', option, params)
+        
         elif option in Runner.writetypes:
+            #if Runner.writetypes[option]:
             if Runner.writetypes[option]:
                 self.writetype = option
-            self.wriarg[option]=params
+            if option in Runner.parametricwrite:
+                self.wriarg[option] = params[0]
+            else:
+                self.wriarg[option] = params
+            #self.wriarg[option]=params
             
         elif option in Runner.writers:
             writers = {'overwrite':lambda x : self.inpath, 'output': lambda x : x, 'stdout': lambda x: None} #default stdout
@@ -293,6 +306,46 @@ class Runner(object):
             self.times.append(time.time())
             if self.verbose:
                 print('File writing done, it took {} seconds.'.format(self.times[-1]-self.times[-2]))
+        elif option in Runner.graphers:
+            self.taskLib('func', option, params)
+            self.messenger('loop', option, params)
+            self.messenger('final', option, params)
+            
+        else:
+            #elif option in Runner.taskLi  : #tasks
+            for oneparam in params:
+                self.taskLib('func', option, oneparam)
+                self.messenger('loop', option, oneparam)
+                
+            #self.messenger('final', option, oneparam, steps=len(params))
+            self.messenger('final', option, params, steps=len(params))
+        
+        
+    @staticmethod
+    def parsecon(oneline):
+        '''
+        Parse a line from config file into a proper option-parameter-pair
+        '''
+        params = [para.strip() for para in oneline.partition('#')[0].partition('::')]
+        if params[0] == '':
+            return None
+        '''
+        if params[0] not in zip(*Runner.order):
+            for longname in Runner.order:
+                if params[0] == Runner.order[longname]:
+                    params[0] = longname
+                    break
+        '''
+        for optionpair in Runner.order:
+            if params[0] in optionpair:
+            #if params[0] == Runner.order[longname]:
+                params[0] = optionpair[0]
+                break
+        if params[1] == '::' and params[2] != '':
+            return (params[0], [functions.numify(cell.strip()) for cell in params[2].split(';;')])
+        else:
+            return (params[0], (True,))
+
     
 #End of Runner
 
@@ -305,7 +358,7 @@ def main(arguments=None):
     arger.add_argument("input", metavar = 'input.sdf', nargs='*', type = str, default = None,  help="Specify the input  SDfile")
     
     choicewrite = arger.add_mutually_exclusive_group()
-    choicewrite.add_argument("-out", "--output", metavar='output.file', type = str, default=None,  help = "Specify output file. It may be sdf or csv, depending on other arguments.")
+    choicewrite.add_argument("-out", "--output", nargs=1, metavar='output.file', type = str, default=None,  help = "Specify output file. It may be sdf or csv, depending on other arguments.")
     choicewrite.add_argument("-o", "--overwrite", action='store_true',      help = "Overwrite to input file. You don't need to specify output file")
     
     arger.add_argument("-v", "--verbose", action = "store_true" ,      help = "More info on your run.")
@@ -314,8 +367,8 @@ def main(arguments=None):
     arger.add_argument("-ctf", "--conftofield", action = "store_true",           help = "Add conformation number to metafielf 'confnum'. If number in name doesn't exist, makes a new one.")
     
     arger.add_argument("-ctn", "--conftoname",  action = "store_true",           help = "add conformation number to name from metafield 'confnum'. If number in metafield doesn't exist, make a new one.")
-    arger.add_argument("-mtn", "--metatoname", metavar='meta' , type = str,                 help = "Change the name of molecules to the data in given metafield.")
-    arger.add_argument("-ntm", "--nametometa",  metavar='meta', type = str,                 help = "Copy the name of molecules into given metafield.")
+    arger.add_argument("-mtn", "--metatoname", nargs=1, metavar='meta' , type = str,                 help = "Change the name of molecules to the data in given metafield.")
+    arger.add_argument("-ntm", "--nametometa", nargs=1,  metavar='meta', type = str,                 help = "Copy the name of molecules into given metafield.")
     arger.add_argument("-rcn", "--removeconfname",  action="store_true",    help = "remove conformation number from name.")
     arger.add_argument("-rcm", "--removeconfmeta",  action="store_true",    help = "remove conformation number from metafield 'confnum'.")
     
@@ -330,18 +383,18 @@ def main(arguments=None):
     arger.add_argument("-csv", "--addcsv", metavar='path [,molcol=<column>] [,confkey=<column>]', type = str, nargs='+',           help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. By default reads molecule names from column 0. If name includes confnumber, meta is only added molecules with same confnumber. Columns including molecule names and conformation numbers may also be specified with either column number or header name.")
     arger.add_argument("-acsv", "--addatomiccsv", metavar='path[,molcol=<column>] [,confkey=<column>] [,atomnnumber=<column>]', type = str, nargs='+',    help = "Add atomic metadata from csv-file. File must have a 1-line header, it gives names to metafields. By default reads molecule names from column 0 and atom numbers from column 'atomn_number'. If name includes confnumber, meta is only added molecules with same confnumber. Columns including molecule names, conformation numbers and atom numbers may also be specified with either column number or header name.")
     arger.add_argument("-ex", "--extract", metavar='statement', type = str, nargs='+',          help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID=='benzene'.")
-    arger.add_argument("-pro", "--proportion", metavar='statement', type = str,                 help = "Takes one exctract-like metastatement and prints proportion of molecules and conformations fulfilling it after every chop, if you are on verbose mode.")
+    arger.add_argument("-pro", "--proportion", metavar='statement', nargs='+', type = str,                 help = "Takes one exctract-like metastatement and prints proportion of molecules and conformations fulfilling it after every chop, if you are on verbose mode.") ##FIXME: nargs
     
     choiceremo = arger.add_mutually_exclusive_group()
-    choiceremo.add_argument("-rm", "--removemeta", metavar='unwanted1,unwanted2,...', type = str,              help = "Remove metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'.")
-    choiceremo.add_argument("-pm", "--pickmeta", metavar='wanted1,wanted2,...', type = str,                help = "Remove all nonspecified metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'.")
+    choiceremo.add_argument("-rm", "--removemeta", nargs='+', metavar='unwanted', type = str,              help = "Remove metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'.")
+    choiceremo.add_argument("-pm", "--pickmeta", nargs='+', metavar='wanted', type = str,                help = "Remove all nonspecified metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'.")
     
-    arger.add_argument("-s", "--split", type = int,                         help = "Split the file into even pieces. Positive means number of files while negative means number of molecules per file. 0 doesn't apply.")
+    arger.add_argument("-s", "--split", type = int, nargs=1,                         help = "Split the file into even pieces. Positive means number of files while negative means number of molecules per file. 0 doesn't apply.")
     arger.add_argument("-mf", "--makefolder", action = "store_true",        help = "Put outputfile(s) into folder(s).")
     
     outputtype = arger.add_mutually_exclusive_group()
-    outputtype.add_argument("-gc", "--getcsv", type = str ,                 help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','.")
-    outputtype.add_argument("-gac", "--getatomcsv", type = str ,            help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','. Writes dictionaries to separate lines.")
+    outputtype.add_argument("-gc", "--getcsv", type = str, nargs=1 ,                 help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','.")
+    outputtype.add_argument("-gac", "--getatomcsv", type = str, nargs=1 ,            help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','. Writes dictionaries to separate lines.")
     outputtype.add_argument("-ml", "--metalist", action = "store_true",     help = "Writes a list of metafields.")
     outputtype.add_argument("-nm", "--counts", nargs='?', type = int, const=0, choices=(0,1,2),  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both.")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
@@ -383,12 +436,30 @@ def main(arguments=None):
     for onefile in manyfiles:
         options = vars(args)
         deli = []
-        for key in options.keys():
-            if not options[key] and type(options[key])!=int:
+        for key in options.keys(): 
+            #if not options[key] and type(options[key])!=int: ##FIXME: what's this?
+            #if not options[key] and not isinstance(type(options[key]), int): #parameter is None or False but not 0 =>> do not excecute handle. 
+            #print('{}: {}'.format(key, options[key]))
+            '''
+            if (not options[key]) and (not isinstance(options[key], int)): #parameter is None or False but not 0 =>> do not excecute handle. 
+                print('- {}: {}'.format(key, options[key]))
                 deli.append(key)
+            else:
+                print('+ {}: {}'.format(key, options[key]))
+            '''
+            item = options[key]
+            if (isinstance(item, bool) and not item) or (item is None):
+                deli.append(key)
+            '''
+                print('- {}: {}'.format(key, options[key]))
+            else:
+                print('+ {}: {}'.format(key, options[key]))
+            '''
+            
         options = dict([(key, options[key]) for key in options if not key in deli])
         del(deli)
-        run(onefile, dict(options))
+        #run(onefile, dict(options))
+        run(onefile, options) #no need for cast
     
     if 'plt' in globals():
         onefile.plt.show()

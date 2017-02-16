@@ -47,4 +47,10 @@ setup(name =                'sdfconf',
                               'Topic :: Scientific/Engineering :: Chemistry' ,
                               'Topic :: Software Development :: Libraries',
                               ], 
+      ##FIXME
+      #'''
+      #package_data = {
+      #    'sample':['sample_data.sdf']
+      #    },
+      #'''
       )

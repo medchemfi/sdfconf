@@ -26,6 +26,12 @@ try:
 except NameError:
     iterange = range
 
+import matplotlib as mpl
+mplback = mpl.get_backend()
+mpl.use('Agg')
+#import matplotlib.pyplot as plt
+        
+
 class Sdffile(object):
     '''
     Class that represents one .sdf-file. Includes all molecules in nested dictionaries, first by molecule name, then by conformation number.
@@ -766,13 +772,16 @@ class Sdffile(object):
                 mol._meta[key].numerize()
     
     def histogrammer(self, Xname, Yname=None, **kwargs):
+        mpl.use(mplback)
         import matplotlib.pyplot as plt
-        import matplotlib as mpl
+        #import matplotlib as mpl
         #from matplotlib  import cm
         
         #print(Xname)
         #print(Yname)
         #print(kwargs)
+        
+        
         
         self.plt = plt
         if 'ex' in kwargs:
@@ -862,9 +871,13 @@ class Sdffile(object):
             
             self.plt.hist(*larg,**kwargs) #kwargs?
         else:
+            #from mpl.cm import jet as cmap
+            #cm = mpl.cm
+            #cmap = cm.get('jet')
             cmap = mpl.cm.jet
             #cmap = cm.jet
             #cmap = cm.get('jet')
+            #cmap = mpl.cm.get('jet')
             X=self.plt.hist2d(datas[0],datas[1],**kwargs)[0]
             
             ticks=list(numpy.arange(numpy.max(X)+1))
@@ -1487,7 +1500,7 @@ class Sdfmole(object):
         new._numeric        = self._numeric
         new._ignoretype     = list(self._ignoretype)
         new._comment        = list(self._comment)
-        if new.numeric:
+        if new._numeric:
             new._counts     = list(self._counts)
             new._atoms      = list(self._atoms)
             new._bonds      = list(self._bonds)
