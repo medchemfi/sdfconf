@@ -443,6 +443,9 @@ class Sdffile(object):
         except for those in that list.
         '''
         metalist = self.listmetas()
+        
+        #print metalist
+        
         if '?' in listofmetas:
             for meta in listofmetas:
                 if meta == '?':
@@ -450,11 +453,14 @@ class Sdffile(object):
                 metalist.remove(meta)
             listofmetas = metalist
         else:
+            pass
+            '''
             for meta in list(listofmetas):
                 if meta not in metalist:
                     listofmetas.remove(meta)
+            '''
+        #FIXME: doesn't understand metastatements for starters.
         return listofmetas
-    
     
     def makeCsvStr(self, stringofmetas, **kwargs):
         '''
@@ -463,6 +469,12 @@ class Sdffile(object):
         '''
         
         liargs, diargs = kwarger(stringofmetas, [',',';'])
+        
+        print stringofmetas
+        
+        print liargs
+        print diargs
+        
         kwargs = dict(kwargs)
         for key in diargs:
             kwargs[key] = diargs[key]
@@ -472,6 +484,10 @@ class Sdffile(object):
         
         #metalist = self.csvStrSplit(stringofmetas)
         metalist = self.getMetas(liargs)
+        
+        
+        print metalist
+        print kwargs
         
         
         if not atomic:
@@ -505,6 +521,28 @@ class Sdffile(object):
         if len(listofmeta) == 0:
             listofmeta = self.listmetas()
         csv = [separator.join(listofmeta)]
+        metadis = [self.getmollogic(metastatement) for metastatement in listofmeta]
+        for info in self._orderlist:
+            line = []#[mol._name]
+            #fail = False
+            for metadi in metadis:
+                try:
+                    meta = metadi[info[0]][info[1]]
+                    if len(meta)>1 or meta.isStr() or meta._datastruct == OrDi:
+                        line.append('"'+meta.getmetastr()+'"')
+                    else:
+                        line.append(meta.getmetastr())
+                except KeyError:
+                    #fail = True
+                    #break
+                    line.append('""')
+            csv.append(separator.join(line))
+                
+                
+            #mol = self._dictomoles[info[0]][info[1]]
+            
+            
+        '''
         for info in self._orderlist:
             mol = self._dictomoles[info[0]][info[1]]
             line = []#[mol._name]
@@ -523,6 +561,7 @@ class Sdffile(object):
                 else:
                     line.append('""')
             csv.append(separator.join(line))
+        '''
         return csv
     
     def makeAtomicCsv(self,listofmeta,separator='\t'):
@@ -533,6 +572,62 @@ class Sdffile(object):
         #listofmeta = [met.strip() for met in re.split('\s*[,;]\s*',stringofmetas)]
         
         csv = [separator.join(['atom_number'] + listofmeta)]
+        
+        #new stuff
+        metadis = [self.getmollogic(metastatement) for metastatement in listofmeta]
+        for info in self._orderlist:
+            #mol = self._dictomoles[info[0]][info[1]]
+            
+            keys=set()
+            for metadi in metadis:
+                '''
+                if not meta in mol._meta:
+                    continue
+                elif mol.getmeta( meta )._datastruct == OrDi:
+                    
+                    for key in mol.getmeta( meta )._data.keys():
+                        keys.add(key)
+                '''
+                try:
+                    meta = metadi[info[0]][info[1]]
+                    
+                    if meta._datastruct == OrDi:
+                        '''
+                        for key in meta._data.keys():
+                            keys.add(key)
+                        '''
+                        keys.update(meta._data.keys())
+                except KeyError:
+                    continue
+                
+            for key in keys:
+                newline = [str(key)]
+                
+                for metadi in metadis:
+                    try:
+                        meta = metadi[info[0]][info[1]]
+                        if meta._datastruct == OrDi:
+                            #newline.append(str(mol.getmeta(meta)._data.get(key,"NA")))
+                            newline.append(meta._data.get(key,'""'))
+                        else:
+                            newline.append(meta.getmetastr())
+                        
+                    except KeyError:
+                        newline.append('""')
+                        #pass
+                        #continue
+                    #if not meta in mol._meta:
+                        #newline.append("NA")
+                        #newline.append('""')
+                    '''
+                    elif mol.getmeta(meta)._datastruct == OrDi:
+                        #newline.append(str(mol.getmeta(meta)._data.get(key,"NA")))
+                        newline.append(str(mol.getmeta(meta)._data.get(key,'""')))
+                    else:
+                        newline.append(mol.getmeta(meta).getmetastr())
+                    '''
+                csv.append(separator.join(newline))
+        '''
         for info in self._orderlist:
             mol = self._dictomoles[info[0]][info[1]]
             
@@ -557,6 +652,7 @@ class Sdffile(object):
                     else:
                         newline.append(mol.getmeta(meta).getmetastr())
                 csv.append(separator.join(newline))
+        '''
         return csv
         
     def listmetas(self):
@@ -898,7 +994,148 @@ class Sdffile(object):
             self.plt.ylabel(Yname)
         if 'title' in newargs:
             self.plt.title(newargs['title'])
+        
     
+    def scatter(self, Xname, Yname, **kwargs):
+        mpl.use(mplback)
+        import matplotlib.pyplot as plt
+        
+        self.plt = plt
+        if 'ex' in kwargs:
+            sdf = copy.copy(self)
+            sdf.mollogicparse(kwargs['ex'])
+            del(kwargs['ex'])
+        else:
+            sdf = self
+        newargs = dict()
+        titargs = ['Xtitle','Ytitle','title']
+        for key in kwargs:
+            if key in titargs:
+                newargs[key]=kwargs[key]
+        for key in newargs:
+            del(kwargs[key])
+        
+        datas = [[],[]]
+        almetas = [sdf.getmollogic(Xname), sdf.getmollogic(Yname)]
+        
+        if 'group' in kwargs:
+            datas.append([])
+            almetas.append(sdf.getmollogic(kwargs.get('group')))
+        else:
+            pass
+        
+        for molname, confn in self.keys():
+            #for mol in sdf:
+            #    molname = mol.getname()
+            #    confn = mol.getconfn()
+            
+            #print('{}:{}'.format(molname,mol.getconf()))
+            
+            mol = self.getMolecule(molname, confn)
+            
+            try:
+                #metas = tuple( almeta[molname][confn] for almeta in almetas )
+                metas = tuple( almeta[molname][confn] for almeta in almetas )
+            except KeyError:
+                continue
+            if 0 in lmap(len, metas): #skips 0 len metas
+                continue
+            try:
+                minlen = min( {len(meta) for meta in metas}-{1} ) # shortest list length, ignore singles
+            except ValueError:
+                minlen = 1
+            try:
+                structs = set([meta._datastruct for meta in metas])-{'single'}
+            except StopIteration:
+                pass
+            
+            if OrDi in structs:
+                keys = None
+                keyorder = None
+                for meta in metas:
+                    if meta._datastruct == OrDi:
+                        if not keys:
+                            keys = set(meta._data.keys())
+                        else:
+                            keys.intersection_update(set(meta._data.keys()))
+                        if not keyorder:
+                            keyorder = list(meta._data.keys())
+                        if len(keys) == 0:
+                            break
+                keyorder = [key for key in keyorder if key in keys][:minlen]
+            for i, meta in enumerate(metas): 
+                if meta._datastruct == 'single':
+                    datas[i].extend(meta._data[:1] * minlen)
+                elif meta._datastruct == list:
+                    datas[i].extend(meta._data[:minlen])
+                elif meta._datastruct == OrDi:
+                    try:
+                        datas[i].extend([meta._data[key] for key in keyorder])
+                    except KeyError:
+                        print(mol._name)
+                        print(meta._data)
+                        print(keyorder)
+                        raise KeyError(str(key))
+            
+        self.plt.figure()
+        '''
+        if not Yname:
+            larg=[datas[0]]
+            #print(len(datas))
+            #print(datas)
+            if 'bins' in kwargs:
+                larg.append(kwargs['bins'])
+                del(kwargs['bins'])
+            
+            self.plt.hist(*larg,**kwargs) #kwargs?
+        else:
+            #from mpl.cm import jet as cmap
+            #cm = mpl.cm
+            #cmap = cm.get('jet')
+            cmap = mpl.cm.jet
+            #cmap = cm.jet
+            #cmap = cm.get('jet')
+            #cmap = mpl.cm.get('jet')
+            X=self.plt.hist2d(datas[0],datas[1],**kwargs)[0]
+            
+            ticks=list(numpy.arange(numpy.max(X)+1))
+            skip = int(round(float(len(ticks))/20))
+            if skip>1:
+                ticks = numpy.array(ticks[:1] + ticks[skip:-skip:skip] + ticks[-1:])
+            norm = mpl.colors.BoundaryNorm(numpy.arange(-0.5,numpy.max(X)+1.5), cmap.N)
+            cbar = self.plt.colorbar()
+            cbar = mpl.colorbar.ColorbarBase(cbar.ax , cmap=cmap,norm=norm,ticks=ticks,spacing='proportional')
+        '''
+        grudata = dict()
+        if len(datas) == 3:
+            for i in range(len(datas[0])):
+                gru = str(datas[2][i])
+                if not gru in grudata:
+                    grudata[gru] = []
+                grudata[gru].append((datas[0][i], datas[1][i]))
+            for gru in grudata:
+                grudata[gru] = zip(*grudata[gru])
+        else:
+            grudata[''] = datas
+        
+        for gru in sorted(grudata.keys()):
+            data = grudata[gru]
+            plt.plot(data[0], data[1], marker='.', label = gru, linestyle='')
+        
+        if kwargs.get('legend', True):
+            plt.legend(loc='best')
+        
+        if 'Xtitle' in newargs:
+            self.plt.xlabel(newargs['Xtitle'])
+        else:
+            self.plt.xlabel(Xname)
+        if 'Ytitle' in newargs:
+            self.plt.ylabel(newargs['Ytitle'])
+        elif Yname:
+            self.plt.ylabel(Yname)
+        if 'title' in newargs:
+            self.plt.title(newargs['title'])
+            
     def show(self):
         self.plt.show()
     
@@ -906,7 +1143,7 @@ class Sdffile(object):
         '''
         plots is a list of strings, as in command line.
         '''
-        print(plots)
+        #print(plots)
         showflag=True
         for plot in plots:
             path=None
@@ -934,6 +1171,43 @@ class Sdffile(object):
                 showflag=False
                 larg.remove('noplot')
             self.histogrammer(*larg,**darg)
+            if path:
+                self.plt.savefig(path, bbox_inches='tight')
+        if showflag:
+            self.show()
+            
+    def scatterFromListOfStrings(self,plots):
+        '''
+        plots is a list of strings, as in command line.
+        '''
+        #print(plots)
+        showflag=True
+        for plot in plots:
+            path=None
+            #params = functions.splitter(plot)
+            larg, darg = kwarger(plot)
+            '''
+            larg = []
+            darg = dict()
+            for para in params:
+                things = Sdfmeta.compsplit(para, ('=',))
+                if len(things)==3:
+                    darg[things[0]]=things[2]
+                else:
+                    larg.append(para)
+                
+            
+            for key in darg:
+                darg[key]=functions.lister(darg[key])
+                darg[key]=functions.numify(darg[key])
+            '''
+            if 'save' in darg:
+                path=darg['save']
+                del(darg['save'])
+            if 'noplot' in larg:
+                showflag=False
+                larg.remove('noplot')
+            self.scatter(*larg,**darg)
             if path:
                 self.plt.savefig(path, bbox_inches='tight')
         if showflag:
@@ -1129,6 +1403,41 @@ class Sdffile(object):
         
         molloop()
         return metadic
+    
+    def getGenMollogic(self, string):
+        '''
+        return single meta for all conformations inside a nested dict like _dictomoles
+        meta is made from meta expression in given string
+        '''
+        
+        #metadic = dict()
+        mylevel = Sdfmeta.levels(string)
+        
+        def confloop(mol):
+            #Loop through conformations of single type  molecule
+            precalc = dict()
+            for confnum in self._dictomoles[mol]:
+                try:
+                    newmet = self._dictomoles[mol][confnum].molelogic(mylevel, precalc, self._dictomoles[mol])
+                except (ValueError, AttributeError):
+                    newmet = None
+                #if newmet and len(newmet)>0:
+                    #metadic[mol][confnum] = newmet
+                yield (mol, confnum, newmet)
+            '''
+            if len(metadic[mol])==0:
+                del(metadic[mol])
+            '''
+        
+        def molloop():
+            #Loop through types of molecules
+            for mol in self._dictomoles:
+                #metadic[mol] = dict()
+                confloop(mol)
+        
+        molloop()
+        #return metadic
+    
     
     def orderbymeta(self,sortstring):
         '''
@@ -1966,8 +2275,10 @@ class Sdfmole(object):
             reva[key] = functions.numify(reva[key].strip()) if isinstance(reva[key], string_types) else functions.numify(reva[key]) 
         return reva
     
+    ''
     def molelogic(self, mylevel, precalc=dict(), dictomo=dict()):
-        
+        #def molelogic(self, mylevel, precalc=dict(), dictomo=dict()):
+    
         if len(dictomo)==0:
             dictomo={'me':self}
         
@@ -2102,8 +2413,10 @@ class Sdfmole(object):
                                 f1 = Sdfmeta()
                             #else:
                             #    f1 = Sdfmeta()
+                        '''
                         if tab[0] in ('++','--'):
                             print "join/cut {}".format(tab)
+                        '''
                         return Sdfmeta.metaoper(maths[tab[0]],[f1,tabiter(conf, tab[2])])
                     else:
                         metaus = tabiter(conf, tab[:2], None)
@@ -2563,8 +2876,8 @@ class Sdfmeta(object):
         if len(pars)<2:
             return [string]
         
-        curpar = None
-        backpar = None
+        curpar = []
+        backpar = []
         
         if pars[0][1]>0:
             stastring = string[:pars[0][1]]
@@ -2579,17 +2892,17 @@ class Sdfmeta(object):
                     addy = string[backpar[1]+1:curpar[1]]
                     if len(addy) > 0:
                         tab.append(addy)
-                    backpar = None
+                    backpar = []
             elif item[0] == pair[curpar[0]]:
                 level -= 1
                 if level == 0:
                     if curpar[0] in ("'",'"'):
                         tab.append((curpar[0],string[curpar[1]+1:item[1]]))
-                        curpar = None
+                        curpar = []
                         backpar = item
                     else:
                         tab.append((curpar[0],Sdfmeta.leveler(string[curpar[1]+1:item[1]])))
-                        curpar = None
+                        curpar = []
                         backpar = item
             elif item[0] == curpar[0]:
                 level += 1
