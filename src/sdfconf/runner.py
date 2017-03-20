@@ -73,6 +73,7 @@ class Runner(object):
              ('pickmeta','pm'), 
              ('putmol2','pm2'), 
              ('histogram','hg'), 
+             ('scatter','sca'), 
              ('getcsv','gc'), 
              ('getatomcsv','gac'), 
              ('metalist','ml'), 
@@ -100,9 +101,11 @@ class Runner(object):
                      )
     '''
     
+    
     singulars =    ('overwrite', 'verbose', 'conftofield', 'conftoname', 'removeconfname',
                      'removeconfmeta', 'makefolder', 'metalist', 'donotprint',
                      )
+    
     
     #listbatch = ()
     
@@ -110,6 +113,8 @@ class Runner(object):
     writetypes =    {'getcsv':True,'getatomcsv':True,'metalist':True,'counts':True,'donotprint':True,'sdf':True,'split':False,'makefolder':False} #default 'sdf'
     parametricwrite =   ('getcsv', 'getatomcsv', )
     graphers =      ('histogram', 'scatter')
+    
+    initials = singulars + graphers +  ('extract', ) 
     
     def __init__(self, options=dict()):
         
@@ -183,50 +188,256 @@ class Runner(object):
         
         NoLamb = lambda : None
         def extMes(n):
+            '''
             mypropo = ' ' + self.sdf.propomes(self.propor)
             mypropo = mypropo.replace('{','{{')
             mypropo = mypropo.replace('}','}}')
+            '''
+            mypropo = []
+            for pro in self.propor:
+                txt  = '  ' + self.sdf.propomes(pro)
+                txt = txt.replace('{','{{')
+                txt = txt.replace('}','}}')
+                mypropo.append(txt)
+            
             messes = (
-                      lambda : ('\n'.join((' After logical chop {}, sdf-file has {} molecules and {} conformations left.',mypropo)).strip('\n') ,(param,len(self.sdf._dictomoles),len(self.sdf))), 
-                      lambda : ('\n'.join(('Initially sdf-file has {} molecules and {} conformations.',mypropo)).strip(),(len(self.sdf._dictomoles),len(self.sdf))), 
+                      #lambda : ('\n'.join((' After logical chop {}, sdf-file has {} molecules and {} conformations left.', mypropo)).strip('\n') ,(param,len(self.sdf._dictomoles),len(self.sdf))), 
+                      #lambda : ('\n'.join((' After logical chop {}, sdf-file has {} molecules and {} conformations left.', mypropo)).rstrip() ,(param,len(self.sdf._dictomoles),len(self.sdf))), 
+                      #lambda : ('\n'.join(('Initially sdf-file has {} molecules and {} conformations.',mypropo)).strip(),(len(self.sdf._dictomoles),len(self.sdf))), 
+                      lambda : ('\n'.join([' After logical chop {}, sdf-file has {} molecules and {} conformations left.',] + mypropo).rstrip() ,(param,len(self.sdf._dictomoles),len(self.sdf))), 
+                      lambda : ('\n'.join(['Initially sdf-file has {} molecules and {} conformations.',] + mypropo).strip(),(len(self.sdf._dictomoles),len(self.sdf))), 
                       lambda : (' Chopping complete, it took {} seconds.',(timedif(),)) 
                       )
             return messes[n]
             
         tasks =   {
-                    'conftofield'    :lambda i : (self.sdf.addconfs, lambda : ((False,True),),      NoLamb,NoLamb,lambda : ('Conformation numbers added to metadata. It took {} seconds.', (timedif(),)))[i], 
-                    'conftoname'     :lambda i : (self.sdf.addconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers added to names. It took {} seconds.', (timedif(),)))[i], 
-                    'removeconfname' :lambda i : (self.sdf.remconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers removed from names. It took {} seconds.',(timedif(),)))[i], 
-                    'removeconfmeta' :lambda i : (self.sdf.remconfs, lambda : ((True,False),),      NoLamb,NoLamb,lambda : ('Conformation numbers removed from metafield \'confnum\'. It took {} seconds.',(timedif(),)))[i], 
-                    'nametometa'     :lambda i : (self.sdf.nametometa, lambda : (param,),           NoLamb,NoLamb,lambda : ('Name written to metafieldfield {}. It took {} seconds.',(param,timedif())))[i], 
-                    'metatoname'     :lambda i : (self.sdf.metatoname, lambda : (param,),           NoLamb,NoLamb,lambda : ('Metafield written to name {}. It took {} seconds.',(param,timedif())))[i],
-                    'removemeta'     :lambda i : (self.sdf.removemeta, lambda : (param, False),      lambda : ('Metafieldfield(s) in ({}) Removed. It took {} seconds.',(param,timedif())),NoLamb,NoLamb)[i], 
-                    'pickmeta'       :lambda i : (self.sdf.removemeta, lambda : (param, True),       lambda : ('All metafields except those in ({}) Removed. It took {} seconds.',(param,timedif())),NoLamb,NoLamb)[i], 
-                    'getmol2'        :lambda i : (self.sdf.getMol2DataStr, lambda : (param,),       NoLamb,NoLamb,NoLamb)[i], 
-                    'closestatoms'   :lambda i : (self.sdf.closestStr, lambda : (param,),                  lambda : (' Calculated distances to atoms from point {}.',(param, )), lambda : ('Calculate point of interest distances.',()), lambda : (' Distances calculated, it took {} seconds.',(timedif(),)))[i], 
-                    'closeratoms'    :lambda i : (lambda x: self.sdf.closer(*functions.splitter(x)), lambda : (param,),     NoLamb,NoLamb,NoLamb)[i], 
-                    'changemeta'     :lambda i : (lambda x: self.sdf.changemetaname([item.strip() for item in x.split('>')]), lambda : (param,), NoLamb, NoLamb, NoLamb)[i], 
-                    'sortorder'      :lambda i : (self.sdf.sortme, lambda : (param,),               lambda : ('Sort {} done.',(param,)),NoLamb,NoLamb)[i], 
-                    'stripbutmeta'   :lambda i : (self.sdf.stripbutmeta, lambda : (param,),         lambda : ('All atoms, execpt for those in statement {} removed!',(param,)),NoLamb,NoLamb)[i], 
-                    'extract'        :lambda i : (self.sdf.mollogicparse, lambda : (param,),        extMes(0),extMes(1),extMes(2))[i],
-                    'makenewmeta'    :lambda i : (self.sdf.makenewmetastr, lambda : (param,),       lambda : (' New metafield {} made.',(param,)), lambda : ('Make new metafields.',()), lambda : (' Making new metafields done. It took {} seconds.',(timedif(),)))[i], 
-                    'addcsv'         :lambda i : (self.sdf.addCsvMeta, lambda : (param, ), lambda : ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i],
-                    'addatomiccsv'   :lambda i : (self.sdf.addAtomicCsvMeta, lambda : (param, ), lambda : ('Dictionary metadata from atomic csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i], 
+                    'conftofield'    :lambda i : (
+                        self.sdf.addconfs,
+                        lambda : ((False,True),),
+                        NoLamb,
+                        NoLamb,
+                        lambda : ('Conformation numbers added to metadata. It took {} seconds.', (timedif(),))
+                        )[i], 
+                    'conftoname'     :lambda i : (
+                        self.sdf.addconfs,
+                        lambda : ((True,False),),
+                        NoLamb,
+                        NoLamb,
+                        lambda : ('Conformation numbers added to names. It took {} seconds.', (timedif(),))
+                        )[i], 
+                    'removeconfname' :lambda i : (
+                        self.sdf.remconfs,
+                        lambda : ((True,False),),
+                        NoLamb,
+                        NoLamb,
+                        lambda : ('Conformation numbers removed from names. It took {} seconds.',(timedif(),))
+                        )[i], 
+                    'removeconfmeta' :lambda i : (
+                        self.sdf.remconfs,
+                        lambda : ((True,False),),
+                        NoLamb,
+                        NoLamb,
+                        lambda : ('Conformation numbers removed from metafield \'confnum\'. It took {} seconds.',(timedif(),))
+                        )[i], 
+                    'nametometa'     :lambda i : (
+                        self.sdf.nametometa,
+                        lambda : (param,),
+                        NoLamb,
+                        NoLamb,
+                        lambda : ('Name written to metafieldfield {}. It took {} seconds.',(param,timedif()))
+                        )[i], 
+                    'metatoname'     :lambda i : (
+                        self.sdf.metatoname,
+                        lambda : (param,),
+                        NoLamb,
+                        NoLamb,
+                        lambda : ('Metafield written to name {}. It took {} seconds.',(param,timedif()))
+                        )[i],
+                    'removemeta'     :lambda i : (
+                        self.sdf.removemeta,
+                        lambda : (param, False),
+                        lambda : ('Metafieldfield(s) in ({}) Removed. It took {} seconds.',(param,timedif())),
+                        NoLamb,
+                        NoLamb
+                        )[i], 
+                    'pickmeta'       :lambda i : (
+                        self.sdf.removemeta,
+                        lambda : (param, True),
+                        lambda : ('All metafields except those in ({}) Removed. It took {} seconds.',(param,timedif())),
+                        NoLamb,
+                        NoLamb
+                        )[i], 
+                    'getmol2'        :lambda i : (
+                        self.sdf.getMol2DataStr,
+                        lambda : (param,),
+                        NoLamb,
+                        NoLamb,
+                        NoLamb
+                        )[i], 
+                    'closestatoms'   :lambda i : (
+                        self.sdf.closestStr,
+                        lambda : (param,),
+                        lambda : (' Calculated distances to atoms from point {}.',(param, )),
+                        lambda : ('Calculate point of interest distances.',()), 
+                        lambda : (' Distances calculated, it took {} seconds.',(timedif(),))
+                        )[i], 
+                    'closeratoms'    :lambda i : (
+                        lambda x: self.sdf.closer( *( functions.splitter(x) ) ),
+                        lambda : (param,),
+                        NoLamb,
+                        NoLamb,
+                        NoLamb
+                        )[i], 
+                    'changemeta'     :lambda i : (
+                        lambda x: self.sdf.changemetaname(*[item.strip() for item in x.split('>')]),
+                        lambda : (param,),
+                        NoLamb,
+                        NoLamb,
+                        NoLamb
+                        )[i], 
+                    'sortorder'      :lambda i : (
+                        self.sdf.sortme,
+                        lambda : (param,),
+                        lambda : ('Sort {} done.',(param,)),
+                        NoLamb,
+                        NoLamb
+                        )[i], 
+                    'stripbutmeta'   :lambda i : (
+                        self.sdf.stripbutmeta,
+                        lambda : (param,),
+                        lambda : ('All atoms, execpt for those in statement {} removed!',(param,)),
+                        NoLamb,
+                        NoLamb
+                        )[i], 
+                    'extract'        :lambda i : (
+                        self.sdf.mollogicparse,
+                        lambda : (param,),
+                        extMes(0),
+                        extMes(1),
+                        extMes(2)
+                        )[i],
+                    'makenewmeta'    :lambda i : (
+                        self.sdf.makenewmetastr,
+                        lambda : (param,),
+                        lambda : (' New metafield {} made.',(param,)),
+                        lambda : ('Make new metafields.',()),
+                        lambda : (' Making new metafields done. It took {} seconds.',(timedif(),))
+                        )[i], 
+                    'addcsv'         :lambda i : (
+                        self.sdf.addCsvMeta,
+                        lambda : (param, ),
+                        lambda : ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif(),)),
+                        NoLamb,
+                        NoLamb
+                        )[i],
+                    'addatomiccsv'   :lambda i : (
+                        self.sdf.addAtomicCsvMeta,
+                        lambda : (param, ),
+                        lambda : ('Dictionary metadata from atomic csv-file {} added. It took {} seconds.',(param,timedif(),)),
+                        NoLamb,
+                        NoLamb
+                        )[i], 
                     #'addcsv'         :lambda i : (self.sdf.addCsvMeta, lambda : param, lambda : ('Metadata from csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i],
                     #'addatomiccsv'   :lambda i : (self.sdf.addAtomicCsvMeta, lambda : param, lambda : ('Dictionary metadata from atomic csv-file {} added. It took {} seconds.',(param,timedif(),)),NoLamb,NoLamb)[i], 
-                    'input'          :lambda i : (self.sdf.xreadself, lambda : (param,),            NoLamb, lambda : ('Starting to read file {}',(param,)), lambda : (' Reading file done. It took {} seconds.', (timedif(),)))[i],
-                    'verbose'        :lambda i : (self.setVerbose, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Verbose enabled.' if param else 'Verbose disabled.',()))[i], 
-                    'ignores'        :lambda i : (self.setIgnores, lambda : (param,) ,NoLamb, NoLamb, lambda : ('Ignores set to {}.',(param,)))[i], 
-                    'config'         :lambda i : (self.runConfig, lambda : (param,),                lambda : (' Config-file {} done.',(param,)), lambda : ('Run config-files.',()), lambda : (' Running config-files done',()))[i], 
-                    'histogram'      :lambda i : (self.sdf.histogramFromListOfStrings, lambda : (param,),    NoLamb, lambda : ('Start plotting',()), lambda : (' Plotting done',()))[i], 
-                    'cut'            :lambda i : (lambda x :self.sdf.listremove(Sdffile(x.strip()),True), lambda : (param,), lambda : ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
-                    'allcut'         :lambda i : (lambda x :self.sdf.listremove(Sdffile(x.strip()),False), lambda : (param,), lambda : ('Removing all molecules (matching confnum) present in {} complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
-                    'combine'        :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,True),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), lambda : (param,), lambda : ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
-                    'allcombine'     :lambda i : (lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,False),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), lambda : (param,), lambda : ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif())), NoLamb, NoLamb)[i], 
-                    'proportion'     :lambda i : (self.setPropor, lambda : (param,) ,NoLamb, NoLamb, (lambda : ('Propor set to {}.',(param,))) if param else NoLamb )[i], 
-                    'putmol2'        :lambda i : (lambda x :self.sdf.injectMol2DataStr(x.strip()), lambda : (param,), lambda : ('Injection "{}" done.', (param,)) , NoLamb, NoLamb)[i],
-                    'addescape'      :lambda i : (self.sdf.escapeStr, lambda : (param, False), lambda : ('Escape number from {} added. It took {} seconds.',(param, timedif())), lambda : ('Calculating escape numbers...', ()), NoLamb)[i],
-                    'addinside'      :lambda i : (self.sdf.escapeStr, lambda : (param, True), lambda : ('Inside number from {} added. It took {} seconds.',(param, timedif())), lambda : ('Calculating inside numbers...', ()), NoLamb)[i],
+                    'input'          :lambda i : (
+                        self.sdf.xreadself,
+                        lambda : (param,),
+                        NoLamb,
+                        lambda : ('Starting to read file {}',(param,)),
+                        lambda : (' Reading file done. It took {} seconds.', (timedif(),))
+                        )[i],
+                    'verbose'        :lambda i : (
+                        self.setVerbose,
+                        lambda : (param,),
+                        NoLamb,
+                        NoLamb,
+                        lambda : ('Verbose enabled.' if param else 'Verbose disabled.',())
+                        )[i], 
+                    'ignores'        :lambda i : (
+                        self.setIgnores,
+                        lambda : (param,),
+                        NoLamb,
+                        NoLamb,
+                        lambda : ('Ignores set to {}.',(param,))
+                        )[i], 
+                    'config'         :lambda i : (
+                        self.runConfig,
+                        lambda : (param,),
+                        lambda : (' Config-file {} done.',(param,)),
+                        lambda : ('Run config-files.',()),
+                        lambda : (' Running config-files done',())
+                        )[i], 
+                    'histogram'      :lambda i : (
+                        self.sdf.histogramFromListOfStrings,
+                        lambda : (param,),
+                        NoLamb,
+                        lambda : ('Start plotting histograms',()),
+                        lambda : (' Plotting done',())
+                        )[i], 
+                    'scatter'        :lambda i : (
+                        self.sdf.scatterFromListOfStrings,
+                        lambda : (param,),
+                        NoLamb,
+                        lambda : ('Start plotting scatter plots',()),
+                        lambda : (' Plotting done',())
+                        )[i], #FIXME
+                    'cut'            :lambda i : (
+                        lambda x :self.sdf.listremove(Sdffile(x.strip()),True),
+                        lambda : (param,),
+                        lambda : ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif())),
+                        NoLamb,
+                        NoLamb
+                        )[i], 
+                    'allcut'         :lambda i : (
+                        lambda x :self.sdf.listremove(Sdffile(x.strip()),False),
+                        lambda : (param,),
+                        lambda : ('Removing all molecules (matching confnum) present in {} complete. It took {} seconds.', (param, timedif())),
+                        NoLamb,
+                        NoLamb
+                        )[i], 
+                    'combine'        :lambda i : (
+                        lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,True),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
+                        lambda : (param,), 
+                        lambda : ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif())), 
+                        NoLamb, 
+                        NoLamb
+                        )[i], 
+                    'allcombine'     :lambda i : (
+                        lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,False),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
+                        lambda : (param,), 
+                        lambda : ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif())), 
+                        NoLamb, 
+                        NoLamb
+                        )[i], 
+                    'proportion'     :lambda i : (
+                        self.setPropor,
+                        lambda : (param,),
+                        NoLamb,
+                        NoLamb, 
+                        (lambda : ('Propor set to {}.',(param,))) if param else NoLamb 
+                        )[i], 
+                    #'putmol2'        :lambda i : (lambda x :self.sdf.injectMol2DataStr(x.strip()), lambda : (param,), lambda : ('Injection "{}" done.', (param,)) , NoLamb, NoLamb)[i],
+                    'putmol2'        :lambda i : (
+                        self.sdf.injectMol2DataStr,
+                        lambda : (param,),
+                        lambda : ('Injection "{}" done.', (param,)) ,
+                        NoLamb,
+                        NoLamb
+                        )[i],
+                    'addescape'      :lambda i : (
+                        self.sdf.escapeStr,
+                        lambda : (param, False),
+                        lambda : ('Escape number from {} added. It took {} seconds.',(param, timedif())),
+                        lambda : ('Calculating escape numbers...', ()),
+                        NoLamb
+                        )[i],
+                    'addinside'      :lambda i : (
+                        self.sdf.escapeStr,
+                        lambda : (param, True),
+                        lambda : ('Inside number from {} added. It took {} seconds.',(param, timedif())),
+                        lambda : ('Calculating inside numbers...', ()),
+                        NoLamb
+                        )[i],
                    }
         selector = {'func':0,'loop':2,'initial':3,'final':4}
         
@@ -276,8 +487,11 @@ class Runner(object):
                 
             params = (params,)
                 
-            self.messenger('initial', option, params)
+            #self.messenger('initial', option, params)
             #print('option:{}; params:{}, fromconfig:{}'.format(option,params,fromconfig))
+        
+        if option in Runner.initials:
+            self.messenger('initial', option, params)
         
         if option == 'input':
             self.messenger('initial', option, params)
@@ -291,6 +505,8 @@ class Runner(object):
                 self.writetype = option
             if option in Runner.parametricwrite:
                 self.wriarg[option] = params[0]
+                #if option == 'output':
+                
             else:
                 self.wriarg[option] = params
             #self.wriarg[option]=params
@@ -298,7 +514,7 @@ class Runner(object):
         elif option in Runner.writers:
             writers = {'overwrite':lambda x : self.inpath, 'output': lambda x : x, 'stdout': lambda x: None} #default stdout
             try:
-                self.wriarg['path'] = writers.get(option, None)(params)
+                self.wriarg['path'] = writers.get(option, None)(params)[0]
             except TypeError:
                 pass
             self.writer = option
@@ -405,7 +621,8 @@ def main(arguments=None):
     arger.add_argument("-mnm", "--makenewmeta", type = str, nargs='+', metavar='newmeta=metastatement',     help = "Makes a new metafield based on metastatement.")
     arger.add_argument("-cm", "--changemeta", type = str, nargs='+',   metavar='olname1>newname1' , help = "Changes names of metafields. [olname1>newname1|oldname2>newname2].")
     arger.add_argument("-so", "--sortorder", type = str, nargs='+',    metavar='meta', help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name.")
-    arger.add_argument("-hg", "--histogram", type = str, nargs='+',    metavar="X-metastatement [,Y-metastatement] [,title=figtitle] [,Xtitle=x-axel [,Ytitle=y-axel]] [,args]",        help = "Plots a 1D or 2D histogram, multiple plots with '|'.")
+    arger.add_argument("-hg", "--histogram", type = str, nargs='+',    metavar="X-metastatement [,Y-metastatement] [,title=figtitle] [,Xtitle=x-axel [,Ytitle=y-axel]] [,args]",        help = "Plots a 1D or 2D histogram. Multiple plots as separate strings.")
+    arger.add_argument("-sca", "--scatter", type = str, nargs='+',    metavar="X-metastatement ,Y-metastatement [,group-metastatement] [,title=figtitle] [,Xtitle=x-axel [,Ytitle=y-axel]] [,args]",        help = "Plots a scatter plot. Multiple plots as separate strings.")
     
     arger.add_argument("-gm2", "--getmol2", type = str, nargs='+', metavar='pathto.mol2,column,metaname',         help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata.")#meta column path
     arger.add_argument("-pm2", "--putmol2", type = str, nargs='+',     metavar='input.mol2,output.mol2, column, metastatement, default, precision',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
