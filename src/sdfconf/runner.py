@@ -114,7 +114,7 @@ class Runner(object):
     parametricwrite =   ('getcsv', 'getatomcsv', )
     graphers =      ('histogram', 'scatter')
     
-    initials = singulars + graphers +  ('extract', ) 
+    initials = singulars + graphers +  ('extract', 'addescape', 'addinside', 'closestatoms', 'closeratoms', ) 
     
     def __init__(self, options=dict()):
         
@@ -213,28 +213,32 @@ class Runner(object):
         tasks =   {
                     'conftofield'    :lambda i : (
                         self.sdf.addconfs,
-                        lambda : ((False,True),),
+                        #lambda : ((False,True),),
+                        lambda : (False,True,),
                         NoLamb,
                         NoLamb,
                         lambda : ('Conformation numbers added to metadata. It took {} seconds.', (timedif(),))
                         )[i], 
                     'conftoname'     :lambda i : (
                         self.sdf.addconfs,
-                        lambda : ((True,False),),
+                        #lambda : ((True,False),),
+                        lambda : (True,False,),
                         NoLamb,
                         NoLamb,
                         lambda : ('Conformation numbers added to names. It took {} seconds.', (timedif(),))
                         )[i], 
                     'removeconfname' :lambda i : (
                         self.sdf.remconfs,
-                        lambda : ((True,False),),
+                        #lambda : ((True,False),),
+                        lambda : (True,False,),
                         NoLamb,
                         NoLamb,
                         lambda : ('Conformation numbers removed from names. It took {} seconds.',(timedif(),))
                         )[i], 
                     'removeconfmeta' :lambda i : (
                         self.sdf.remconfs,
-                        lambda : ((True,False),),
+                        #lambda : ((True,False),),
+                        lambda : (True,False,),
                         NoLamb,
                         NoLamb,
                         lambda : ('Conformation numbers removed from metafield \'confnum\'. It took {} seconds.',(timedif(),))
@@ -282,16 +286,16 @@ class Runner(object):
                         lambda : (' Distances calculated, it took {} seconds.',(timedif(),))
                         )[i], 
                     'closeratoms'    :lambda i : (
-                        lambda x: self.sdf.closer( *( functions.splitter(x) ) ),
+                        lambda x: self.sdf.closer( *functions.splitter(x) ),
                         lambda : (param,),
-                        NoLamb,
-                        NoLamb,
-                        NoLamb
+                        lambda : (' Calculated number of atoms closer: {}.',(param, )),
+                        lambda : ('Calculate number of atoms closer to point of interest.',()), 
+                        lambda : (' Numbers of atoms calculated, it took {} seconds.',(timedif(),))
                         )[i], 
                     'changemeta'     :lambda i : (
-                        lambda x: self.sdf.changemetaname(*[item.strip() for item in x.split('>')]),
+                        lambda x: self.sdf.changeMetaName(*[item.strip() for item in x.split('>')]),
                         lambda : (param,),
-                        NoLamb,
+                        lambda : ('Change {} done.',(param,)),
                         NoLamb,
                         NoLamb
                         )[i], 
@@ -396,14 +400,16 @@ class Runner(object):
                         NoLamb
                         )[i], 
                     'combine'        :lambda i : (
-                        lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,True),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
+                        #lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,True),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
+                        lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()), True, True, x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
                         lambda : (param,), 
                         lambda : ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif())), 
                         NoLamb, 
                         NoLamb
                         )[i], 
                     'allcombine'     :lambda i : (
-                        lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,False),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
+                        #lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,False),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
+                        lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()), True, False, x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
                         lambda : (param,), 
                         lambda : ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif())), 
                         NoLamb, 
@@ -427,14 +433,14 @@ class Runner(object):
                     'addescape'      :lambda i : (
                         self.sdf.escapeStr,
                         lambda : (param, False),
-                        lambda : ('Escape number from {} added. It took {} seconds.',(param, timedif())),
+                        lambda : (' Escape number from {} added. It took {} seconds.',(param, timedif())),
                         lambda : ('Calculating escape numbers...', ()),
                         NoLamb
                         )[i],
                     'addinside'      :lambda i : (
                         self.sdf.escapeStr,
                         lambda : (param, True),
-                        lambda : ('Inside number from {} added. It took {} seconds.',(param, timedif())),
+                        lambda : (' Inside number from {} added. It took {} seconds.',(param, timedif())),
                         lambda : ('Calculating inside numbers...', ()),
                         NoLamb
                         )[i],
@@ -588,8 +594,12 @@ def main(arguments=None):
     arger.add_argument("-rcn", "--removeconfname",  action="store_true",    help = "remove conformation number from name.")
     arger.add_argument("-rcm", "--removeconfmeta",  action="store_true",    help = "remove conformation number from metafield 'confnum'.")
     
-    arger.add_argument("-aesc", "--addescape",  type=str, nargs='+', metavar="File,mol_num,range,name[,max]", help = "Add metafield name_escapenum which is a list of atoms not in range of atoms in other molecule. mol_num specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all.")
-    arger.add_argument("-ains", "--addinside",  type=str, nargs='+', metavar="File,mol_num,range,name[,max]", help = "Add metafield name_insidenum which is a list of atoms in range of atoms in other molecule. mol_num specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all.")
+    #arger.add_argument("-aesc", "--addescape",  type=str, nargs='+', metavar="File,mol_num,range,name[,max]", help = "Add metafield name_escapenum which is a list of atoms not in range of atoms in other molecule. mol_num specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all.")
+    #arger.add_argument("-ains", "--addinside",  type=str, nargs='+', metavar="File,mol_num,range,name[,max]", help = "Add metafield name_insidenum which is a list of atoms in range of atoms in other molecule. mol_num specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all.")
+    
+    arger.add_argument("-aesc", "--addescape",  type=str, nargs='+', metavar="File,range,name[,name=some][,mol=N][,max=M]", help = "Add metafield [name_]escapenum which is a list of atoms not in range of atoms in other molecule. mol specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all. N and M default to 0.")
+    arger.add_argument("-ains", "--addinside",  type=str, nargs='+', metavar="File,range,name[,name=some][,mol=N][,max=M]", help = "Add metafield [name_]insidenum which is a list of atoms in range of atoms in other molecule. mol specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all. N and M default to 0.")
+    
     arger.add_argument("-co", "--combine", metavar='addition.sdf', type = str, nargs='+',     help = "Combine metadata from specified file to the data of original file. Confromation numbers must match.")
     arger.add_argument("-aco", "--allcombine", metavar='addition.sdf', type = str, nargs='+', help = "Combine metadata from specified file to the data of original file. Names must match.")
     
@@ -598,6 +608,7 @@ def main(arguments=None):
     
     arger.add_argument("-csv", "--addcsv", metavar='path [,molcol=<column>] [,confkey=<column>]', type = str, nargs='+',           help = "Add metadata from csv-file. File must have a 1-line header, it gives names to metafields. By default reads molecule names from column 0. If name includes confnumber, meta is only added molecules with same confnumber. Columns including molecule names and conformation numbers may also be specified with either column number or header name.")
     arger.add_argument("-acsv", "--addatomiccsv", metavar='path[,molcol=<column>] [,confkey=<column>] [,atomnnumber=<column>]', type = str, nargs='+',    help = "Add atomic metadata from csv-file. File must have a 1-line header, it gives names to metafields. By default reads molecule names from column 0 and atom numbers from column 'atomn_number'. If name includes confnumber, meta is only added molecules with same confnumber. Columns including molecule names, conformation numbers and atom numbers may also be specified with either column number or header name.")
+    
     arger.add_argument("-ex", "--extract", metavar='statement', type = str, nargs='+',          help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID=='benzene'.")
     arger.add_argument("-pro", "--proportion", metavar='statement', nargs='+', type = str,                 help = "Takes one exctract-like metastatement and prints proportion of molecules and conformations fulfilling it after every chop, if you are on verbose mode.") ##FIXME: nargs
     

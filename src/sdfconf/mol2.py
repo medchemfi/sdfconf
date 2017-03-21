@@ -113,7 +113,8 @@ class Mol2Mol(OrDi):
     
     def injectatomdata(self, data, column, defaultValue=0.0, prec=4):
         
-        if data._datastruct == OrDi:
+        #if data._datastruct == OrDi:
+        if data.isOrDi():
             offset = 0
         else:
             offset = -1
