@@ -409,7 +409,7 @@ class Sdffile(object):
                     count += 1
                     self._dictomoles[molname][confn].addMeta(name, newmetas[molname][confn], overwrite=True)
         if count<len(self):
-            warnings.warn('Not all new metas were generated',UserWarning)
+            warnings.warn('Not all new metas from {} were generated'.format(metastatement), UserWarning)
         
     def nametometa(self, meta):
         '''Adds a metafield holding the molecule name'''
@@ -3137,9 +3137,9 @@ class Sdfmeta(object):
     Class including information in single metafield
     '''
     
-    metaname = re.compile('\>(.*)\<(.+)\>') #Match gets metafield name
-    ematch =   re.compile('[ ]{0,2}')
-    fisep  =   re.compile('[ ,;]')
+    metaname = re.compile(r'\>(.*)\<(.+)\>') #Match gets metafield name
+    ematch =   re.compile(r'[ ]{0,2}')
+    fisep  =   re.compile(r'[ ,;]')
     comps = OrDi( ( ('>=',operator.ge), ('<=',operator.le), ('<',operator.lt), ('>',operator.gt), ('==',operator.eq), ('!=',operator.ne) , ('=',operator.eq) ) )
     
     def __init__(self, listofstrings=None):
@@ -3422,7 +3422,7 @@ class Sdfmeta(object):
     
     @staticmethod
     def parenLevels(string):
-        parre = re.compile('[\{\[\(\)\]\}\"\']') #Matches all parentheses
+        parre = re.compile(r'[\{\[\(\)\]\}\"\']') #Matches all parentheses
         pair = {'"':'"',"'":"'",'(':')','[':']','{':'}'}
         pars = [(item.group(), item.start()) for item in parre.finditer(string)]
         
@@ -3489,7 +3489,7 @@ class Sdfmeta(object):
                 return (tab[0], Sdfmeta.dumb_levopemap(tab[1], tab[0]))
         elif isinstance(tab, list):
             
-            searches = lmap(re.compile, ('[^\+](\+)[^\+]|[^-](-)[^-]', '[^\*](\*)[^\*]|(/)|(%)', '(\*{2})|(\+{2})|(-{2})'))
+            searches = lmap(re.compile, (r'[^\+](\+)[^\+]|[^-](-)[^-]', r'[^\*](\*)[^\*]|(/)|(%)', r'(\*{2})|(\+{2})|(-{2})'))
             
             mycomps = list(Sdfmeta.comps.keys())
             mycomps.remove('=')

@@ -594,12 +594,9 @@ def main(arguments=None):
     arger.add_argument("-rcn", "--removeconfname",  action="store_true",    help = "remove conformation number from name.")
     arger.add_argument("-rcm", "--removeconfmeta",  action="store_true",    help = "remove conformation number from metafield 'confnum'.")
     
-    #arger.add_argument("-aesc", "--addescape",  type=str, nargs='+', metavar="File,mol_num,range,name[,max]", help = "Add metafield name_escapenum which is a list of atoms not in range of atoms in other molecule. mol_num specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all.")
-    #arger.add_argument("-ains", "--addinside",  type=str, nargs='+', metavar="File,mol_num,range,name[,max]", help = "Add metafield name_insidenum which is a list of atoms in range of atoms in other molecule. mol_num specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all.")
-    
-    arger.add_argument("-aesc", "--addescape",  type=str, nargs='+', metavar="File,range,name[,name=some][,mol=N][,max=M]", help = "Add metafield [name_]escapenum which is a list of atoms not in range of atoms in other molecule. mol specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all. N and M default to 0.")
-    arger.add_argument("-ains", "--addinside",  type=str, nargs='+', metavar="File,range,name[,name=some][,mol=N][,max=M]", help = "Add metafield [name_]insidenum which is a list of atoms in range of atoms in other molecule. mol specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all. N and M default to 0.")
-    
+    arger.add_argument("-aesc", "--addescape",  type=str, nargs='+', metavar="file,r[,optional args]", help = "Add metafield escapenum which is a list of atoms not in range of atoms in other molecule (file). Optional args include mol, max, and name. mol specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all. N and M default to 0.")
+    arger.add_argument("-ains", "--addinside",  type=str, nargs='+', metavar="file,r[,optional args]", help = "Add metafield insidenum which is a list of atoms in range of atoms in other molecule (file). Optional args include mol, max, and name. mol specifies which molecule in a file you want to compare to, starts from 0. With option max quits if max atoms are found, 0 means all. N and M default to 0.")
+    #"File,range,name[,name=some][,mol=N][,max=M]"
     arger.add_argument("-co", "--combine", metavar='addition.sdf', type = str, nargs='+',     help = "Combine metadata from specified file to the data of original file. Confromation numbers must match.")
     arger.add_argument("-aco", "--allcombine", metavar='addition.sdf', type = str, nargs='+', help = "Combine metadata from specified file to the data of original file. Names must match.")
     
@@ -610,7 +607,7 @@ def main(arguments=None):
     arger.add_argument("-acsv", "--addatomiccsv", metavar='path[,molcol=<column>] [,confkey=<column>] [,atomnnumber=<column>]', type = str, nargs='+',    help = "Add atomic metadata from csv-file. File must have a 1-line header, it gives names to metafields. By default reads molecule names from column 0 and atom numbers from column 'atomn_number'. If name includes confnumber, meta is only added molecules with same confnumber. Columns including molecule names, conformation numbers and atom numbers may also be specified with either column number or header name.")
     
     arger.add_argument("-ex", "--extract", metavar='statement', type = str, nargs='+',          help = "Pick or remove molecules from file by metafield info. Either with logical comparison or fraction of molecules with same name. Closest_atoms{:5}==soms, 2.5>Closest_atoms(soms)[], Closest_atoms[:3]<5.5, ID=='benzene'.")
-    arger.add_argument("-pro", "--proportion", metavar='statement', nargs='+', type = str,                 help = "Takes one exctract-like metastatement and prints proportion of molecules and conformations fulfilling it after every chop, if you are on verbose mode.") ##FIXME: nargs
+    arger.add_argument("-pro", "--proportion", metavar='statement', nargs='+', type = str,                 help = "Takes one exctract-like metastatement and prints proportion of molecules and conformations fulfilling it after every chop, if you are on verbose mode.")
     
     choiceremo = arger.add_mutually_exclusive_group()
     choiceremo.add_argument("-rm", "--removemeta", nargs='+', metavar='unwanted', type = str,              help = "Remove metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'.")
@@ -620,26 +617,26 @@ def main(arguments=None):
     arger.add_argument("-mf", "--makefolder", action = "store_true",        help = "Put outputfile(s) into folder(s).")
     
     outputtype = arger.add_mutually_exclusive_group()
-    outputtype.add_argument("-gc", "--getcsv", type = str, nargs=1 ,                 help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','.")
+    outputtype.add_argument("-gc",  "--getcsv",     type = str, nargs=1 ,                 help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','.")
     outputtype.add_argument("-gac", "--getatomcsv", type = str, nargs=1 ,            help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','. Writes dictionaries to separate lines.")
-    outputtype.add_argument("-ml", "--metalist", action = "store_true",     help = "Writes a list of metafields.")
-    outputtype.add_argument("-nm", "--counts", nargs='?', type = int, const=0, choices=(0,1,2),  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both.")
+    outputtype.add_argument("-ml",  "--metalist",   action = "store_true",     help = "Writes a list of metafields.")
+    outputtype.add_argument("-nm",  "--counts",     type = int, nargs='?', const=0, choices=(0,1,2),  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both.")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
     
-    arger.add_argument("-ca", "--closestatoms", type = str, nargs='+',  metavar='(x, y, z) [,name] [,interests=value]', help = "Calculates the closest atoms (distances by atom number) to given point. Creates a metafield with given name, if no name is given 'Closest_atoms' is created. (xx, yy, zz) may be replaced by metastatement describing single atom number.")
-    arger.add_argument("-cla", "--closeratoms", type = str, nargs='+', metavar= "(x, y, z),meta", help = "Calculates number of atoms closer to the given point, than the ones given in meta. Adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'.")
+    arger.add_argument("-ca",  "--closestatoms",    type = str, nargs='+',  metavar='(x, y, z) [,name] [,interests=value]', help = "Calculates the closest atoms (distances by atom number) to given point. Creates a metafield with given name, if no name is given 'Closest_atoms' is created. (xx, yy, zz) may be replaced by metastatement describing single atom number.")
+    arger.add_argument("-cla", "--closeratoms",     type = str, nargs='+', metavar= "(x, y, z),meta", help = "Calculates number of atoms closer to the given point, than the ones given in meta. Adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'.")
     
-    arger.add_argument("-mnm", "--makenewmeta", type = str, nargs='+', metavar='newmeta=metastatement',     help = "Makes a new metafield based on metastatement.")
-    arger.add_argument("-cm", "--changemeta", type = str, nargs='+',   metavar='olname1>newname1' , help = "Changes names of metafields. [olname1>newname1|oldname2>newname2].")
-    arger.add_argument("-so", "--sortorder", type = str, nargs='+',    metavar='meta', help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name.")
-    arger.add_argument("-hg", "--histogram", type = str, nargs='+',    metavar="X-metastatement [,Y-metastatement] [,title=figtitle] [,Xtitle=x-axel [,Ytitle=y-axel]] [,args]",        help = "Plots a 1D or 2D histogram. Multiple plots as separate strings.")
-    arger.add_argument("-sca", "--scatter", type = str, nargs='+',    metavar="X-metastatement ,Y-metastatement [,group-metastatement] [,title=figtitle] [,Xtitle=x-axel [,Ytitle=y-axel]] [,args]",        help = "Plots a scatter plot. Multiple plots as separate strings.")
+    arger.add_argument("-mnm", "--makenewmeta",     type = str, nargs='+', metavar='newmeta=metastatement',     help = "Makes a new metafield based on metastatement.")
+    arger.add_argument("-cm",  "--changemeta",      type = str, nargs='+',   metavar='olname1>newname1' , help = "Changes names of metafields. [olname1>newname1|oldname2>newname2].")
+    arger.add_argument("-so",  "--sortorder",       type = str, nargs='+',    metavar='meta', help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name.")
+    arger.add_argument("-hg",  "--histogram",       type = str, nargs='+',    metavar="X-metastatement [,Y-metastatement] [,title=figtitle] [,Xtitle=x-axel [,Ytitle=y-axel]] [,args]",        help = "Plots a 1D or 2D histogram. Multiple plots as separate strings.")
+    arger.add_argument("-sca", "--scatter",         type = str, nargs='+',    metavar="X-metastatement ,Y-metastatement [,group-metastatement] [,title=figtitle] [,Xtitle=x-axel [,Ytitle=y-axel]] [,args]",        help = "Plots a scatter plot. Multiple plots as separate strings.")
     
-    arger.add_argument("-gm2", "--getmol2", type = str, nargs='+', metavar='pathto.mol2,column,metaname',         help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata.")#meta column path
-    arger.add_argument("-pm2", "--putmol2", type = str, nargs='+',     metavar='input.mol2,output.mol2, column, metastatement, default, precision',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
+    arger.add_argument("-gm2", "--getmol2",         type = str, nargs='+', metavar='pathto.mol2,column,metaname',         help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata.")#meta column path
+    arger.add_argument("-pm2", "--putmol2",         type = str, nargs='+',     metavar='input.mol2,output.mol2, column, metastatement, default, precision',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
     
-    arger.add_argument("-sbm", "--stripbutmeta", type = str, nargs='+', metavar='statement', help = "Removes all atoms from molecules, except for those in given logical statement.")
-    arger.add_argument("-ig", "--ignores", type = str, nargs='*', metavar='Element', default=['H'], help = "Ignores given atoms in distance calculations, etc. Default is H.")
+    arger.add_argument("-sbm", "--stripbutmeta",    type = str, nargs='+', metavar='statement', help = "Removes all atoms from molecules, except for those in given logical statement.")
+    arger.add_argument("-ig",  "--ignores",         type = str, nargs='*', metavar='Element', default=['H'], help = "Ignores given atoms in distance calculations, etc. Default is H.")
     
     args = arger.parse_args(arguments) if arguments else arger.parse_args() 
     
