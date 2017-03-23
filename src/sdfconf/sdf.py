@@ -367,21 +367,32 @@ class Sdffile(object):
     
     #misc
     
-    def metatoname(self, meta, joiner='_'):
+    def metaToName(self, metastatement, joiner='_'):
         '''
         Changes the name of molecules to whatever found in given metafield.
         Applies only for metafields of type str
         '''
-        for i, molord in enumerate(self._orderlist):
-            olname = molord[0]
-            n = molord[1]
-            mol = self._dictomoles[olname][n]
+        #for i, molord in enumerate(self._orderlist):
+        metas = self.getGloMollogic(metastatement)
+        #print('BINGO!')
+        for i, (molname, confn) in enumerate(self.keys()):
+            #print(i,molname,confn)
+            meta = metas[molname][confn]
+            #olname = molord[0]
+            #n = molord[1]
+            #mol = self._dictomoles[olname][n]
+            mol = self._dictomoles[molname][confn]
             
-            name = joiner.join(mol.getMeta(meta).getMetaStrings())
+            #name = joiner.join(mol.getMeta(meta).getMetaStrings())
+            #name = joiner.join(meta.getMetaStrings())
+            name = joiner.join(meta.getListOfStrings())
+            
             mol._name = name
+            #mol.setName(name)
             nn = self.uniconfn(mol)
             self._orderlist[i]=[name,nn]
-            del(self._dictomoles[olname][n])
+            #del(self._dictomoles[olname][n])
+            del(self._dictomoles[molname][confn])
             if not name in self._dictomoles:
                 self._dictomoles[name] = dict()
             self._dictomoles[name][nn] = mol
@@ -2236,7 +2247,8 @@ class Sdfmole(object):
         Initialize an empty molecule with no data at all
         Adds data if list of strings containing lines of sdf-file describing single molecule is given
         '''
-        self._name = ''
+        #self._name = ''
+        self.setName( '' )
         self._meta = dict()
         self._metakeys = list()
         self._other = list()
@@ -2265,7 +2277,8 @@ class Sdfmole(object):
         Shallow copy method
         '''
         new = Sdfmole()
-        new._name           = self._name
+        #new._name           = self._name
+        new.setName(self._name)
         new._meta           = dict(self._meta)
         new._metakeys       = list(self._metakeys)
         new._numeric        = self._numeric
@@ -2587,6 +2600,9 @@ class Sdfmole(object):
         return name of molecule without possible conformation number
         '''
         return Sdfmole.confchop.sub('', self._name)
+    
+    def setName(self, name):
+        self._name = str(name)
     
     def getAtomType(self, N):
         '''
@@ -3855,6 +3871,67 @@ class Sdfmeta(object):
                     newlist[key] = self._data[key]
         return newlist
         
+    def getListOfStrings(self):
+        def floattosting(flo):
+            try1 = str(round(flo,4))
+            if try1 == '0.0' and flo != 0:
+                return '{:.4e}'.format(flo)
+            else:
+                return try1
+        
+        stringers = {int:str, float:floattosting, 'str' : str}
+        strifu = stringers[self.dtype()]
+        
+        dictflag = self._datastruct == OrDi
+        
+        if dictflag:
+            #key = list(self._data.keys())[0]
+            #tmp=[str(key)+':'+strifu(self._data[key])]
+            #del(key)
+            itera = iter(self._data.keys())
+        else:
+            #tmp=[strifu(self._data[0])]
+            itera = iter(self._data)
+        #l = len(tmp[-1])
+        
+        strings=[]
+        for item in itera:
+            #print tmp, strings
+            #for item in itera:
+            if dictflag:
+                stuff = '{}:{}'.format(str(item), strifu(self._data[item]))#str(item)+':'+strifu(self._data[item])
+            else:
+                stuff = strifu(item)
+            #add delimiter
+            """
+            try:
+                lde = len(self._delims[i])
+            except IndexError:
+                lde = 0
+                print(self._name)
+                print(self._data)
+                print(self._delims)
+            if l +lde > length:
+                strings.append(''.join(tmp))
+                tmp=[]
+                l=0
+            l += lde
+            tmp.append(self._delims[i])
+            #add data
+            lda = len(stuff)
+            if l +lda > length and lda < length:
+                strings.append(''.join(tmp))
+                tmp=[]
+                l=0
+            l += lda
+            tmp.append(stuff)
+            """
+            strings.append(stuff)
+            
+        #if len(tmp)>0:
+        #    strings.append(''.join(tmp))
+        return strings
+    
     def getMetaStrings(self, length=float('inf')):
         def floattosting(flo):
             try1 = str(round(flo,4))
@@ -3880,7 +3957,8 @@ class Sdfmeta(object):
         
         strings=[]
         for i, item in itera:
-        #for item in itera:
+            #print tmp, strings
+            #for item in itera:
             if dictflag:
                 stuff = str(item)+':'+strifu(self._data[item])
             else:

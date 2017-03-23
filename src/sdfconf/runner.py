@@ -43,7 +43,7 @@ class Runner(object):
     order = ((
              ('verbose','v'), 
              ('input','in'), 
-             ('conftofield','ctf'), 
+             ('conftometa','ctf'), 
              ('conftoname','ctn'), 
              ('nametometa','ntm'), 
              ('removeconfname','rcn'), 
@@ -86,7 +86,7 @@ class Runner(object):
              ) )
     
     '''
-    simplelist =    ('conftofield', 'conftoname', 'removeconfname', 'removeconfmeta', 
+    simplelist =    ('conftometa', 'conftoname', 'removeconfname', 'removeconfmeta', 
                      'ignores', 'nametometa', 'metatoname', 'removemeta', 
                      #'pickmeta', 'input', 'proportion' , 'histogram', 'verbose', 
                      'pickmeta', 'input', 'proportion' , 'verbose', ##CHANGED: removed histogram
@@ -102,7 +102,7 @@ class Runner(object):
     '''
     
     
-    singulars =    ('overwrite', 'verbose', 'conftofield', 'conftoname', 'removeconfname',
+    singulars =    ('overwrite', 'verbose', 'conftometa', 'conftoname', 'removeconfname',
                      'removeconfmeta', 'makefolder', 'metalist', 'donotprint',
                      )
     
@@ -211,7 +211,7 @@ class Runner(object):
             return messes[n]
             
         tasks =   {
-                    'conftofield'    :lambda i : (
+                    'conftometa'    :lambda i : (
                         self.sdf.addconfs,
                         #lambda : ((False,True),),
                         lambda : (False,True,),
@@ -251,7 +251,7 @@ class Runner(object):
                         lambda : ('Name written to metafieldfield {}. It took {} seconds.',(param,timedif()))
                         )[i], 
                     'metatoname'     :lambda i : (
-                        self.sdf.metatoname,
+                        self.sdf.metaToName,
                         lambda : (param,),
                         NoLamb,
                         NoLamb,
@@ -586,7 +586,7 @@ def main(arguments=None):
     arger.add_argument("-v", "--verbose", action = "store_true" ,      help = "More info on your run.")
     
     arger.add_argument("-con","--config", metavar = 'config.txt', nargs='+', type = str, help="Specify the config file. Config file includes lines of argument name, followed by '::' and argument value. Separate multiple values with ';;'.")
-    arger.add_argument("-ctf", "--conftofield", action = "store_true",           help = "Add conformation number to metafielf 'confnum'. If number in name doesn't exist, makes a new one.")
+    arger.add_argument("-ctm", "--conftometa", action = "store_true",           help = "Add conformation number to metafielf 'confnum'. If number in name doesn't exist, makes a new one.")
     
     arger.add_argument("-ctn", "--conftoname",  action = "store_true",           help = "add conformation number to name from metafield 'confnum'. If number in metafield doesn't exist, make a new one.")
     arger.add_argument("-mtn", "--metatoname", nargs=1, metavar='meta' , type = str,                 help = "Change the name of molecules to the data in given metafield.")
