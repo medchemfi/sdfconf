@@ -633,7 +633,7 @@ def main(arguments=None):
     arger.add_argument("-sca", "--scatter",         type = str, nargs='+',    metavar="X-metastatement ,Y-metastatement [,group-metastatement] [,title=figtitle] [,Xtitle=x-axel [,Ytitle=y-axel]] [,args]",        help = "Plots a scatter plot. Multiple plots as separate strings.")
     
     arger.add_argument("-gm2", "--getmol2",         type = str, nargs='+', metavar='pathto.mol2,column,metaname',         help = "Reads atom block column data from mol2-file and adds it to sdf-file as metadata.")#meta column path
-    arger.add_argument("-pm2", "--putmol2",         type = str, nargs='+',     metavar='input.mol2,output.mol2, column, metastatement, default, precision',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
+    arger.add_argument("-pm2", "--putmol2",         type = str, nargs='+',     metavar='input.mol2,output.mol2, column, metastatement[, default[, precision]]',        help = "Injects meta-data from sdf-file and adds it to mol2-file as atom block column data.")#metaname, column, path, defaultValue, precision, outpath
     
     arger.add_argument("-sbm", "--stripbutmeta",    type = str, nargs='+', metavar='statement', help = "Removes all atoms from molecules, except for those in given logical statement.")
     arger.add_argument("-ig",  "--ignores",         type = str, nargs='*', metavar='Element', default=['H'], help = "Ignores given atoms in distance calculations, etc. Default is H.")

@@ -1697,7 +1697,7 @@ class Sdffile(object):
                     'max':mmax, 
                     'min':mmin ,
                     'confcol': confmol.getColumn, 
-                    'str': lambda meta: Sdfmeta.construct( meta.getMetaStr()),
+                    'str': lambda meta: Sdfmeta.construct( meta.getMetaStr(), literal=True),
                     'int': lambda meta: Sdfmeta.metaMap(int, meta),
                     'sum': lambda meta: sum((thing for thing in meta)), 
                     'prod': lambda meta : numpy.asscalar(numpy.prod([thing for thing in meta])), 
@@ -2197,9 +2197,13 @@ class Sdffile(object):
         molli2 = mol2.Mol2File(path)
         #metas = self.getmollogic(metastatement)
         metas = self.getGloMollogic(metastatement)
+        sdfinfo = list( self.keys() )
         
         for i, mol in enumerate(molli2):
-            molname, conf = self._orderlist[i]
+            if len(sdfinfo[i]) == 2:
+                molname, conf = sdfinfo[i] #self._orderlist[i]
+            else:
+                raise ValueError("{} doesn't include molname and confnum!".format(sdfinfo[i]))
             mol.injectatomdata(metas[molname][conf], column, defaultValue, precision)
             del(metas[molname][conf])
         if not outpath:
@@ -3340,9 +3344,12 @@ class Sdfmeta(object):
         
         if isinstance(data, string_types):
             
-            if 'literal' in dictarg and dictarg['literal']:
-                new._datastruct = 'single'
+            #if 'literal' in dictarg and dictarg['literal']:
+            if dictarg.get('literal', False): #if 'literal' in dictarg and dictarg['literal']:
+                #new._datastruct = 'single'
+                new._datastruct = list #_apparently_ strings are always lists. might have something to do with strings being iterable.
                 data = [data]
+                data = lmap(str, list(data))
             else:
                 (newdata, newtype, newdelims) = Sdfmeta.whattype(data)
                 if newtype != str:
@@ -3371,7 +3378,7 @@ class Sdfmeta(object):
         else:
             print(type(data))
             raise TypeError('Datastructure type not list, dict, OrderedDict, str, int or float.')
-        if not dictarg.get('literal',False): #('literal' in dictarg and dictarg['literal']):
+        if not dictarg.get('literal', False): #('literal' in dictarg and dictarg['literal']):
             if type(data) == list:
                 data = lmap(functions.numify, data)
                 
