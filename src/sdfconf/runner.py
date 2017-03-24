@@ -41,48 +41,52 @@ class Runner(object):
     
     #Order of excecution. Also includes both long and short names.
     order = ((
-             ('verbose','v'), 
-             ('input','in'), 
-             ('conftometa','ctf'), 
-             ('conftoname','ctn'), 
-             ('nametometa','ntm'), 
-             ('removeconfname','rcn'), 
-             ('removeconfmeta','rcm'), 
-             ('ignores', 'ig'),
-             ('cut','cu'), 
-             ('allcut','acu'), 
-             ('combine','co'), 
-             ('allcombine','aco'), 
+             ('verbose',        'v'     ), 
+             ('input',          'in'    ), 
+             
+             ('molgrouper',     'mog'   ), 
+             ('confgrouper',    'cog'   ), 
+             
+             ('conftometa',     'ctf'   ), 
+             ('conftoname',     'ctn'   ), 
+             ('nametometa',     'ntm'   ), 
+             ('removeconfname', 'rcn'   ), 
+             ('removeconfmeta', 'rcm'   ), 
+             ('ignores',        'ig'    ), 
+             ('cut',            'cu'    ), 
+             ('allcut',         'acu'   ), 
+             ('combine',        'co'    ), 
+             ('allcombine',     'aco'   ), 
              ('addcsv','csv'), 
-             ('addatomiccsv','acsv'), 
-             ('getmol2','gm2'), 
-             ('addescape','aesc'), 
-             ('addinside','ains'), 
-             ('config','con'), 
-             ('closestatoms','ca'), 
-             ('closeratoms','cla'), 
-             ('changemeta','cm'), 
-             ('makenewmeta','mnm'), 
-             ('stripbutmeta','sbm'), 
-             ('proportion','pro'), 
-             ('sortorder','so'), 
+             ('addatomiccsv',   'acsv'  ), 
+             ('getmol2',        'gm2'   ), 
+             ('addescape',      'aesc'  ), 
+             ('addinside',      'ains'  ), 
+             ('config',         'con'   ), 
+             ('closestatoms',   'ca'    ), 
+             ('closeratoms',    'cla'   ), 
+             ('changemeta',     'cm'    ), 
+             ('makenewmeta',    'mnm'   ), 
+             ('stripbutmeta',   'sbm'   ), 
+             ('proportion',     'pro'   ), 
+             ('sortorder',      'so'    ), 
              #('proportion','pro'), 
-             ('extract','ex'), 
-             ('metatoname','mtn'), 
-             ('removemeta','rm'), 
-             ('pickmeta','pm'), 
-             ('putmol2','pm2'), 
-             ('histogram','hg'), 
-             ('scatter','sca'), 
-             ('getcsv','gc'), 
-             ('getatomcsv','gac'), 
-             ('metalist','ml'), 
-             ('counts','nm'), 
-             ('donotprint','dnp'), 
-             ('split','s'), 
-             ('makefolder','mf'), 
-             ('output','out'), 
-             ('overwrite','o'), 
+             ('extract',        'ex'    ), 
+             ('metatoname',     'mtn'   ), 
+             ('removemeta',     'rm'    ), 
+             ('pickmeta',       'pm'    ), 
+             ('putmol2',        'pm2'   ), 
+             ('histogram',      'hg'    ), 
+             ('scatter',        'sca'   ), 
+             ('getcsv',         'gc'    ), 
+             ('getatomcsv',     'gac'   ), 
+             ('metalist',       'ml'    ), 
+             ('counts',         'nm'    ), 
+             ('donotprint',     'dnp'   ), 
+             ('split',          's'     ), 
+             ('makefolder',     'mf'    ), 
+             ('output',         'out'   ), 
+             ('overwrite',      'o'     ), 
              ) )
     
     '''
@@ -104,6 +108,7 @@ class Runner(object):
     
     singulars =    ('overwrite', 'verbose', 'conftometa', 'conftoname', 'removeconfname',
                      'removeconfmeta', 'makefolder', 'metalist', 'donotprint',
+                     'molgrouper', 'confgrouper', #new arrivals 24.2.2017
                      )
     
     
@@ -212,7 +217,7 @@ class Runner(object):
             
         tasks =   {
                     'conftometa'    :lambda i : (
-                        self.sdf.addconfs,
+                        self.sdf.addConfs,
                         #lambda : ((False,True),),
                         lambda : (False,True,),
                         NoLamb,
@@ -220,7 +225,7 @@ class Runner(object):
                         lambda : ('Conformation numbers added to metadata. It took {} seconds.', (timedif(),))
                         )[i], 
                     'conftoname'     :lambda i : (
-                        self.sdf.addconfs,
+                        self.sdf.addConfs,
                         #lambda : ((True,False),),
                         lambda : (True,False,),
                         NoLamb,
@@ -228,7 +233,7 @@ class Runner(object):
                         lambda : ('Conformation numbers added to names. It took {} seconds.', (timedif(),))
                         )[i], 
                     'removeconfname' :lambda i : (
-                        self.sdf.remconfs,
+                        self.sdf.removeConfs,
                         #lambda : ((True,False),),
                         lambda : (True,False,),
                         NoLamb,
@@ -236,7 +241,7 @@ class Runner(object):
                         lambda : ('Conformation numbers removed from names. It took {} seconds.',(timedif(),))
                         )[i], 
                     'removeconfmeta' :lambda i : (
-                        self.sdf.remconfs,
+                        self.sdf.removeConfs,
                         #lambda : ((True,False),),
                         lambda : (True,False,),
                         NoLamb,
@@ -444,6 +449,20 @@ class Runner(object):
                         lambda : ('Calculating inside numbers...', ()),
                         NoLamb
                         )[i],
+                    'molgrouper'      :lambda i : (
+                        self.sdf.setGrouper,
+                        lambda : (param, None),
+                        NoLamb,
+                        NoLamb,
+                        lambda : ('Molgrouper changed.',()),
+                        )[i],
+                    'confgrouper'      :lambda i : (
+                        self.sdf.setGrouper,
+                        lambda : (self.sdf.molgrouper, param),
+                        NoLamb,
+                        NoLamb,
+                        lambda : ('Confgrouper set to {}.',(param,)),
+                        )[i],
                    }
         selector = {'func':0,'loop':2,'initial':3,'final':4}
         
@@ -629,6 +648,7 @@ def main(arguments=None):
     arger.add_argument("-mnm", "--makenewmeta",     type = str, nargs='+', metavar='newmeta=metastatement',     help = "Makes a new metafield based on metastatement.")
     arger.add_argument("-cm",  "--changemeta",      type = str, nargs='+',   metavar='olname1>newname1' , help = "Changes names of metafields. [olname1>newname1|oldname2>newname2].")
     arger.add_argument("-so",  "--sortorder",       type = str, nargs='+',    metavar='meta', help = "Sorts molecules of a file in order of metafield. <MolecularWeight|>Id Sorts molecules first ascending by weight, then descenting by name.")
+    
     arger.add_argument("-hg",  "--histogram",       type = str, nargs='+',    metavar="X-metastatement [,Y-metastatement] [,title=figtitle] [,Xtitle=x-axel [,Ytitle=y-axel]] [,args]",        help = "Plots a 1D or 2D histogram. Multiple plots as separate strings.")
     arger.add_argument("-sca", "--scatter",         type = str, nargs='+',    metavar="X-metastatement ,Y-metastatement [,group-metastatement] [,title=figtitle] [,Xtitle=x-axel [,Ytitle=y-axel]] [,args]",        help = "Plots a scatter plot. Multiple plots as separate strings.")
     
@@ -638,6 +658,11 @@ def main(arguments=None):
     arger.add_argument("-sbm", "--stripbutmeta",    type = str, nargs='+', metavar='statement', help = "Removes all atoms from molecules, except for those in given logical statement.")
     arger.add_argument("-ig",  "--ignores",         type = str, nargs='*', metavar='Element', default=['H'], help = "Ignores given atoms in distance calculations, etc. Default is H.")
     
+    #arger.add_argument("-mog", "--molgrouper",      type = str, nargs='?', metavar='metaname', const='', default='', help="Give existing metaname, by which molecules should be grouped. If you give empty, molecule name is used.")
+    #arger.add_argument("-cog", "--confgrouper",      type = str, nargs='?', metavar='metaname', const='confnum', default='confnum', help="Give existing metaname, by which conformations will be identified. If you give empty, 'confnum' is used.")
+    arger.add_argument("-mog", "--molgrouper",      type = str, nargs='?', metavar='metaname', const='', help="Give existing metaname, by which molecules should be grouped. If you give empty, molecule name is used.")
+    arger.add_argument("-cog", "--confgrouper",      type = str, nargs='?', metavar='metaname', const='confnum', help="Give existing metaname, by which conformations will be identified. If you give empty, 'confnum' is used.")
+        
     args = arger.parse_args(arguments) if arguments else arger.parse_args() 
     
     if not (args.input or args.config):

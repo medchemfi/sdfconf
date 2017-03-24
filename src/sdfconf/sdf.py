@@ -52,6 +52,8 @@ class Sdffile(object):
         self._orderlist = list()
         #self._ignores = kwargs.get('ignores', ['H'])
         self.setIgnores(kwargs.get('ignores', ['H']))
+        self.molgrouper  = kwargs.get('grouper', None) #By default, group by molname (grouper=None). 
+        self.confgrouper = kwargs.get('confid', 'confnum') #Meta id that identifies conformations. (Might be important when importing data by conformation...) 
         if path is not None:
             self.xreadself(path)
     
@@ -59,7 +61,7 @@ class Sdffile(object):
         '''
         Shallow copy function used by copy.copy()
         '''
-        new = Sdffile()
+        new = Sdffile(grouper = self.molgrouper, confid = self.confgrouper)
         new._dictomoles = dict()
         for key in self._dictomoles:
             new._dictomoles[key] = copy.copy( self._dictomoles[key] )
@@ -72,7 +74,7 @@ class Sdffile(object):
         '''
         Deep copy function used by copy.deepcopy()
         '''
-        new = Sdffile()
+        new = Sdffile(grouper = self.molgrouper, confid = self.confgrouper)
         new._dictomoles = copy.deepcopy(self._dictomoles,memo)
         new._orderlist = copy.deepcopy(self._orderlist,memo)
         #new._ignores = copy.copy(self._ignores)
@@ -182,7 +184,7 @@ class Sdffile(object):
         stringsofone is a list of strings representing a single conformation
         '''
         new = Sdfmole(stringsofone, ignores = self._ignores)
-        name = new.getName()
+        name = new.getMolName(self.molgrouper)
         
         if not name in self._dictomoles:
             self._dictomoles[name]=dict()
@@ -216,7 +218,7 @@ class Sdffile(object):
             #if bolist[0]:
             if byname:
                 try:
-                    medict = self._dictomoles[omol.getName()]
+                    medict = self._dictomoles[omol.getMolName(self.molgrouper)]
                     #if bolist[1]:
                     if byconf:
                         melist = [medict[omol.getConfN()]]
@@ -239,14 +241,14 @@ class Sdffile(object):
                 
     def listremove(self, path, sameconf=True):
         '''Frontend to sdflistremove and csvlistremove'''
-        other = Sdffile(path)
+        other = Sdffile(path, grouper = self.molgrouper, confid = self.confgrouper)
         if len(other)==0:
             del(other)
             liomo = functions.csvtomatrix(path,'[,;\t ]')
             self.csvlistremove(liomo, sameconf)
         else:
             self.sdflistremove(other, sameconf)
-            
+    
     def csvlistremove(self, others, sameconf=True):
         '''
         Cut operator.
@@ -254,6 +256,7 @@ class Sdffile(object):
         ''' 
         for moli in others:
             oname = Sdfmole.confchop.sub('',moli[0]).strip('\"\'')
+            #oname = moli.getMolName(self.grouper)
             if sameconf:
                 try:
                     confn = Sdfmole.confchop.search( moli[0] ).group().strip('{[]}\"\'')
@@ -275,10 +278,10 @@ class Sdffile(object):
         Remove conformations from current file that are present in the other sdffile.
         ''' 
         for omol in other:
-            oname = omol.getName()
+            oname = omol.getMolName(self.molgrouper)
             if sameconf:
                 try:
-                    self.remove(oname,omol.getConfN())
+                    self.remove(oname,omol.getConfN(self.confgrouper))
                 except KeyError:
                     pass
             else:
@@ -308,7 +311,7 @@ class Sdffile(object):
         '''
         Returns a temporary conformation number for given molecule.
         '''
-        n = mol.getConfN()
+        n = mol.getConfN(self.confgrouper)
         if not n:
             try:
                 dictomol = self._dictomoles[molname]
@@ -324,13 +327,13 @@ class Sdffile(object):
             n = str(i)
         return n
     
-    def uniconfn(self, mol, n='-1'):
+    def getUniqueConfN(self, mol, n='-1'):
         '''
         Returns a unique conformation number for given molecule.
         '''
         n=abs(int(n))
         try:
-            moli = self._dictomoles[mol.getName()]
+            moli = self._dictomoles[mol.getMolName(self.molgrouper)]
             while True:
                 if str(n) in moli:
                     n += 1
@@ -339,24 +342,24 @@ class Sdffile(object):
         except KeyError:
             return '1'
     
-    def addconfs(self, toname = True, tometa = False):
-        #def addconfs(self, bolist = [True, False]):
+    def addConfs(self, toname = True, tometa = False):
+        #def addConfs(self, bolist = [True, False]):
         '''
         add unique conformation numbers to conformations
         bolist=(toName,toMeta confnum)
         ''' 
         for i, molinfo in enumerate(self._orderlist):
             mol = self._dictomoles[molinfo[0]][molinfo[1]]
-            c = mol.getConfN()
+            c = mol.getConfN(self.confgrouper)
             if not c:
-                c = self.uniconfn(mol, 1)
+                c = self.getUniqueConfN(mol, 1)
             mol.addConf(c, toname, tometa)
             del(self._dictomoles[molinfo[0]][molinfo[1]])
             self._dictomoles[molinfo[0]][c]=mol
             self._orderlist[i]=[molinfo[0],c]
     
-    def remconfs(self, fromname = True, frommeta = True):
-        #def remconfs(self, bolist = [True, True]):
+    def removeConfs(self, fromname = True, frommeta = True) : 
+        #def removeConfs(self, bolist = [True, True]):
         '''
         remove conformation numbers
         bolist=(fromName,fromMeta confnum)
@@ -367,7 +370,7 @@ class Sdffile(object):
     
     #misc
     
-    def metaToName(self, metastatement, joiner='_'):
+    def metaToName(self, metastatement, joiner='_') : 
         '''
         Changes the name of molecules to whatever found in given metafield.
         Applies only for metafields of type str
@@ -389,7 +392,7 @@ class Sdffile(object):
             
             mol._name = name
             #mol.setName(name)
-            nn = self.uniconfn(mol)
+            nn = self.getUniqueConfN(mol)
             self._orderlist[i]=[name,nn]
             #del(self._dictomoles[olname][n])
             del(self._dictomoles[molname][confn])
@@ -397,6 +400,71 @@ class Sdffile(object):
                 self._dictomoles[name] = dict()
             self._dictomoles[name][nn] = mol
         self.dictmaint()
+    
+    #"""
+    def setGrouper(self, grouper, confgroup = None):
+        '''
+        Changes the name of molecules to whatever found in given, existing, metafield.
+        '''
+        if not confgroup:
+            confgroup = self.confgrouper
+        grouper = grouper.strip()
+        #oldgro = self.molgrouper
+        if grouper == '':
+            self.molgrouper = None
+            #newnames = None
+        else:
+            if grouper not in self.listmetas():
+                raise KeyError('Cannot set grouper. No {} found in metas.'.format(grouper))
+            #newnames = self.getGloMollogic(grouper)
+            self.molgrouper = grouper
+        
+        #newdict = dict()
+        #for i, molord in enumerate(self._orderlist):
+        
+        #print('BINGO!')
+        for i, (molname, confn) in enumerate(self.keys()):
+            #print(i,molname,confn)
+            #mol = self._dictomoles[molname][confn]
+            mol = self.getMolecule(molname, confn)
+            #if self.molgrouper:
+            #newname = newnames[molname][confn].getMetaStr()
+            #else:
+            #newname = mol.getMolName(None)
+            newname = mol.getMolName(self.molgrouper)
+            if not newname in self._dictomoles:
+                self._dictomoles[newname] = dict()
+            
+            
+            
+            #olname = molord[0]
+            #n = molord[1]
+            #mol = self._dictomoles[olname][n]
+            
+            #name = joiner.join(mol.getMeta(meta).getMetaStrings())
+            #name = joiner.join(meta.getMetaStrings())
+            #name = joiner.join(meta.getListOfStrings())
+            
+            #mol._name = name
+            #mol.setName(name)
+            
+            nn = mol.getConfN(confgroup)
+            if not nn:
+                nn = self.getUniqueConfN(mol, 1)
+            
+            #nn = self.getUniqueConfN(mol)
+            #self._orderlist[i]=[newname,nn]
+            self._orderlist[i]=[newname,nn]
+            #self._orderlist[i]=(newname,nn)
+            #del(self._dictomoles[olname][n])
+            self._dictomoles[newname][nn] = mol
+            del(self._dictomoles[molname][confn])
+            #if not newname in newdict:
+            #    newdict[newname] = dict()
+            #newdict[newname][nn] = mol
+        #self._dictomoles = newdict
+        self.dictmaint()
+    #"""
     
     def makenewmetastr(self, string): #no more accepts new = old < 5; now you must write new = old(<5); you can also new = old2(old1(<5){})(>3)
         '''Frontend for makenewmeta'''
@@ -425,7 +493,7 @@ class Sdffile(object):
     def nametometa(self, meta):
         '''Adds a metafield holding the molecule name'''
         for mol in self:
-            mol.addMeta(meta, mol.getName(), literal=True)
+            mol.addMeta(meta, mol.getMolName(self.molgrouper), literal=True)
             
     def changeMetaName(self, oldname, newname):
         '''Change the name of a metafield'''
@@ -702,6 +770,13 @@ class Sdffile(object):
         counts = []
         for mol in self._dictomoles:
             counts.append((mol,len(self._dictomoles[mol])))
+        
+        """
+        counts = dict()
+        for mol, conf in self.keys():
+            if not mol in counts:
+                counts[mol] = 0
+        """
         return counts
     
     def closestStr(self, string):
@@ -1321,8 +1396,21 @@ class Sdffile(object):
         picks and drops with same format as _orderlist
         remove molecules in drops and keep those in picks
         '''
-        for info in drops:
-            del(self._dictomoles[info[0]][info[1]])
+        """
+        for line in drops[:10]:
+            #print(drops[:10])
+            print line
+        for line in self._dictomoles.keys()[:10]:
+            print line
+        """
+        
+        for mol, conf in drops:
+            #del(self._dictomoles[info[0]][info[1]])
+            try:
+                del(self._dictomoles[mol][conf])
+            except KeyError:
+                pass
+            
         neworder=[]
         #for info in self._orderlist:
         for info in self.keys():
@@ -2510,7 +2598,7 @@ class Sdfmole(object):
             self._other = None
             self._numeric = True
         
-    def getConf(self, ckey="confnum"):
+    def getConf(self, ckey = 'confnum'):
         '''
         return conformation number in the name and meta for the conformation
         '''
@@ -2533,13 +2621,13 @@ class Sdfmole(object):
         #return ans
         return nameconf, metaconf
         
-    def getConfN(self):
+    def getConfN(self, ckey = 'confnum'):
         '''
         Return single conformationnumber
         '''
         #a = self.getConf()
         #return a[0] or a[1]
-        nameconf, metaconf = self.getConf()
+        nameconf, metaconf = self.getConf( ckey )
         return nameconf or metaconf
         
     def addConf(self, conf, toname = True, tometa = True, ckey = "confnum"):
@@ -2595,11 +2683,14 @@ class Sdfmole(object):
         #print ignores
         self._ignoretype = list(ignores)
             
-    def getName(self):
+    def getMolName(self, namemeta = None):
         '''
         return name of molecule without possible conformation number
         '''
-        return Sdfmole.confchop.sub('', self._name)
+        if not namemeta:
+            return Sdfmole.confchop.sub('', self._name)
+        else:
+            return self.getMeta(namemeta).getMetaStr()
     
     def setName(self, name):
         self._name = str(name)
@@ -2647,12 +2738,12 @@ class Sdfmole(object):
                 continue
             self.addMeta(key,othersdfmol.getMeta(key,dummy=True),overwrite=True)
                 
-    def isSame(self, othersdfmol):
+    def isSame(self, othersdfmol, grouper = None, ckey = 'confnum'):
         '''
         return boolean values if molecule names and conformation numbers are same
         '''
         #same = [Sdfmole.confchop.sub('', self._name) == Sdfmole.confchop.sub('', othersdfmol._name), self.getConfN() == othersdfmol.getConfN()]
-        same = [Sdfmole.confchop.sub('', self.getName()) == Sdfmole.confchop.sub('', othersdfmol.getName()), self.getConfN() == othersdfmol.getConfN()]
+        same = [Sdfmole.confchop.sub('', self.getMolName(grouper)) == Sdfmole.confchop.sub('', othersdfmol.getMolName(grouper)), self.getConfN(ckey) == othersdfmol.getConfN(ckey)]
         return same
     
     def makeOther(self):
