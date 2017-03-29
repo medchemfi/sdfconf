@@ -116,7 +116,7 @@ def myprod(num):
     else:
         return None
 '''
-def readcsv(path,sep='\t'):
+def readCsv(path,sep='\t'):
     f=open(path,'r')
     matrix = csvtomatrix(f.readlines(),sep)
     f.close()
