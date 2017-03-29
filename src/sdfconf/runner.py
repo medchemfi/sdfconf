@@ -49,7 +49,7 @@ class Runner(object):
              
              ('conftometa',     'ctf'   ), 
              ('conftoname',     'ctn'   ), 
-             ('nametometa',     'ntm'   ), 
+             ('nameToMeta',     'ntm'   ), 
              ('removeconfname', 'rcn'   ), 
              ('removeconfmeta', 'rcm'   ), 
              ('ignores',        'ig'    ), 
@@ -87,11 +87,14 @@ class Runner(object):
              ('makefolder',     'mf'    ), 
              ('output',         'out'   ), 
              ('overwrite',      'o'     ), 
+             
+             ('sdf',            'sdf'   ), #not in argparse. Should convert writetype back to sdf
+             
              ) )
     
     '''
     simplelist =    ('conftometa', 'conftoname', 'removeconfname', 'removeconfmeta', 
-                     'ignores', 'nametometa', 'metatoname', 'removemeta', 
+                     'ignores', 'nameToMeta', 'metatoname', 'removemeta', 
                      #'pickmeta', 'input', 'proportion' , 'histogram', 'verbose', 
                      'pickmeta', 'input', 'proportion' , 'verbose', ##CHANGED: removed histogram
                      )
@@ -248,8 +251,8 @@ class Runner(object):
                         NoLamb,
                         lambda : ('Conformation numbers removed from metafield \'confnum\'. It took {} seconds.',(timedif(),))
                         )[i], 
-                    'nametometa'     :lambda i : (
-                        self.sdf.nametometa,
+                    'nameToMeta'     :lambda i : (
+                        self.sdf.nameToMeta,
                         lambda : (param,),
                         NoLamb,
                         NoLamb,
@@ -291,7 +294,7 @@ class Runner(object):
                         lambda : (' Distances calculated, it took {} seconds.',(timedif(),))
                         )[i], 
                     'closeratoms'    :lambda i : (
-                        lambda x: self.sdf.closer( *functions.splitter(x) ),
+                        lambda x: self.sdf.closer( *functions.splitter(x)[:2] ),
                         lambda : (param,),
                         lambda : (' Calculated number of atoms closer: {}.',(param, )),
                         lambda : ('Calculate number of atoms closer to point of interest.',()), 
@@ -305,7 +308,7 @@ class Runner(object):
                         NoLamb
                         )[i], 
                     'sortorder'      :lambda i : (
-                        self.sdf.sortme,
+                        self.sdf.sortMe,
                         lambda : (param,),
                         lambda : ('Sort {} done.',(param,)),
                         NoLamb,
@@ -326,7 +329,7 @@ class Runner(object):
                         extMes(2)
                         )[i],
                     'makenewmeta'    :lambda i : (
-                        self.sdf.makenewmetastr,
+                        self.sdf.makeNewMetaStr,
                         lambda : (param,),
                         lambda : (' New metafield {} made.',(param,)),
                         lambda : ('Make new metafields.',()),
@@ -405,16 +408,16 @@ class Runner(object):
                         NoLamb
                         )[i], 
                     'combine'        :lambda i : (
-                        #lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,True),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
-                        lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()), True, True, x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
+                        #lambda x :self.sdf.sdfMetaCombi(Sdffile(x.partition(';')[0].strip()),(True,True),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
+                        lambda x :self.sdf.sdfMetaCombi(Sdffile(x.partition(';')[0].strip()), True, True, x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
                         lambda : (param,), 
                         lambda : ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif())), 
                         NoLamb, 
                         NoLamb
                         )[i], 
                     'allcombine'     :lambda i : (
-                        #lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()),(True,False),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
-                        lambda x :self.sdf.sdfmetacombi(Sdffile(x.partition(';')[0].strip()), True, False, x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
+                        #lambda x :self.sdf.sdfMetaCombi(Sdffile(x.partition(';')[0].strip()),(True,False),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
+                        lambda x :self.sdf.sdfMetaCombi(Sdffile(x.partition(';')[0].strip()), True, False, x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
                         lambda : (param,), 
                         lambda : ('Combining metadata from {} (matching name) complete. It took {} seconds.', (param, timedif())), 
                         NoLamb, 
@@ -454,7 +457,7 @@ class Runner(object):
                         lambda : (param, None),
                         NoLamb,
                         NoLamb,
-                        lambda : ('Molgrouper changed.',()),
+                        lambda : ('Molgrouper changed to {}', (param,),()),
                         )[i],
                     'confgrouper'      :lambda i : (
                         self.sdf.setGrouper,
@@ -609,7 +612,7 @@ def main(arguments=None):
     
     arger.add_argument("-ctn", "--conftoname",  action = "store_true",           help = "add conformation number to name from metafield 'confnum'. If number in metafield doesn't exist, make a new one.")
     arger.add_argument("-mtn", "--metatoname", nargs=1, metavar='meta' , type = str,                 help = "Change the name of molecules to the data in given metafield.")
-    arger.add_argument("-ntm", "--nametometa", nargs=1,  metavar='meta', type = str,                 help = "Copy the name of molecules into given metafield.")
+    arger.add_argument("-ntm", "--nameToMeta", nargs=1,  metavar='meta', type = str,                 help = "Copy the name of molecules into given metafield.")
     arger.add_argument("-rcn", "--removeconfname",  action="store_true",    help = "remove conformation number from name.")
     arger.add_argument("-rcm", "--removeconfmeta",  action="store_true",    help = "remove conformation number from metafield 'confnum'.")
     

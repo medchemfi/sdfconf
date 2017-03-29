@@ -46,7 +46,7 @@ class Sdffile(object):
     
     def __init__(self, path=None, **kwargs ):
         '''
-        Initianilizes an empty file. If path is specified, add data from it.
+        Initianilizes an empty file. If path is specified, addMolecule data from it.
         '''
         self._dictomoles = dict() # {'aspirin':{1:aspi1, 2:aspi2, ...}, 'bentzene':{1:benz1, 2:benz2, ...}, ...}
         self._orderlist = list()
@@ -94,7 +94,7 @@ class Sdffile(object):
         Generator that yields key pairs (molecule name, conformation number) to be used with getMolecule.
         '''
         for molname, confnum in self._orderlist:
-            yield molname, confnum
+            yield [molname, confnum]
     
     def getMolecule(self, molname, confnum = None):
         '''
@@ -145,7 +145,7 @@ class Sdffile(object):
         
         
     @staticmethod
-    def sdfseparator(strings):
+    def sdfSeparator(strings):
         '''
         Separates a list of strings (as in .sdf-file) into list of lists of strings.
         lists of strings represent single conformations
@@ -163,7 +163,7 @@ class Sdffile(object):
         return _moles
     
     @staticmethod
-    def xsdfseparator(xfile):
+    def xSdfSeparator(xfile):
         '''
         Separates a list of strings (as in .sdf-file) into list of lists of strings.
         lists of strings represent single conformations
@@ -178,7 +178,7 @@ class Sdffile(object):
             else:
                 _lines.append(line)
     
-    def add(self, stringsofone):
+    def addMolecule(self, stringsofone):
         '''
         Adds a molecule to datastructure. 
         stringsofone is a list of strings representing a single conformation
@@ -207,7 +207,7 @@ class Sdffile(object):
         except ValueError:
             warnings.warn('{}{{[{}]}} not in list.'.format(name, confn))
         
-    def sdfmetacombi(self, other, byname=True, byconf= True, overwrite=False):
+    def sdfMetaCombi(self, other, byname=True, byconf= True, overwrite=False):
         '''
         Combine metadata to current file from another sdf-file.
         '''
@@ -255,11 +255,11 @@ class Sdffile(object):
         Remove conformations from current file that are present in the other csvfile.
         ''' 
         for moli in others:
-            oname = Sdfmole.confchop.sub('',moli[0]).strip('\"\'')
+            oname = Sdfmole.confchop.sub('',moli[0]).strip(r'\"\'')
             #oname = moli.getMolName(self.grouper)
             if sameconf:
                 try:
-                    confn = Sdfmole.confchop.search( moli[0] ).group().strip('{[]}\"\'')
+                    confn = Sdfmole.confchop.search( moli[0] ).group().strip(r'{[]}\"\'')
                     self.remove(oname,confn)
                 except KeyError:
                     pass
@@ -292,7 +292,7 @@ class Sdffile(object):
                         if info[0]!=oname:
                             newlist.append(info)
                     self._orderlist = newlist
-        self.dictmaint()
+        self.dictMaintenance()
     
     def stripbutmeta(self, metalogic):
         '''
@@ -345,7 +345,7 @@ class Sdffile(object):
     def addConfs(self, toname = True, tometa = False):
         #def addConfs(self, bolist = [True, False]):
         '''
-        add unique conformation numbers to conformations
+        addMolecule unique conformation numbers to conformations
         bolist=(toName,toMeta confnum)
         ''' 
         for i, molinfo in enumerate(self._orderlist):
@@ -399,7 +399,7 @@ class Sdffile(object):
             if not name in self._dictomoles:
                 self._dictomoles[name] = dict()
             self._dictomoles[name][nn] = mol
-        self.dictmaint()
+        self.dictMaintenance()
     
     #"""
     def setGrouper(self, grouper, confgroup = None):
@@ -449,6 +449,8 @@ class Sdffile(object):
             #mol.setName(name)
             
             nn = mol.getConfN(confgroup)
+            if nn in self._dictomoles[newname]:
+                raise ValueError('{} no unique in {}.'.format(nn, newname))
             if not nn:
                 nn = self.getUniqueConfN(mol, 1)
             
@@ -463,19 +465,19 @@ class Sdffile(object):
             #    newdict[newname] = dict()
             #newdict[newname][nn] = mol
         #self._dictomoles = newdict
-        self.dictmaint()
+        self.dictMaintenance()
     #"""
     
-    def makenewmetastr(self, string): #no more accepts new = old < 5; now you must write new = old(<5); you can also new = old2(old1(<5){})(>3)
-        '''Frontend for makenewmeta'''
+    def makeNewMetaStr(self, string): #no more accepts new = old < 5; now you must write new = old(<5); you can also new = old2(old1(<5){})(>3)
+        '''Frontend for makeNewMeta'''
         things = Sdfmeta.compSplit(string,comps=('=',))
         if len(things) == 3 and things[1] == '=': 
-            self.makenewmeta(*(things[:1]+things[2:]))
+            self.makeNewMeta(*(things[:1]+things[2:]))
         else:
             raise functions.InputException('Invalid new meta definition {}'.format(str(things)))
             
     
-    def makenewmeta(self, name, metastatement): #, logicchar = None, value = None):
+    def makeNewMeta(self, name, metastatement): #, logicchar = None, value = None):
         '''
         make a new metafield by metastatement and pick only those fullfilling given logical statement
         '''
@@ -490,7 +492,7 @@ class Sdffile(object):
         if count<len(self):
             warnings.warn('Not all new metas from {} were generated'.format(metastatement), UserWarning)
         
-    def nametometa(self, meta):
+    def nameToMeta(self, meta):
         '''Adds a metafield holding the molecule name'''
         for mol in self:
             mol.addMeta(meta, mol.getMolName(self.molgrouper), literal=True)
@@ -501,7 +503,7 @@ class Sdffile(object):
             mol.changeMetaName(oldname, newname)
             
                 
-    def dictmaint(self): 
+    def dictMaintenance(self): 
         '''Maintenance of Sdffile dictionaries'''
         delkeys=[]
         for key in self._dictomoles:
@@ -510,7 +512,7 @@ class Sdffile(object):
         for key in delkeys:
             del(self._dictomoles[key])
             
-    def copymetalist(self):
+    def copyMetaList(self):
         '''
         Runs metaNewDict for all molecules.
         '''
@@ -683,7 +685,7 @@ class Sdffile(object):
                 elif mol.getMeta( meta )._datastruct == OrDi:
                     
                     for key in mol.getMeta( meta )._data.keys():
-                        keys.add(key)
+                        keys.addMolecule(key)
                 '''
                 try:
                     meta = metadi[info[0]][info[1]]
@@ -691,7 +693,7 @@ class Sdffile(object):
                     if meta.isOrDi():
                         '''
                         for key in meta._data.keys():
-                            keys.add(key)
+                            keys.addMolecule(key)
                         '''
                         keys.update(meta._data.keys())
                 except KeyError:
@@ -735,7 +737,7 @@ class Sdffile(object):
                 elif mol.getMeta( meta )._datastruct == OrDi:
                     
                     for key in mol.getMeta( meta )._data.keys():
-                        keys.add(key)
+                        keys.addMolecule(key)
             for key in keys:
                 newline = [str(key)]
                 
@@ -975,15 +977,15 @@ class Sdffile(object):
         f = open(path, 'r')
         data = f.readlines()
         f.close()
-        moles = Sdffile.sdfseparator(data)
+        moles = Sdffile.sdfSeparator(data)
         del (data)
         for mole in moles:
-            self.add(mole)
+            self.addMolecule(mole)
             
     def xreadself(self, path):
         with open(path, 'r') as f:
-            for mole in Sdffile.xsdfseparator(f):
-                self.add(mole)
+            for mole in Sdffile.xSdfSeparator(f):
+                self.addMolecule(mole)
     
     def selfToString(self, output, **kwargs):
         if output=='getcsv':
@@ -1417,7 +1419,7 @@ class Sdffile(object):
             if info in picks:
                 neworder.append(info)
         self._orderlist = neworder
-        self.dictmaint()
+        self.dictMaintenance()
         if len(picks)!=len(self):
             warnings.warn('Number of picked ones doesn\'t match number of remaining ones.')
     
@@ -1886,7 +1888,7 @@ class Sdffile(object):
                             #sort next tuple, etc.
                             meta = tabiter(conf, tab[1] )
                             if meta:
-                                meta.sortme(sortfunx[tab[0]])
+                                meta.sortMe(sortfunx[tab[0]])
                                 return meta
                             else:
                                 return None
@@ -1999,11 +2001,11 @@ class Sdffile(object):
         return sorted(self._orderlist, key=test, reverse=rever)
         #return sorted(self._orderlist, key=lambda avain: numify(self._dictomoles[avain[0]][avain[1]].getMeta(sortstring[1:])[0]) if self._dictomoles[avain[0]][avain[1]].hasMeta(sortstring[1:]) else None, reverse=rever)
         
-    def sortme(self, sortstring):
+    def sortMe(self, sortstring):
         self._orderlist = self.orderbymeta(sortstring)
     
     @staticmethod
-    def readcsv(path, separators = None):
+    def readCsv(path, separators = None):
         separators = separators if separators else [';',',','\t']
         #chop = re.compile('\s*{}\s*'.format(''.join(separators)))
         with open(path) as f:
@@ -2011,7 +2013,7 @@ class Sdffile(object):
         return csvdata
     
     @staticmethod
-    def xreadcsv(path, separators = None):
+    def xReadCsv(path, separators = None):
         separators = separators if separators else [';',',','\t']
         #chop = re.compile('\s*{}\s*'.format(''.join(separators)))
         with open(path) as f: 
@@ -2041,7 +2043,7 @@ class Sdffile(object):
         for key in diargs:
             kwargs[key] = diargs[key]
         
-        csvdata = Sdffile.xreadcsv(path) #separators?
+        csvdata = Sdffile.xReadCsv(path) #separators?
         
         #header = csvdata[0]
         header = next(csvdata)
@@ -2097,7 +2099,7 @@ class Sdffile(object):
         for key in diargs:
             kwargs[key] = diargs[key]
         
-        csvdata = Sdffile.xreadcsv(path)
+        csvdata = Sdffile.xReadCsv(path)
         
         header = next(csvdata)
         
@@ -2192,7 +2194,7 @@ class Sdffile(object):
                         mol._metakeys.remove(remo)
                         '''
                         
-    def splitme(self, n):
+    def splitMe(self, n):
         #positive n means how many parts, negative means how many molecules per file
         nofm = len(self)
         
@@ -2204,7 +2206,7 @@ class Sdffile(object):
         files = [Sdffile()]
         count = 0
         for mol in self:
-            files[-1].add(mol.selfToList()[:-1])
+            files[-1].addMolecule(mol.selfToList()[:-1])
             count +=1
             if count >= n:
                 files.append(Sdffile())
@@ -2247,7 +2249,7 @@ class Sdffile(object):
                 dotplace=kwargs['path'].rfind('.')
                 if dotplace < 0:
                     dotplace = len(kwargs['path'])
-                files = self.splitme(kwargs['split'])
+                files = self.splitMe(kwargs['split'])
                 for i, onesdf in enumerate(files):
                     onepath = kwargs['path'][:dotplace]+'_'+str(i)+kwargs['path'][dotplace:]
                     if 'makefolder' in kwargs:
@@ -2267,7 +2269,7 @@ class Sdffile(object):
     
     def getMol2Data(self, metaname, column, path):
         '''
-        Get atomwise information from wanted column in given .mol2-file and add it as metadata to current .sdf-file
+        Get atomwise information from wanted column in given .mol2-file and addMolecule it as metadata to current .sdf-file
         If name in mol2 includes sdfconf-compatible confnum, data is added conformation wise. Otherwise by complete molecule names.
         '''
         mymol2 = mol2.Mol2File(path)
@@ -2633,7 +2635,7 @@ class Sdfmole(object):
     def addConf(self, conf, toname = True, tometa = True, ckey = "confnum"):
         #def addConf(self, conf, bolist = [True, True]):
         '''
-        add given conformation number
+        addMolecule given conformation number
         bolist =(toName, toMeta confnum)
         '''
         conf = str(conf)
@@ -2783,7 +2785,7 @@ class Sdfmole(object):
         
     def addMeta(self,metafield, value, **dictarg): #overwrite, literal
         '''
-        Create a new Sdfmeta with given name and value and add it to the conformation
+        Create a new Sdfmeta with given name and value and addMolecule it to the conformation
         '''
         if 'overwrite' in dictarg and dictarg['overwrite']:
             overwrite = True
@@ -2837,7 +2839,7 @@ class Sdfmole(object):
         '''
         used to give distances from one atom in metafield to many atoms in metafield
         in future will:
-        add new meta with 
+        addMolecule new meta with 
         '''
         self.numerize()
         try:
@@ -3046,7 +3048,7 @@ class Sdfmole(object):
                             #sort next tuple, etc.
                             meta = tabiter(conf, tab[1] )
                             if meta:
-                                meta.sortme(sortfunx[tab[0]])
+                                meta.sortMe(sortfunx[tab[0]])
                                 return meta
                             else:
                                 return None
@@ -3400,7 +3402,7 @@ class Sdfmeta(object):
         if self.isDumb():
             
             #instead of commented section, merge lines with '' and do whattype
-            #if no delimiter or ' ' in the end of line, add ' '
+            #if no delimiter or ' ' in the end of line, addMolecule ' '
             mylines = self._data
             self._data = None
             
@@ -3993,7 +3995,7 @@ class Sdfmeta(object):
                 stuff = '{}:{}'.format(str(item), strifu(self._data[item]))#str(item)+':'+strifu(self._data[item])
             else:
                 stuff = strifu(item)
-            #add delimiter
+            #addMolecule delimiter
             """
             try:
                 lde = len(self._delims[i])
@@ -4008,7 +4010,7 @@ class Sdfmeta(object):
                 l=0
             l += lde
             tmp.append(self._delims[i])
-            #add data
+            #addMolecule data
             lda = len(stuff)
             if l +lda > length and lda < length:
                 strings.append(''.join(tmp))
@@ -4054,7 +4056,7 @@ class Sdfmeta(object):
                 stuff = str(item)+':'+strifu(self._data[item])
             else:
                 stuff = strifu(item)
-            #add delimiter
+            #addMolecule delimiter
             try:
                 lde = len(self._delims[i])
             except IndexError:
@@ -4068,7 +4070,7 @@ class Sdfmeta(object):
                 l=0
             l += lde
             tmp.append(self._delims[i])
-            #add data
+            #addMolecule data
             lda = len(stuff)
             if l +lda > length and lda < length:
                 strings.append(''.join(tmp))
@@ -4381,7 +4383,7 @@ class Sdfmeta(object):
         slices = {Sdfmeta:itsmeta, slice:itsslice, type(None): lambda toget, sliceorindex: None }
         return slices[type(sliceorindex)](toget, sliceorindex)
         
-    def sortme(self, ascending=True, byValue = True):
+    def sortMe(self, ascending=True, byValue = True):
         '''
         Sorts the cells to ascending or descending order, by value or key
         '''
