@@ -119,7 +119,8 @@ class Runner(object):
     
     writers =       ('overwrite', 'output', 'stdout') #default stdout
     writetypes =    {'getcsv':True,'getatomcsv':True,'metalist':True,'counts':True,'donotprint':True,'sdf':True,'split':False,'makefolder':False} #default 'sdf'
-    parametricwrite =   ('getcsv', 'getatomcsv', )
+    parametricwrite =   ('getcsv', 'getatomcsv', 
+                         'split') #NEW 4.4.2017
     graphers =      ('histogram', 'scatter')
     
     initials = singulars + graphers +  ('extract', 'addescape', 'addinside', 'closestatoms', 'closeratoms', ) 
@@ -635,7 +636,7 @@ def main(arguments=None):
     choiceremo.add_argument("-rm", "--removemeta", nargs='+', metavar='unwanted', type = str,              help = "Remove metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'.")
     choiceremo.add_argument("-pm", "--pickmeta", nargs='+', metavar='wanted', type = str,                help = "Remove all nonspecified metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'.")
     
-    arger.add_argument("-s", "--split", type = int, nargs=1,                         help = "Split the file into even pieces. Positive means number of files while negative means number of molecules per file. 0 doesn't apply.")
+    arger.add_argument("-s", "--split", type = str, nargs=1,                         help = "Split the file into even pieces. Positive means number of files while negative means number of molecules per file. 0 doesn't apply.")
     arger.add_argument("-mf", "--makefolder", action = "store_true",        help = "Put outputfile(s) into folder(s).")
     
     outputtype = arger.add_mutually_exclusive_group()

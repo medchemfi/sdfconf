@@ -183,7 +183,10 @@ class Sdffile(object):
         Adds a molecule to datastructure. 
         stringsofone is a list of strings representing a single conformation
         '''
-        new = Sdfmole(stringsofone, ignores = self._ignores)
+        if isinstance(stringsofone, Sdfmole):
+            new = copy.deepcopy(stringsofone)
+        else:
+            new = Sdfmole(stringsofone, ignores = self._ignores)
         name = new.getMolName(self.molgrouper)
         
         if not name in self._dictomoles:
@@ -401,6 +404,41 @@ class Sdffile(object):
             self._dictomoles[name][nn] = mol
         self.dictMaintenance()
     
+    def makeGroups(self, grouper, confgroup = None):
+        '''
+        Create new set of _orderlist and _dictomoles for given groups.
+        Possible issues with "getUniqueConfN". 
+        '''
+        newdict = dict()
+        newlist = list()
+        #for i, (molname, confn) in enumerate(self.keys()):
+        for molname, confn in self.keys():
+            mol = self.getMolecule(molname, confn)
+            newname = mol.getMolName(grouper)
+            if not newname in newdict:
+                newdict[newname] = dict()
+            
+            nn = mol.getConfN(confgroup)
+            #print nn
+            """
+            if not nn:
+                nn = self.getUniqueConfN(mol, 1) ##FIXME 
+            if nn in newdict[newname]:
+                raise ValueError('{} not unique in {}.'.format(nn, newname))
+            """#newlist[i]=[newname,nn]
+            #if not nn:
+                 
+            if nn in newdict[newname]:
+                if confgroup not in (None, 'confnum'): ##FIXME
+                    #print confgroup
+                    raise ValueError('{} not unique in {}.'.format(nn, newname))
+                else:
+                    nn = self.getUniqueConfN(mol, 1) ##FIXME
+                #raise ValueError('{} not unique in {}.'.format(nn, newname))
+            newlist.append( [newname,nn] )
+            newdict[newname][nn] = mol
+        return newdict, newlist
+        
     #"""
     def setGrouper(self, grouper, confgroup = None):
         '''
@@ -423,6 +461,7 @@ class Sdffile(object):
         #for i, molord in enumerate(self._orderlist):
         
         #print('BINGO!')
+        """
         for i, (molname, confn) in enumerate(self.keys()):
             #print(i,molname,confn)
             #mol = self._dictomoles[molname][confn]
@@ -465,6 +504,10 @@ class Sdffile(object):
             #    newdict[newname] = dict()
             #newdict[newname][nn] = mol
         #self._dictomoles = newdict
+        """
+        newdict, newlist = self.makeGroups(grouper, confgroup)
+        self._dictomoles = newdict
+        self._orderlist = newlist
         self.dictMaintenance()
     #"""
     
@@ -839,9 +882,12 @@ class Sdffile(object):
                     #if atom[1] in mylist:
                     if atom in mylist:
                         final_atoms.append(atom)
+                final_dists = numpy.array([distances[i,:] for i in range(len(atoms)) if i in final_atoms]).tolist() #new tolist
+                
             else:
                 #final_atoms = alist
                 final_atoms = atoms
+                final_dists = distances.tolist() #new tolist
             #del(alist)
             if 'num' in varargdict:
                 try:
@@ -853,7 +899,7 @@ class Sdffile(object):
             #    od[item[1]]=item[0]
             #od = OrDi(zip(final_atoms, distances))
             #mol.addMeta(name,od)
-            mol.addMeta(name, OrDi(zip(final_atoms, distances)))
+            mol.addMeta(name, OrDi(zip(final_atoms, final_dists)))
             
     
     def closer(self, point, meta):
@@ -2194,26 +2240,46 @@ class Sdffile(object):
                         mol._metakeys.remove(remo)
                         '''
                         
-    def splitMe(self, n):
+    def splitMe(self, splitarg):
         #positive n means how many parts, negative means how many molecules per file
         nofm = len(self)
+        n = functions.numify(splitarg)
         
-        if n<0:
-            n=abs(n)
-        elif n>0:
-            noff=n
-            n=int(math.ceil(float(nofm)/noff))
-        files = [Sdffile()]
-        count = 0
-        for mol in self:
-            files[-1].addMolecule(mol.selfToList()[:-1])
-            count +=1
-            if count >= n:
+        if isinstance(n, int):
+            if n<0:
+                n=abs(n)
+            elif n>0:
+                noff=n
+                n=int(math.ceil(float(nofm)/noff))
+            files = [Sdffile()]
+            count = 0
+            for mol in self:
+                files[-1].addMolecule(mol.selfToList()[:-1])
+                count +=1
+                if count >= n:
+                    files.append(Sdffile())
+                    count = 0
+            names = lmap(str, range(1, len(files)+1))
+        elif isinstance(n, string_types) and n in self.listmetas():
+            newdict, newlist = self.makeGroups(n)
+            files = []
+            for group in newdict:
                 files.append(Sdffile())
-                count = 0
+                #files[-1].setGrouper()
+                thelist = [self._orderlist[i] for i, info in enumerate(newlist) if info[0] == group]
+                #for mol in newdict[group].values():
+                for mol, conf in thelist:
+                    #files[-1].addMolecule(newdict[mol][conf]) 
+                    #files[-1].addMolecule(newdict[mol][conf].selfToList()[:-1])
+                    files[-1].addMolecule(self.getMolecule(mol, conf).selfToList()[:-1])
+            names = lmap(str, newdict.keys())
+                    #pass
+        else:
+            raise ValueError("Splitter {} doesn't make sense".format(splitarg))
         if len(files[-1])==0:
             del(files[-1])
-        return files
+            del(names[-1])
+        return files, names
         
         
     def writer(self, writetype, **kwargs):#path=None, split=False, makefolder=False): #new way of writing things
@@ -2249,13 +2315,16 @@ class Sdffile(object):
                 dotplace=kwargs['path'].rfind('.')
                 if dotplace < 0:
                     dotplace = len(kwargs['path'])
-                files = self.splitMe(kwargs['split'])
-                for i, onesdf in enumerate(files):
-                    onepath = kwargs['path'][:dotplace]+'_'+str(i)+kwargs['path'][dotplace:]
+                files, names = self.splitMe(kwargs['split'])
+                #for i, onesdf in enumerate(files):
+                for name, onesdf in zip(names, files):
+                    #onepath = kwargs['path'][:dotplace]+'_'+str(i)+kwargs['path'][dotplace:]
+                    onepath = kwargs['path'][:dotplace]+'_'+name+kwargs['path'][dotplace:]
                     if 'makefolder' in kwargs:
                         del(newargs['makefolder'])
                         #onepath = kwargs['makefolder']+'_'+str(i)+'/'+kwargs['path']
-                        onepath = '{}_{}{}{}'.format(kwargs['makefolder'], str(i), os.sep, kwargs['path']) #kwargs['makefolder']+'_'+str(i)+'/'+kwargs['path']
+                        #onepath = '{}_{}{}{}'.format(kwargs['makefolder'], str(i), os.sep, kwargs['path']) #kwargs['makefolder']+'_'+str(i)+'/'+kwargs['path']
+                        onepath = '{}_{}{}{}'.format(kwargs['makefolder'], name, os.sep, kwargs['path']) #kwargs['makefolder']+'_'+str(i)+'/'+kwargs['path']
                         functions.ensure_dir(onepath)
                     newargs['path'] = onepath
                     onesdf.writer(writetype, **newargs)
@@ -3466,14 +3535,18 @@ class Sdfmeta(object):
                 else:
                     new._datastruct = 'single'
                     data = [data]
-        elif type(data) in (OrDi, dict, list):
-            if type(data)==dict:
+        #elif type(data) in (OrDi, dict, list):
+        elif isinstance(data, (dict, list)):
+            #if type(data)==dict:
+            if isinstance(data, dict):
                 data = OrDi(data)
                 new._datastruct = OrDi
-            elif type(data)==list and len(data)==1:
+            #elif type(data)==list and len(data)==1:
+            elif isinstance(data, list) and len(data)==1:
                 new._datastruct = 'single'
             else:
-                new._datastruct = type(data)
+                raise ValueError('Not dict or list.')
+                #new._datastruct = type(data)
         elif type(data) in (int, float):
             new._datastruct = 'single'
             data = [data]
