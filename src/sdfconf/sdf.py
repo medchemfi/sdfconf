@@ -2293,7 +2293,9 @@ class Sdffile(object):
             if 'path' in kwargs: #output or overwrite
                 if 'makefolder' in kwargs:
                     del(newargs['makefolder'])
-                    onepath = kwargs['makefolder']+'/'+kwargs['path']
+                    #onepath = kwargs['makefolder']+'/'+kwargs['path']
+                    
+                    onepath = os.path.join( kwargs['makefolder'], kwargs['path'] )
                     functions.ensure_dir(onepath)
                 else:
                     onepath = kwargs['path']
@@ -2316,16 +2318,22 @@ class Sdffile(object):
                 if dotplace < 0:
                     dotplace = len(kwargs['path'])
                 files, names = self.splitMe(kwargs['split'])
+                
+                if 'makefolder' in kwargs:
+                    #if 'makefolder' in newargs:
+                    del(newargs['makefolder'])
+                    #onepath = kwargs['makefolder']+'_'+str(i)+'/'+kwargs['path']
+                    #onepath = '{}_{}{}{}'.format(kwargs['makefolder'], str(i), os.sep, kwargs['path']) #kwargs['makefolder']+'_'+str(i)+'/'+kwargs['path']
+                    #onepath = '{}_{}{}{}'.format(kwargs['makefolder'], name, os.sep, kwargs['path']) #kwargs['makefolder']+'_'+str(i)+'/'+kwargs['path']
+                    prepath =  kwargs['makefolder'] + os.sep
+                    functions.ensure_dir(prepath)
+                else:
+                    prepath = ''
+                
                 #for i, onesdf in enumerate(files):
                 for name, onesdf in zip(names, files):
                     #onepath = kwargs['path'][:dotplace]+'_'+str(i)+kwargs['path'][dotplace:]
-                    onepath = kwargs['path'][:dotplace]+'_'+name+kwargs['path'][dotplace:]
-                    if 'makefolder' in kwargs:
-                        del(newargs['makefolder'])
-                        #onepath = kwargs['makefolder']+'_'+str(i)+'/'+kwargs['path']
-                        #onepath = '{}_{}{}{}'.format(kwargs['makefolder'], str(i), os.sep, kwargs['path']) #kwargs['makefolder']+'_'+str(i)+'/'+kwargs['path']
-                        onepath = '{}_{}{}{}'.format(kwargs['makefolder'], name, os.sep, kwargs['path']) #kwargs['makefolder']+'_'+str(i)+'/'+kwargs['path']
-                        functions.ensure_dir(onepath)
+                    onepath = prepath + kwargs['path'][:dotplace]+'_'+name+kwargs['path'][dotplace:]
                     newargs['path'] = onepath
                     onesdf.writer(writetype, **newargs)
     

@@ -110,7 +110,8 @@ class Runner(object):
     
     
     singulars =    ('overwrite', 'verbose', 'conftometa', 'conftoname', 'removeconfname',
-                     'removeconfmeta', 'makefolder', 'metalist', 'donotprint',
+                     #'removeconfmeta', 'makefolder', 'metalist', 'donotprint',
+                     'removeconfmeta', 'metalist', 'donotprint',
                      'molgrouper', 'confgrouper', #new arrivals 24.2.2017
                      )
     
@@ -120,7 +121,7 @@ class Runner(object):
     writers =       ('overwrite', 'output', 'stdout') #default stdout
     writetypes =    {'getcsv':True,'getatomcsv':True,'metalist':True,'counts':True,'donotprint':True,'sdf':True,'split':False,'makefolder':False} #default 'sdf'
     parametricwrite =   ('getcsv', 'getatomcsv', 
-                         'split') #NEW 4.4.2017
+                         'split', 'makefolder') #NEW 4.4.2017
     graphers =      ('histogram', 'scatter')
     
     initials = singulars + graphers +  ('extract', 'addescape', 'addinside', 'closestatoms', 'closeratoms', ) 
@@ -395,14 +396,16 @@ class Runner(object):
                         lambda : (' Plotting done',())
                         )[i], #FIXME
                     'cut'            :lambda i : (
-                        lambda x :self.sdf.listremove(Sdffile(x.strip()),True),
+                        #lambda x :self.sdf.listremove(Sdffile(x.strip()),True),
+                        lambda x :self.sdf.listremove(x.strip(),True),
                         lambda : (param,),
                         lambda : ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif())),
                         NoLamb,
                         NoLamb
                         )[i], 
                     'allcut'         :lambda i : (
-                        lambda x :self.sdf.listremove(Sdffile(x.strip()),False),
+                        #lambda x :self.sdf.listremove(Sdffile(x.strip()),False),
+                        lambda x :self.sdf.listremove(x.strip(),False),
                         lambda : (param,),
                         lambda : ('Removing all molecules (matching confnum) present in {} complete. It took {} seconds.', (param, timedif())),
                         NoLamb,
@@ -541,11 +544,12 @@ class Runner(object):
             #self.wriarg[option]=params
             
         elif option in Runner.writers:
-            writers = {'overwrite':lambda x : self.inpath, 'output': lambda x : x, 'stdout': lambda x: None} #default stdout
-            try:
-                self.wriarg['path'] = writers.get(option, None)(params)[0]
-            except TypeError:
-                pass
+            writers = {'overwrite':lambda x : (self.inpath,), 'output': lambda x : x, 'stdout': lambda x: None} #default stdout
+            #try:
+            self.wriarg['path'] = writers.get(option, None)(params)[0]
+            
+            #except TypeError:
+                #pass
             self.writer = option
             self.sdf.writer(self.writetype,**self.wriarg)
             self.times.append(time.time())
@@ -637,7 +641,8 @@ def main(arguments=None):
     choiceremo.add_argument("-pm", "--pickmeta", nargs='+', metavar='wanted', type = str,                help = "Remove all nonspecified metadata from molecules. Takes multiple values, separaterd by comma(,) or semicolon(;). If first is '?', means 'all but'.")
     
     arger.add_argument("-s", "--split", type = str, nargs=1,                         help = "Split the file into even pieces. Positive means number of files while negative means number of molecules per file. 0 doesn't apply.")
-    arger.add_argument("-mf", "--makefolder", action = "store_true",        help = "Put outputfile(s) into folder(s).")
+    arger.add_argument("-mf", "--makefolder", type = str, nargs=1,        help = "Put outputfile(s) into folder.")
+    #arger.add_argument("-mf", "--makefolder", action = "store_true",        help = "Put outputfile(s) into folder(s).")
     
     outputtype = arger.add_mutually_exclusive_group()
     outputtype.add_argument("-gc",  "--getcsv",     type = str, nargs=1 ,                 help = "Writes a .csv-file istead of .sdf-file. Specify which fields you'll need, separated by ','.")
