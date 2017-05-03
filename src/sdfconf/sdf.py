@@ -244,6 +244,7 @@ class Sdffile(object):
                 
     def listremove(self, path, sameconf=True):
         '''Frontend to sdflistremove and csvlistremove'''
+        """
         other = Sdffile(path, grouper = self.molgrouper, confid = self.confgrouper)
         if len(other)==0:
             del(other)
@@ -251,7 +252,16 @@ class Sdffile(object):
             self.csvlistremove(liomo, sameconf)
         else:
             self.sdflistremove(other, sameconf)
-    
+        """
+        #other = Sdffile(path, grouper = self.molgrouper, confid = self.confgrouper)
+        
+        if path.endswith('.sdf'):#len(other)==0:
+            self.sdflistremove(Sdffile(path, grouper = self.molgrouper, confid = self.confgrouper), sameconf)
+        else:
+            #del(other)
+            liomo = functions.csvtomatrix(path,'[,;\t ]')
+            self.csvlistremove(liomo, sameconf)
+        
     def csvlistremove(self, others, sameconf=True):
         '''
         Cut operator.
@@ -1539,8 +1549,10 @@ class Sdffile(object):
                     grab = int(math.ceil(len(moles)*num/100.0))
                 else:
                     grab = int(num)
-                trues.extend( [(mol, item) for item in list(moles.keys())[:grab]] )
-                falses.extend( [(mol, item) for item in list(moles.keys())[grab:]] )
+                #trues.extend( [(mol, item) for item in list(moles.keys())[:grab]] )
+                #falses.extend( [(mol, item) for item in list(moles.keys())[grab:]] )
+                trues.extend( [[mol, item] for item in list(moles.keys())[:grab]] )
+                falses.extend( [[mol, item] for item in list(moles.keys())[grab:]] )
             return (trues, falses)
         
         def uniqu( string ):
@@ -1968,7 +1980,7 @@ class Sdffile(object):
                             #elif tab[0] == '--':
                             #    f1 = Sdfmeta()
                             else:
-                                print "no f1"
+                                #print "no f1"
                                 f1 = Sdfmeta()
                             #else:
                             #    f1 = Sdfmeta()
@@ -1976,6 +1988,7 @@ class Sdffile(object):
                         if tab[0] in ('++','--'):
                             print "join/cut {}".format(tab)
                         '''
+                        #print(tab,  f1, tabiter(conf, tab[2]) )
                         return Sdfmeta.metaOperator(maths[tab[0]],[f1,tabiter(conf, tab[2])])
                     else:
                         metaus = tabiter(conf, tab[:2], None)
@@ -3550,8 +3563,12 @@ class Sdfmeta(object):
                 data = OrDi(data)
                 new._datastruct = OrDi
             #elif type(data)==list and len(data)==1:
-            elif isinstance(data, list) and len(data)==1:
-                new._datastruct = 'single'
+            elif isinstance(data, list):
+                if len(data)==1:
+                    new._datastruct = 'single'
+                else:
+                    new._datastruct = list
+            
             else:
                 raise ValueError('Not dict or list.')
                 #new._datastruct = type(data)
@@ -3787,13 +3804,19 @@ class Sdfmeta(object):
             newmeta.setname(params['name'])
         else:
             newmeta.setname(None)
+        
+        #print '{} -> {}'.format(metas, newmeta)
         return newmeta
     
     @staticmethod
     def metaCut(metas):
+        
         newmeta = copy.copy(metas[0])
         for meta in metas[1:]:
-            newmeta.cut(meta)
+            if not meta:
+                continue
+            else:
+                newmeta.cut(meta)
         newmeta.cleanDelimiters(True)
         return newmeta
     
@@ -4237,8 +4260,9 @@ class Sdfmeta(object):
         return resulting metavalue of operation.
         resulting Sdfmeta is nameless
         '''
-        structs = [meta._datastruct for meta in metas]
-        types   = [meta.dtype()   for meta in metas]
+        #print metas
+        structs = [meta._datastruct for meta in metas if meta]
+        types   = [meta.dtype()   for meta in metas if meta]
         #mathopers = (sum, functions.sub, numpy.prod, max, min, functions.avg, functions.div, functions.mypow, functions.remainder)
         mathopers = (sum, functions.sub, functions.myprod, max, min, functions.avg, functions.div, functions.mypow, functions.remainder)
         workmetas = [copy.copy(meta) for meta in metas] 
@@ -4307,8 +4331,10 @@ class Sdfmeta(object):
                 return Sdfmeta.construct(Sdfmeta.OrDioper(oper,workmetas), **kwargs)
         
         elif oper in (Sdfmeta.metaJoiner,Sdfmeta.metaCut): #Therefore, it's joiner
+            #print metas
             newmeta = oper(metas)
             newmeta.cleanDelimiters(True)
+            #print newmeta
             return newmeta
         
         else:
