@@ -1900,6 +1900,8 @@ class Sdffile(object):
         
         def tabiter(conf, tab, par = None):
             #print(conf, tab, par)
+            #print(conf)
+            #print('\ntab:\t{}\nparen:\t{}'.format(tab, par) )
             '''
             collapse given getLevels tab generated from some meta expression into a single Sdfmeta or None
             '''
@@ -2000,10 +2002,18 @@ class Sdffile(object):
                 
             def striope(conf,tab,par=None):
                 #Work with strings in given structure
+                #print('striope:\t{}, {}'.format(tab, par))
+                '''
                 if par in ('"',"'"):
                     return Sdfmeta.construct(tab,literal=True)
+                    """
                 elif tab in (sortfunx, molfunx, metafunx) :
                     return tab
+                    """
+                
+                elif tab in sortfunx or tab in molfunx or tab in metafunx :
+                    return tab
+                
                 elif conf.hasMeta(tab):
                     return copy.copy(conf.getMeta(tab))
                 elif par in ('(','[','{'):
@@ -2022,7 +2032,54 @@ class Sdffile(object):
                     trytab = [functions.numify(i) for i in re.split(r'\s*[ ,]{0,1}\s*', tab )]
                     if not str in lmap(type, trytab):
                         return Sdfmeta.construct( trytab )
+                
                 return None
+                '''
+                retu = None
+                if par in ('"',"'"):
+                    #print '1'
+                    retu = Sdfmeta.construct(tab,literal=True)
+                    """
+                elif tab in (sortfunx, molfunx, metafunx) :
+                    return tab
+                    """
+                
+                elif tab in sortfunx or tab in molfunx or tab in metafunx :
+                    #print '2'
+                    retu = tab
+                
+                elif conf.hasMeta(tab):
+                    #print '3'
+                    retu = copy.copy(conf.getMeta(tab))
+                elif par in ('(','[','{'):
+                    #print '4'
+                    trytab = [functions.numify(i) for i in re.split(r'\s*[ ,]{0,1}\s*', tab )]
+                    if not str in lmap(type, trytab):
+                        #print '4.1'
+                        retu = Sdfmeta.construct( trytab )
+                    else:
+                        try:
+                            #print '4.2'
+                            retu = slice(*[{True: lambda n: None, False: int}[x == ''](x) for x in (tab.split(':') + ['', '', ''])[:3]])
+                        except ValueError:
+                            #print '4.3'
+                            rip = Sdfmeta.compSplit(tab)
+                            if len(rip)>1 and par in ('(','{'):
+                                #print '4.3.1'
+                                retu = rip
+                            else:
+                                #print '4.3.2'
+                                #raise ValueError('Your logic makes no sense. '+str(tab))
+                                retu = None
+                else:
+                    #print '5'
+                    trytab = [functions.numify(i) for i in re.split(r'\s*[ ,]{0,1}\s*', tab )]
+                    if not str in lmap(type, trytab):
+                        #print '5.1'
+                        retu = Sdfmeta.construct( trytab )
+                
+                #print('striope:\t{}'.format(retu) )
+                return retu
                     
             def raiser(conf, tab, par=None):
                 raise TypeError('Bad getLevels: '+str(tab))
@@ -2031,11 +2088,17 @@ class Sdffile(object):
             testdi = {list: listope, tuple: listope, string_types: striope, Sdfmeta: lambda conf, me, par=None : me if len(me)>0 else None, type(None) : lambda conf, me, par=None : None }
             for key in testdi:
                 if isinstance(tab, key):
-                    return testdi[key](conf, tab, par)
+                    #print key
+                    retu = testdi[key](conf, tab, par)
+                    #print retu
+                    return retu
+                    #return testdi[key](conf, tab, par)
             return raiser(conf, tab, par)
             #return testdi.get(type(tab), raiser )(conf, tab, par)
         
-        return tabiter(confmol, mylevel)
+        retu = tabiter(confmol, mylevel)
+        #print ('final return:\t{}'.format(retu))
+        return retu
     
     
     
