@@ -113,6 +113,7 @@ class Runner(object):
                      #'removeconfmeta', 'makefolder', 'metalist', 'donotprint',
                      'removeconfmeta', 'metalist', 'donotprint',
                      'molgrouper', 'confgrouper', #new arrivals 24.2.2017
+                     'ignores'
                      )
     
     
@@ -123,6 +124,7 @@ class Runner(object):
     parametricwrite =   ('getcsv', 'getatomcsv', 
                          'split', 'makefolder') #NEW 4.4.2017
     graphers =      ('histogram', 'scatter')
+    
     
     initials = singulars + graphers +  ('extract', 'addescape', 'addinside', 'closestatoms', 'closeratoms', ) 
     
@@ -372,7 +374,8 @@ class Runner(object):
                         lambda : (param,),
                         NoLamb,
                         NoLamb,
-                        lambda : ('Ignores set to {}.',(param,))
+                        #lambda : ('Ignores set to {}.',(param,))
+                        lambda : ('Ignores set to {}.', param)
                         )[i], 
                     'config'         :lambda i : (
                         self.runConfig,
@@ -565,10 +568,9 @@ class Runner(object):
             for oneparam in params:
                 self.taskLib('func', option, oneparam)
                 self.messenger('loop', option, oneparam)
-                
             #self.messenger('final', option, oneparam, steps=len(params))
             self.messenger('final', option, params, steps=len(params))
-        
+            
         
     @staticmethod
     def parsecon(oneline):
@@ -691,6 +693,7 @@ def main(arguments=None):
         if onerun.writer==None:
             onerun.sdf.writer(onerun.writetype,**onerun.wriarg)
             
+        #print onerun.sdf._ignores
         
     
     for onefile in manyfiles:

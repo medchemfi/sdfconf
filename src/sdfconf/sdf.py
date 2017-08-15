@@ -51,7 +51,8 @@ class Sdffile(object):
         self._dictomoles = dict() # {'aspirin':{1:aspi1, 2:aspi2, ...}, 'bentzene':{1:benz1, 2:benz2, ...}, ...}
         self._orderlist = list()
         #self._ignores = kwargs.get('ignores', ['H'])
-        self.setIgnores(kwargs.get('ignores', ['H']))
+        #self.setIgnores(kwargs.get('ignores', ['H'])) #passing [] results in ['H']
+        self.setIgnores( ['H'] if kwargs.get('ignores') is None else kwargs.get('ignores') )
         self.molgrouper  = kwargs.get('grouper', None) #By default, group by molname (grouper=None). 
         self.confgrouper = kwargs.get('confid', 'confnum') #Meta id that identifies conformations. (Might be important when importing data by conformation...) 
         if path is not None:
@@ -881,7 +882,12 @@ class Sdffile(object):
             #alist=sorted(alist, key=lambda item: item[0])
             
             atoms, distances = mol.arrayDists(point, ignores = myignores)
-            atoms = sorted(atoms, key=lambda atom: distances[atom-1]) #indexing from 0, atom numbers from 1!
+            
+            atomi, atomn = zip( *enumerate(atoms) )
+            
+            atomo = sorted(atomi, key=lambda atom: distances[atom])
+            #atoms = sorted(atoms, key=lambda atom: distances[atom-1]) #indexing from 0, atom numbers from 1!
+            atoms = [atomn[atom] for atom in atomo]
             
             if 'interests' in varargdict:
                 final_atoms=[]
@@ -897,7 +903,7 @@ class Sdffile(object):
             else:
                 #final_atoms = alist
                 final_atoms = atoms
-                final_dists = distances.tolist() #new tolist
+                final_dists = distances[atomo].tolist() #new tolist
             #del(alist)
             if 'num' in varargdict:
                 try:
@@ -2504,7 +2510,8 @@ class Sdfmole(object):
         self._bonds = None
         self._properties = None
         
-        self.setIgnores(kwargs.get('ignores', ['H']))
+        #self.setIgnores(kwargs.get('ignores', ['H'])) #passing [] results in ['H']
+        self.setIgnores( ['H'] if kwargs.get('ignores') is None else kwargs.get('ignores') )
         
         if stringsofone:
             self.initialize(stringsofone)
