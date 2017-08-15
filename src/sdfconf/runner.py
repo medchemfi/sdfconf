@@ -83,6 +83,7 @@ class Runner(object):
              ('metalist',       'ml'    ), 
              ('counts',         'nm'    ), 
              ('donotprint',     'dnp'   ), 
+             ('donotplot',      'dnpl'  ), 
              ('split',          's'     ), 
              ('makefolder',     'mf'    ), 
              ('output',         'out'   ), 
@@ -113,7 +114,7 @@ class Runner(object):
                      #'removeconfmeta', 'makefolder', 'metalist', 'donotprint',
                      'removeconfmeta', 'metalist', 'donotprint',
                      'molgrouper', 'confgrouper', #new arrivals 24.2.2017
-                     'ignores'
+                     'ignores', 'donotplot'
                      )
     
     
@@ -148,6 +149,8 @@ class Runner(object):
         
         self.sdf = Sdffile()
         
+        self._noPlot = False
+        
     def setPropor(self,parameter=None):
         if not parameter or parameter is True:
             self.propor = []
@@ -160,6 +163,12 @@ class Runner(object):
             self.verbose = verbose[0]
         else:
             self.verbose = verbose
+    
+    def setNoPlot(self, noPlot=False):
+        if isinstance(noPlot, (list, tuple)):
+            self._noPlot = noPlot[0]
+        else:
+            self._noPlot = noPlot
     
     def setIgnores(self,ignore=['H']):
         self.ignore = ignore
@@ -397,6 +406,13 @@ class Runner(object):
                         NoLamb,
                         lambda : ('Start plotting scatter plots',()),
                         lambda : (' Plotting done',())
+                        )[i], #FIXME
+                    'donotplot'       :lambda i : (
+                        self.setNoPlot,
+                        lambda : (param,),
+                        NoLamb,
+                        NoLamb,
+                        lambda : ('No plotting enabled.' if param else 'No plotting disabled.',())
                         )[i], #FIXME
                     'cut'            :lambda i : (
                         #lambda x :self.sdf.listremove(Sdffile(x.strip()),True),
@@ -653,6 +669,7 @@ def main(arguments=None):
     outputtype.add_argument("-ml",  "--metalist",   action = "store_true",     help = "Writes a list of metafields.")
     outputtype.add_argument("-nm",  "--counts",     type = int, nargs='?', const=0, choices=(0,1,2),  help = "Number of different molecules and different conformations. 0=just sums, 1=by molecule name, 2=both.")
     outputtype.add_argument("-dnp", "--donotprint", action = "store_true",  help = "No output")
+    arger.add_argument("-dnpl", "--donotplot", action = "store_true",  help = "No do print plots on screen. Saving still works")
     
     arger.add_argument("-ca",  "--closestatoms",    type = str, nargs='+',  metavar='(x, y, z) [,name] [,interests=value]', help = "Calculates the closest atoms (distances by atom number) to given point. Creates a metafield with given name, if no name is given 'Closest_atoms' is created. (xx, yy, zz) may be replaced by metastatement describing single atom number.")
     arger.add_argument("-cla", "--closeratoms",     type = str, nargs='+', metavar= "(x, y, z),meta", help = "Calculates number of atoms closer to the given point, than the ones given in meta. Adds metafields 'Closest_atom_from_{meta}' and 'Closer_atoms_than_{meta}'.")
@@ -684,6 +701,8 @@ def main(arguments=None):
     
     manyfiles = args.input
     
+    global plots 
+    plots = None
     
     def run(inputfile, options):
         options['input'] = inputfile
@@ -692,7 +711,11 @@ def main(arguments=None):
         
         if onerun.writer==None:
             onerun.sdf.writer(onerun.writetype,**onerun.wriarg)
-            
+        
+        global plots
+        if (not onerun._noPlot) and (not plots) and (onerun.sdf._plt):
+            plots = onerun.sdf._plt
+        
         #print onerun.sdf._ignores
         
     
@@ -724,8 +747,12 @@ def main(arguments=None):
         #run(onefile, dict(options))
         run(onefile, options) #no need for cast
     
+    '''
     if 'plt' in globals():
         onefile.plt.show()
+    '''
+    if plots:
+        plots.show()
         
 '''def main():
     run(sys.argv[1:])'''

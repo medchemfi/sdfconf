@@ -57,6 +57,7 @@ class Sdffile(object):
         self.confgrouper = kwargs.get('confid', 'confnum') #Meta id that identifies conformations. (Might be important when importing data by conformation...) 
         if path is not None:
             self.xreadself(path)
+        self._plt = None
     
     def __copy__(self):
         '''
@@ -69,6 +70,7 @@ class Sdffile(object):
         new._orderlist = copy.copy(self._orderlist)
         #new._ignores = copy.copy(self._ignores)
         new.setIgnores( copy.copy(self._ignores) )
+        new._plt = self._plt
         return new
     
     def __deepcopy__(self,memo):
@@ -80,6 +82,7 @@ class Sdffile(object):
         new._orderlist = copy.deepcopy(self._orderlist,memo)
         #new._ignores = copy.copy(self._ignores)
         new.setIgnores( copy.copy(self._ignores) )
+        new._plt = self._plt
         return new
     
     def __iter__(self):
@@ -1093,8 +1096,8 @@ class Sdffile(object):
         #print(kwargs)
         
         
-        
-        self.plt = plt
+        if not self._plt:
+            self._plt = plt
         if 'ex' in kwargs:
             sdf = copy.copy(self)
             for cho in kwargs['ex'].split('|'):
@@ -1175,7 +1178,7 @@ class Sdffile(object):
                         print(keyorder)
                         raise KeyError(str(key))
             
-        self.plt.figure()
+        self._plt.figure()
         if not Yname:
             larg=[datas[0]]
             #print(len(datas))
@@ -1184,7 +1187,7 @@ class Sdffile(object):
                 larg.append(kwargs['bins'])
                 del(kwargs['bins'])
             
-            self.plt.hist(*larg,**kwargs) #kwargs?
+            self._plt.hist(*larg,**kwargs) #kwargs?
         else:
             #from mpl.cm import jet as cmap
             #cm = mpl.cm
@@ -1196,33 +1199,34 @@ class Sdffile(object):
             #cmap = cm.jet
             #cmap = cm.get('jet')
             #cmap = mpl.cm.get('jet')
-            X=self.plt.hist2d(datas[0],datas[1],**kwargs)[0]
+            X=self._plt.hist2d(datas[0],datas[1],**kwargs)[0]
             
             ticks=list(numpy.arange(numpy.max(X)+1))
             skip = int(round(float(len(ticks))/20))
             if skip>1:
                 ticks = numpy.array(ticks[:1] + ticks[skip:-skip:skip] + ticks[-1:])
             norm = mpl.colors.BoundaryNorm(numpy.arange(-0.5,numpy.max(X)+1.5), cmap.N)
-            cbar = self.plt.colorbar()
+            cbar = self._plt.colorbar()
             cbar = mpl.colorbar.ColorbarBase(cbar.ax , cmap=cmap,norm=norm,ticks=ticks,spacing='proportional')
         
         if 'Xtitle' in newargs:
-            self.plt.xlabel(newargs['Xtitle'])
+            self._plt.xlabel(newargs['Xtitle'])
         else:
-            self.plt.xlabel(Xname)
+            self._plt.xlabel(Xname)
         if 'Ytitle' in newargs:
-            self.plt.ylabel(newargs['Ytitle'])
+            self._plt.ylabel(newargs['Ytitle'])
         elif Yname:
-            self.plt.ylabel(Yname)
+            self._plt.ylabel(Yname)
         if 'title' in newargs:
-            self.plt.title(newargs['title'])
+            self._plt.title(newargs['title'])
         
     
     def scatter(self, Xname, Yname, **kwargs):
         mpl.use(mplback)
         import matplotlib.pyplot as plt
         
-        self.plt = plt
+        if not self._plt:
+            self._plt = plt
         if 'ex' in kwargs:
             sdf = copy.copy(self)
             for cho in kwargs['ex'].split('|'):
@@ -1303,7 +1307,7 @@ class Sdffile(object):
                         print(keyorder)
                         raise KeyError(str(key))
             
-        self.plt.figure()
+        self._plt.figure()
         
         grudata = dict()
         if len(datas) == 3:
@@ -1344,25 +1348,26 @@ class Sdffile(object):
             plt.legend(loc='best')
         
         if 'Xtitle' in newargs:
-            self.plt.xlabel(newargs['Xtitle'])
+            self._plt.xlabel(newargs['Xtitle'])
         else:
-            self.plt.xlabel(Xname)
+            self._plt.xlabel(Xname)
         if 'Ytitle' in newargs:
-            self.plt.ylabel(newargs['Ytitle'])
+            self._plt.ylabel(newargs['Ytitle'])
         elif Yname:
-            self.plt.ylabel(Yname)
+            self._plt.ylabel(Yname)
         if 'title' in newargs:
-            self.plt.title(newargs['title'])
+            self._plt.title(newargs['title'])
             
     def show(self):
-        self.plt.show()
+        if self._plt:
+            self._plt.show()
     
     def histogramFromListOfStrings(self,plots):
         '''
         plots is a list of strings, as in command line.
         '''
         #print(plots)
-        showflag=True
+        #showflag=True
         for plot in plots:
             path=None
             #params = functions.splitter(plot)
@@ -1385,21 +1390,21 @@ class Sdffile(object):
             if 'save' in darg:
                 path=darg['save']
                 del(darg['save'])
-            if 'noplot' in larg:
-                showflag=False
-                larg.remove('noplot')
+            #if 'noplot' in larg:
+            #    showflag=False
+            #    larg.remove('noplot')
             self.histogrammer(*larg,**darg)
             if path:
-                self.plt.savefig(path, bbox_inches='tight')
-        if showflag:
-            self.show()
+                self._plt.savefig(path, bbox_inches='tight')
+        #if showflag:
+        #    self.show()
             
     def scatterFromListOfStrings(self,plots):
         '''
         plots is a list of strings, as in command line.
         '''
         #print(plots)
-        showflag=True
+        #showflag=True
         for plot in plots:
             path=None
             #params = functions.splitter(plot)
@@ -1422,14 +1427,14 @@ class Sdffile(object):
             if 'save' in darg:
                 path=darg['save']
                 del(darg['save'])
-            if 'noplot' in larg:
-                showflag=False
-                larg.remove('noplot')
+            #if 'noplot' in larg:
+            #    showflag=False
+            #    larg.remove('noplot')
             self.scatter(*larg,**darg)
             if path:
-                self.plt.savefig(path, bbox_inches='tight')
-        if showflag:
-            self.show()
+                self._plt.savefig(path, bbox_inches='tight')
+        #if showflag:
+        #    self.show()
             
     
     def mollogicparse(self, string):
