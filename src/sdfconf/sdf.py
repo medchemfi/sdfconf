@@ -55,6 +55,8 @@ class Sdffile(object):
         self.setIgnores( ['H'] if kwargs.get('ignores') is None else kwargs.get('ignores') )
         self.molgrouper  = kwargs.get('grouper', None) #By default, group by molname (grouper=None). 
         self.confgrouper = kwargs.get('confid', 'confnum') #Meta id that identifies conformations. (Might be important when importing data by conformation...) 
+        
+        self._spam =    kwargs.get('spam', '_sdfconf') #Add this string to every molname, if it already doesn't :) that'll teach you to cite
         if path is not None:
             self.xreadself(path)
         self._plt = None
@@ -71,6 +73,7 @@ class Sdffile(object):
         #new._ignores = copy.copy(self._ignores)
         new.setIgnores( copy.copy(self._ignores) )
         new._plt = self._plt
+        new._spam = self._spam
         return new
     
     def __deepcopy__(self,memo):
@@ -83,6 +86,7 @@ class Sdffile(object):
         #new._ignores = copy.copy(self._ignores)
         new.setIgnores( copy.copy(self._ignores) )
         new._plt = self._plt
+        new._spam = self._spam
         return new
     
     def __iter__(self):
@@ -147,6 +151,11 @@ class Sdffile(object):
         for mol in self:
             mol.setIgnores(self._ignores)
         
+    def setSpam(self, spam='_sdfconf'):
+        self._spam = spam
+        #print self._ignores
+        #for mol in self:
+        #    mol.setIgnores(self._ignores)
         
     @staticmethod
     def sdfSeparator(strings):
@@ -191,6 +200,7 @@ class Sdffile(object):
             new = copy.deepcopy(stringsofone)
         else:
             new = Sdfmole(stringsofone, ignores = self._ignores)
+            new.addSpam(self._spam)
         name = new.getMolName(self.molgrouper)
         
         if not name in self._dictomoles:
@@ -885,7 +895,8 @@ class Sdffile(object):
             #alist=sorted(alist, key=lambda item: item[0])
             
             atoms, distances = mol.arrayDists(point, ignores = myignores)
-            
+            if len(atoms) == 0:
+                continue
             atomi, atomn = zip( *enumerate(atoms) )
             
             atomo = sorted(atomi, key=lambda atom: distances[atom])
@@ -2494,7 +2505,7 @@ class Sdfmole(object):
     mes='Conformation number mismatch! {} vs {}'
     confchop= re.compile(r'\{\[.+\]\}') #re.compile('\{\[\d+\]\}') #gets conformation number #changed from number to everything
     atomcut=(0, 10, 20, 30, 31, 34, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69)
-    ckey = "confnum"
+    #ckey = "confnum"
     
     def __init__(self, stringsofone=None, **kwargs):
         '''
@@ -2643,7 +2654,10 @@ class Sdfmole(object):
         return alist
         """
         anums, locs = self.atomsArray( ignores = myignores )
-        dist = numpy.sum((coord1 - locs)**2, axis = 1)**0.5
+        if len(anums)>0:
+            dist = numpy.sum((coord1 - locs)**2, axis = 1)**0.5
+        else:
+            dist = numpy.array([])
         return anums, dist
     
     def calcEscapeNumberOrder(self,matcher,maxRange=2.0, **kwargs):
@@ -2725,7 +2739,8 @@ class Sdfmole(object):
         '''
         self.numerize()
         
-        ignores = kwargs.get('ignores', ['H'])
+        #ignores = kwargs.get('ignores', ['H'])
+        ignores = ['H'] if (not 'ignores' in kwargs or kwargs['ignores'] is None) else kwargs['ignores']
         
         """
         if kwargs.get('types',False) :
@@ -2764,6 +2779,21 @@ class Sdfmole(object):
             #del(self._other)
             self._other = None
             self._numeric = True
+        
+    def addSpam(self, spam):
+        '''
+        if self._numeric:
+            target = self._comment
+            index = 0
+        else:
+            target = self._other
+            index = 0
+        if not target[index].endswith(spam):
+            target[index] = target[index]+spam
+        '''
+        if not self._comment[0].endswith(spam):
+            self._comment[0] = self._comment[0]+spam
+        
         
     def getConf(self, ckey = 'confnum'):
         '''

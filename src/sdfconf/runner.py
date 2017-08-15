@@ -42,6 +42,7 @@ class Runner(object):
     #Order of excecution. Also includes both long and short names.
     order = ((
              ('verbose',        'v'     ), 
+             ('nospam',         'ns'    ), 
              ('input',          'in'    ), 
              
              ('molgrouper',     'mog'   ), 
@@ -114,7 +115,7 @@ class Runner(object):
                      #'removeconfmeta', 'makefolder', 'metalist', 'donotprint',
                      'removeconfmeta', 'metalist', 'donotprint',
                      'molgrouper', 'confgrouper', #new arrivals 24.2.2017
-                     'ignores', 'donotplot'
+                     'ignores', 'donotplot', 'nospam'
                      )
     
     
@@ -291,6 +292,15 @@ class Runner(object):
                         lambda : ('All metafields except those in ({}) Removed. It took {} seconds.',(param,timedif())),
                         NoLamb,
                         NoLamb
+                        )[i], 
+                    'nospam'    :lambda i : (
+                        self.sdf.setSpam,
+                        #lambda : ((False,True),),
+                        lambda : ('',),
+                        NoLamb,
+                        NoLamb,
+                        #NoLamb,
+                        lambda : ('Spam removed from comments. Please remeber to cite sdfconf in your work!', () )
                         )[i], 
                     'getmol2'        :lambda i : (
                         self.sdf.getMol2DataStr,
@@ -690,7 +700,9 @@ def main(arguments=None):
     #arger.add_argument("-mog", "--molgrouper",      type = str, nargs='?', metavar='metaname', const='', default='', help="Give existing metaname, by which molecules should be grouped. If you give empty, molecule name is used.")
     #arger.add_argument("-cog", "--confgrouper",      type = str, nargs='?', metavar='metaname', const='confnum', default='confnum', help="Give existing metaname, by which conformations will be identified. If you give empty, 'confnum' is used.")
     arger.add_argument("-mog", "--molgrouper",      type = str, nargs='?', metavar='metaname', const='', help="Give existing metaname, by which molecules should be grouped. If you give empty, molecule name is used.")
-    arger.add_argument("-cog", "--confgrouper",      type = str, nargs='?', metavar='metaname', const='confnum', help="Give existing metaname, by which conformations will be identified. If you give empty, 'confnum' is used.")
+    arger.add_argument("-cog", "--confgrouper",     type = str, nargs='?', metavar='metaname', const='confnum', help="Give existing metaname, by which conformations will be identified. If you give empty, 'confnum' is used.")
+    
+    arger.add_argument("-ns" , "--nospam",          action = "store_true", help = "Don't modify the comment line of files. Please, remember to cite sdfconf in your work! Works only for new entries in conf files.")
         
     args = arger.parse_args(arguments) if arguments else arger.parse_args() 
     
