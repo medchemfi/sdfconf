@@ -50,7 +50,7 @@ class Runner(object):
              
              ('conftometa',     'ctf'   ), 
              ('conftoname',     'ctn'   ), 
-             ('nameToMeta',     'ntm'   ), 
+             ('nametometa',     'ntm'   ), 
              ('removeconfname', 'rcn'   ), 
              ('removeconfmeta', 'rcm'   ), 
              ('ignores',        'ig'    ), 
@@ -96,7 +96,7 @@ class Runner(object):
     
     '''
     simplelist =    ('conftometa', 'conftoname', 'removeconfname', 'removeconfmeta', 
-                     'ignores', 'nameToMeta', 'metatoname', 'removemeta', 
+                     'ignores', 'nametometa', 'metatoname', 'removemeta', 
                      #'pickmeta', 'input', 'proportion' , 'histogram', 'verbose', 
                      'pickmeta', 'input', 'proportion' , 'verbose', ##CHANGED: removed histogram
                      )
@@ -265,7 +265,7 @@ class Runner(object):
                         NoLamb,
                         lambda : ('Conformation numbers removed from metafield \'confnum\'. It took {} seconds.',(timedif(),))
                         )[i], 
-                    'nameToMeta'     :lambda i : (
+                    'nametometa'     :lambda i : (
                         self.sdf.nameToMeta,
                         lambda : (param,),
                         NoLamb,
@@ -646,7 +646,7 @@ def main(arguments=None):
     
     arger.add_argument("-ctn", "--conftoname",  action = "store_true",           help = "add conformation number to name from metafield 'confnum'. If number in metafield doesn't exist, make a new one.")
     arger.add_argument("-mtn", "--metatoname", nargs=1, metavar='meta' , type = str,                 help = "Change the name of molecules to the data in given metafield.")
-    arger.add_argument("-ntm", "--nameToMeta", nargs=1,  metavar='meta', type = str,                 help = "Copy the name of molecules into given metafield.")
+    arger.add_argument("-ntm", "--nametometa", nargs=1,  metavar='meta', type = str,                 help = "Copy the name of molecules into given metafield.")
     arger.add_argument("-rcn", "--removeconfname",  action="store_true",    help = "remove conformation number from name.")
     arger.add_argument("-rcm", "--removeconfmeta",  action="store_true",    help = "remove conformation number from metafield 'confnum'.")
     

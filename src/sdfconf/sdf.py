@@ -12,6 +12,7 @@ from collections import OrderedDict as OrDi
 import warnings
 from six import string_types
 from exceptions import KeyError
+from _curses import nl
 
 try:
     from future.utils import lmap
@@ -101,7 +102,7 @@ class Sdffile(object):
         '''
         Generator that yields key pairs (molecule name, conformation number) to be used with getMolecule.
         '''
-        for molname, confnum in self._orderlist:
+        for molname, confnum in list(self._orderlist):
             yield [molname, confnum]
     
     def getMolecule(self, molname, confnum = None):
@@ -126,8 +127,10 @@ class Sdffile(object):
     def __str__(self):
         #Return a single string representing the .sdf-file
         tab = []
-        for molinfo in self._orderlist:
-            for line in self._dictomoles[molinfo[0]][molinfo[1]].selfToList():
+        #for molinfo in self._orderlist:
+        for molname, confnum in self.keys():
+            #for line in self._dictomoles[molinfo[0]][molinfo[1]].selfToList():
+            for line in self._dictomoles[molname][confnum].selfToList():
                 tab.append(line)
         return ''.join(tab)
         
@@ -219,7 +222,8 @@ class Sdffile(object):
     def remove(self, name, confn):
         #Remove a molecule by name and conformation number.
         try:
-            del(self._dictomoles[name][str(confn)])
+            #del(self._dictomoles[name][str(confn)])
+            del(self._dictomoles[name][confn])
             self._orderlist.remove([name,confn])
         except ValueError:
             warnings.warn('{}{{[{}]}} not in list.'.format(name, confn))
@@ -298,6 +302,7 @@ class Sdffile(object):
                         if info[0]!=oname:
                             newlist.append(info)
                     self._orderlist = newlist
+        self.dictMaintenance()
     
     def sdflistremove(self, other, sameconf=True):
         '''
@@ -329,9 +334,40 @@ class Sdffile(object):
         '''
         #metas = self.getmollogic(metalogic)
         metas = self.getGloMollogic(metalogic)
-        for molinfo in self._orderlist:
-            self._dictomoles[molinfo[0]][molinfo[1]].stripbutmeta(metas[molinfo[0]][molinfo[1]])
-    
+        #for molinfo in self._orderlist:
+        #    self._dictomoles[molinfo[0]][molinfo[1]].stripbutmeta(metas[molinfo[0]][molinfo[1]])
+        """
+        j = 0
+        k = 0
+        m = 0
+        n = 0
+        print len(self)
+        print len(self._orderlist)
+        print len(list(self.keys()))
+        """
+        for molname, confnum in self.keys():
+            #n += 1
+            #for i, (molname, confnum) in enumerate(self.keys()):
+            #if not self.getMolecule(molname, confnum)._numeric:
+            #    print molname, confnum
+            #if i == 3:
+            #    print self.getMolecule(molname, confnum)
+            """
+            if molname in ('6-aminochrysene','4-aminobiphenyl'):
+                print molname, confnum
+                print metas[molname][confnum]
+            """
+            if molname in metas and confnum in metas[molname] and metas[molname][confnum]:
+                self.getMolecule(molname, confnum).stripbutmeta(metas[molname][confnum])
+            #    j += 1
+            else:
+                self.remove(molname, confnum)
+            #    m += 1
+            #k += 1
+        #print j, m, k, n
+        #print len(self)
+        self.dictMaintenance()
+        
     #conformation numbers
     
     def tempconfn(self, mol, molname=None):
@@ -1493,8 +1529,12 @@ class Sdffile(object):
             
         neworder=[]
         #for info in self._orderlist:
+		
+		pickset = set(picks)
+		
         for info in self.keys():
-            if info in picks:
+            #if info in picks:
+            if info in pickset:
                 neworder.append(info)
         self._orderlist = neworder
         self.dictMaintenance()
@@ -1600,19 +1640,6 @@ class Sdffile(object):
                     warnings.warn('No meta {} in molecule {}{{[{}]}}'.format(string[1:], molname, confnum))
                     falses.append((molname,confnum))
             return (trues, falses)
-        #end of internal functions
-        
-        string = string.strip()
-        
-        if string[:2] == '+ ':
-            pick = True
-            string = string[2:]
-        elif string[:2] == '- ':
-            pick = False
-            string = string[2:]
-        else:
-            pick = True
-        
         '''
         opesplit = Sdfmeta.compSplit(string, comps=('==','<=','>=','!=','<','>'))
         
@@ -1703,7 +1730,8 @@ class Sdffile(object):
                         trues = []
                         falses = []
                         #print(trueandfalse[:20])
-                        for i, pair in enumerate(self.keys()):
+                        #for i, pair in enumerate(self.keys()):
+                        for i, pair in enumerate(mylist):
                             if trueandfalse[i]:
                                 trues.append(pair)
                             else:
@@ -1730,7 +1758,22 @@ class Sdffile(object):
             else:
                 trues, falses = mima( opesplit[0] )
         """
-        trues, falses = genpicks(string)
+        
+		#end of internal functions
+        
+        string = string.strip()
+        
+        if string[:2] == '+ ':
+            pick = True
+            string = string[2:]
+        elif string[:2] == '- ':
+            pick = False
+            string = string[2:]
+        else:
+            pick = True
+        
+        
+		trues, falses = genpicks(string)
         #print('{} {}'.format(len(trues), len(falses)))
         if pick:
             return (trues, falses)
@@ -1883,6 +1926,7 @@ class Sdffile(object):
                     'sum': lambda meta: sum((thing for thing in meta)), 
                     'prod': lambda meta : numpy.asscalar(numpy.prod([thing for thing in meta])), 
                     'rdup' : lambda meta : meta.withoutDuplicates() ,
+                    'dictmirror' : lambda meta : meta.ordiMirror() ,
                     'getMeta' : lambda meta : confmol.getMeta( ''.join(meta.getValues()) ) ,
                     } 
         
@@ -2473,7 +2517,8 @@ class Sdffile(object):
         molli2 = mol2.Mol2File(path)
         #metas = self.getmollogic(metastatement)
         metas = self.getGloMollogic(metastatement)
-        sdfinfo = list( self.keys() )
+        #sdfinfo = list( self.keys() )
+        sdfinfo = list(self.keys())
         
         for i, mol in enumerate(molli2):
             if len(sdfinfo[i]) == 2:
@@ -3403,7 +3448,7 @@ class Sdfmole(object):
     
     @staticmethod
     def coorder(point):
-        goodchop = re.compile('\s*,{0,1}\s*') #CSV-separator
+        goodchop = re.compile(r'\s*,{0,1}\s*') #CSV-separator
         coord = numpy.array( lmap(functions.numify, goodchop.split(point.strip('{[()]}'))) )
         if type(coord) == numpy.ndarray and len(coord) > 1:
             return coord
@@ -3422,20 +3467,22 @@ class Sdfmole(object):
         newatoms = []
         
         toNew = OrDi()
-        toOld = OrDi()
+        #toOld = OrDi()
         
         #for n in atoms._data:
         for i, n in enumerate(atoms):
             toNew[int(n)]=i+1
-            toOld[i+1]=int(n)
+            #toOld[i+1]=int(n)
             newatoms.append(self._atoms[n-1])
         self._atoms = newatoms
-        self._bonds = []
+        #self._bonds = []
+        self._bonds = [ map(lambda x: str(toNew[int(x)]), bond[:2]) + bond[2:] for bond in self._bonds if int(bond[0]) in toNew and int(bond[1]) in toNew]
         self._counts[0] = len(newatoms)
-        self._counts[1] = 0
+        #self._counts[1] = 0
+        self._counts[1] = len(self._bonds)
         
-        self.addMeta('toNew', toNew)
-        self.addMeta('toOld', toOld)
+        self.addMeta('oldToNew', toNew)
+        #self.addMeta('toOld', toOld)
         
 
 #end of Sdfmole
@@ -4161,6 +4208,9 @@ class Sdfmeta(object):
                 self._data = lmap(float, self._data)
     
     def withoutDuplicates(self):
+        '''
+        Return list or ordi with duplicates entries removed from meta
+        '''
         if self._datastruct != OrDi:
             newlist = []
             for item in self.getValues():
@@ -4172,6 +4222,20 @@ class Sdfmeta(object):
                 if self._data[key] not in newlist:
                     newlist[key] = self._data[key]
         return newlist
+    
+    def ordiMirror(self):
+        '''
+        Return ordi with values as keys and vice versa.
+        With duplicate values, first one applies.
+        '''
+        if self._datastruct == OrDi:
+            newordi = OrDi()
+            for key, value in self._data.items():
+                if value not in newordi:
+                    newordi[value] = key
+            return newordi
+        else:
+            return None
         
     def getListOfStrings(self):
         def floattosting(flo):
