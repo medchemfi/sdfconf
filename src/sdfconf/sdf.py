@@ -1529,9 +1529,9 @@ class Sdffile(object):
             
         neworder=[]
         #for info in self._orderlist:
-		
-		pickset = set(picks)
-		
+        
+        pickset = set(picks)
+        
         for info in self.keys():
             #if info in picks:
             if info in pickset:
@@ -1759,7 +1759,7 @@ class Sdffile(object):
                 trues, falses = mima( opesplit[0] )
         """
         
-		#end of internal functions
+        #end of internal functions
         
         string = string.strip()
         
@@ -1773,7 +1773,7 @@ class Sdffile(object):
             pick = True
         
         
-		trues, falses = genpicks(string)
+        trues, falses = genpicks(string)
         #print('{} {}'.format(len(trues), len(falses)))
         if pick:
             return (trues, falses)
