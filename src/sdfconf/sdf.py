@@ -1530,11 +1530,11 @@ class Sdffile(object):
         neworder=[]
         #for info in self._orderlist:
         
-        pickset = set(picks)
+        pickset = set(map(tuple,picks))
         
         for info in self.keys():
             #if info in picks:
-            if info in pickset:
+            if tuple(info) in pickset:
                 neworder.append(info)
         self._orderlist = neworder
         self.dictMaintenance()
