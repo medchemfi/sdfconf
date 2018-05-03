@@ -1246,7 +1246,8 @@ class Sdffile(object):
             #cmap = cm.jet
             #cmap = cm.get('jet')
             #cmap = mpl.cm.get('jet')
-            X=self._plt.hist2d(datas[0],datas[1],**kwargs)[0]
+            #X = self._plt.hist2d(datas[0],datas[1],**kwargs)[0]
+            X = self._plt.hist2d(datas[0],datas[1], cmap = cmap, **kwargs)[0]
             
             ticks=list(numpy.arange(numpy.max(X)+1))
             skip = int(round(float(len(ticks))/20))
