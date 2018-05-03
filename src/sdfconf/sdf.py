@@ -1238,12 +1238,15 @@ class Sdffile(object):
         else:
             #from mpl.cm import jet as cmap
             #cm = mpl.cm
+            """
             try:
                 cmap = mpl.cm.get_cmap(kwargs.get('cmap','jet'))
                 if 'cmap' in kwargs:
                     del(kwargs['cmap'])
             except ValueError:
                 cmap = mpl.cm.get_cmap('jet')
+            """
+            cmap = mpl.cm.get_cmap(kwargs.pop('cmap','jet'))
             #cmap = mpl.cm.jet
             #cmap = coma.jet
             #cmap = coma.get('jet')
@@ -1252,6 +1255,7 @@ class Sdffile(object):
             #cmap = cm.get('jet')
             #cmap = mpl.cm.get('jet')
             #X = self._plt.hist2d(datas[0],datas[1],**kwargs)[0]
+            print kwargs
             X = self._plt.hist2d(datas[0],datas[1], cmap = cmap, **kwargs)[0]
             
             ticks=list(numpy.arange(numpy.max(X)+1))
