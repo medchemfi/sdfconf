@@ -1240,6 +1240,8 @@ class Sdffile(object):
             #cm = mpl.cm
             try:
                 cmap = mpl.cm.get_cmap(kwargs.get('cmap','jet'))
+                del(kwargs['cmap'])
+                    
             except ValueError:
                 cmap = mpl.cm.get_cmap('jet')
             #cmap = mpl.cm.jet
