@@ -1238,7 +1238,10 @@ class Sdffile(object):
         else:
             #from mpl.cm import jet as cmap
             #cm = mpl.cm
-            cmap = mpl.cm.get_cmap('jet')
+            try:
+                cmap = mpl.cm.get_cmap(kwargs.get('cmap','jet'))
+            except ValueError:
+                cmap = mpl.cm.get_cmap('jet')
             #cmap = mpl.cm.jet
             #cmap = coma.jet
             #cmap = coma.get('jet')
