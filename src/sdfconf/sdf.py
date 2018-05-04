@@ -1381,7 +1381,11 @@ class Sdffile(object):
         #colors = mpl.cm.rainbow(numpy.linspace(0, 1, len(grudata)))
         #colors = mpl.cm.jet(numpy.linspace(0, 1, len(grudata)))
         #colors = mpl.cm.get_cmap(kwargs.pop('cmap','jet'))
-        colors = mpl.cm.get_cmap(kwargs.pop('cmap','jet'), len(grudata))
+        if len(grudata) > 1:
+            cmap = mpl.cm.get_cmap(kwargs.pop('cmap','jet'), len(grudata))
+            colors = map(cmap, numpy.linspace(0,1,len(grudata)))
+        else:
+            colors = ['blue']
         
         for i, gru in enumerate( sorted(grudata.keys(), key = functions.numify) ):
             data = grudata[gru]
