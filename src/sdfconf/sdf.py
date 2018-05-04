@@ -1377,9 +1377,11 @@ class Sdffile(object):
         else:
             grudata[''] = datas
         
-        #colors = mpl.cm.rainbow(numpy.linspace(0, 1, len(grudata)))
-        colors = mpl.cm.jet(numpy.linspace(0, 1, len(grudata)))
         
+        #colors = mpl.cm.rainbow(numpy.linspace(0, 1, len(grudata)))
+        #colors = mpl.cm.jet(numpy.linspace(0, 1, len(grudata)))
+        #colors = mpl.cm.get_cmap(kwargs.pop('cmap','jet'))
+        colors = mpl.cm.get_cmap(kwargs.pop('cmap','jet'), len(grudata))
         
         for i, gru in enumerate( sorted(grudata.keys(), key = functions.numify) ):
             data = grudata[gru]
@@ -1392,12 +1394,17 @@ class Sdffile(object):
                 Xl = (X[-1]-X[0])*0.1
                 Xp = numpy.linspace(X[0]-Xl, X[-1]+Xl, 10)
                 Yp = numpy.polyval(par[0], Xp)
-                plt.plot(Xp, Yp, color = colors[i])
+                linecolor = 'black' if len(grudata)==1 else colors[i]
+                plt.plot(Xp, Yp, color = linecolor)
+                #plt.plot(Xp, Yp, color = colors[i])
                 Yr = numpy.polyval(par[0], X)
                 Ya = numpy.average(Y)
                 R2 = 1 - numpy.sum( (Y - Yr)**2 ) / numpy.sum( (Y - Ya)**2 )
-                labe = labe + ' R2={:.2f}'.format(R2) 
+                labe = labe + ' R2={:.2f}'.format(R2)
+                 
             #plt.plot(data[0], data[1], marker='.', label = gru, linestyle='', color=colors[i])
+            
+
             plt.scatter(data[0], data[1], c=colors[i], label = labe, marker='o', lw=0)
             
         if kwargs.get('legend', True):
