@@ -1403,7 +1403,9 @@ class Sdffile(object):
                 #plt.plot(Xp, Yp, color = colors[i])
                 Yr = numpy.polyval(par[0], X)
                 Ya = numpy.average(Y)
-                R2 = 1 - numpy.sum( (Y - Yr)**2 ) / numpy.sum( (Y - Ya)**2 )
+                divi = numpy.sum( (Y - Ya)**2 )
+                R2 = 1 if divi == 0 else 1 - numpy.sum( (Y - Yr)**2 ) / divi
+                #R2 = 1 - numpy.sum( (Y - Yr)**2 ) / numpy.sum( (Y - Ya)**2 )
                 labe = labe + ' R2={:.2f}'.format(R2)
                  
             #plt.plot(data[0], data[1], marker='.', label = gru, linestyle='', color=colors[i])
