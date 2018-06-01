@@ -11,8 +11,8 @@ import bisect as bi
 from collections import OrderedDict as OrDi
 import warnings
 from six import string_types
-from exceptions import KeyError
-from _curses import nl
+#from exceptions import KeyError
+#from _curses import nl
 
 try:
     from future.utils import lmap
@@ -2090,7 +2090,7 @@ class Sdffile(object):
                 
             def striope(conf,tab,par=None):
                 #Work with strings in given structure
-                #print('striope:\t{}, {}'.format(tab, par))
+                #print('striope:\t{},Â {}'.format(tab, par))
                 '''
                 if par in ('"',"'"):
                     return Sdfmeta.construct(tab,literal=True)
