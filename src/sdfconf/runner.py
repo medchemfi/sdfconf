@@ -428,7 +428,7 @@ class Runner(object):
                         #lambda x :self.sdf.listremove(Sdffile(x.strip()),True),
                         lambda x :self.sdf.listremove(x.strip(),True),
                         lambda : (param,),
-                        lambda : ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif())),
+                        lambda : ('Removing all molecules (matching name and confnum) present in {} complete. It took {} seconds.', (param, timedif())),
                         NoLamb,
                         NoLamb
                         )[i], 
@@ -436,7 +436,7 @@ class Runner(object):
                         #lambda x :self.sdf.listremove(Sdffile(x.strip()),False),
                         lambda x :self.sdf.listremove(x.strip(),False),
                         lambda : (param,),
-                        lambda : ('Removing all molecules (matching confnum) present in {} complete. It took {} seconds.', (param, timedif())),
+                        lambda : ('Removing all molecules (matching name) present in {} complete. It took {} seconds.', (param, timedif())),
                         NoLamb,
                         NoLamb
                         )[i], 
@@ -444,7 +444,7 @@ class Runner(object):
                         #lambda x :self.sdf.sdfMetaCombi(Sdffile(x.partition(';')[0].strip()),(True,True),x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
                         lambda x :self.sdf.sdfMetaCombi(Sdffile(x.partition(';')[0].strip()), True, True, x.partition(';')[2].strip().lower() in ('o','over','overwrite')), 
                         lambda : (param,), 
-                        lambda : ('Combining metadata from {} (matching confnum) complete. It took {} seconds.', (param, timedif())), 
+                        lambda : ('Combining metadata from {} (matching name and confnum) complete. It took {} seconds.', (param, timedif())), 
                         NoLamb, 
                         NoLamb
                         )[i], 

@@ -1950,6 +1950,8 @@ class Sdffile(object):
                     'rdup' : lambda meta : meta.withoutDuplicates() ,
                     'dictmirror' : lambda meta : meta.ordiMirror() ,
                     'getMeta' : lambda meta : confmol.getMeta( ''.join(meta.getValues()) ) ,
+                    'log10' : lambda meta: Sdfmeta.metaFuMap(lambda x: numpy.asscalar( numpy.log10(x)), meta),
+                    'ln' : lambda meta: Sdfmeta.metaFuMap(lambda x: numpy.asscalar( numpy.log(x)), meta),
                     } 
         
         molfunx = { 
@@ -4402,6 +4404,31 @@ class Sdfmeta(object):
         meta.setType(fu)
         meta.cleanDelimiters()
         return meta
+        
+    @staticmethod
+    def metaFuMap(fu, meta):
+        #if fu not in (str, int, float):
+        #    raise TypeError('Given type must be int, str or float! It was {}!'.format(fu))
+        #meta = Sdfmeta.construct(meta)
+        data = meta._data
+        if meta._datastruct == OrDi:
+            for key, value in data.iteritems():
+                try:
+                    data[key] = fu(value)
+                except ValueError:
+                    del(data[key])
+        else:
+            data = []
+            for item in meta.getValues():
+                try:
+                    data.append(fu(item))
+                except ValueError:
+                    continue
+            #meta._data = new
+        #meta.setType(fu)
+        #meta.cleanDelimiters()
+        newmeta = Sdfmeta.construct(data)
+        return newmeta
         
     
     def selfToListOfStrings(self):
