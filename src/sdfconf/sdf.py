@@ -11,6 +11,7 @@ import bisect as bi
 from collections import OrderedDict as OrDi
 import warnings
 from six import string_types
+from __builtin__ import isinstance
 #from exceptions import KeyError
 #from _curses import nl
 
@@ -2053,7 +2054,7 @@ class Sdffile(object):
                     if meta:
                         sli = tabiter(conf, tab[1]) #assumes tuple
                         if isinstance(sli, (slice,Sdfmeta)):
-                            return meta.slicer(sli, tab[1][0])
+                            return meta.slicerV2(sli, tab[1][0])
                         elif sli: 
                             if tab[1][0] == '(':
                                 meta.pickvalues(tabiter(conf, sli[1]), Sdfmeta.comps.get(sli[0], None), bykeys=False)
@@ -4680,7 +4681,9 @@ class Sdfmeta(object):
         self._delims = self._delims[:len(self._data)-1]
         
     def slicer(self, sliceorindex, paren):
-        
+        '''
+        Slices a part of meta, by index (python slice) or meta
+        '''
         def itsslice( toget, slic ):
             if paren == '(':
                 return Sdfmeta.construct(  OrDi( [ (i, toget[i]) for i in self._data.keys()[slic] ] ) )
@@ -4707,6 +4710,49 @@ class Sdfmeta(object):
             raise TypeError('There is something wrong with our toget going to slicer') 
         slices = {Sdfmeta:itsmeta, slice:itsslice, type(None): lambda toget, sliceorindex: None }
         return slices[type(sliceorindex)](toget, sliceorindex)
+    
+    def slicerV2(self, sliceorindex, paren):
+        '''
+        Slices a part of meta, by index (python slice) or meta
+        New version should enable more complex calls to dictionaries
+        example:
+        d1 = {1:O, 2:O, 3:C, 4:H}
+        d2 = {H:2, C:8, O:13, N:15}
+        d2[d1[]] = [13, 13, 8, 2]
+        '''
+        def itsslice( toget, slic ):
+            if paren == '(':
+                return Sdfmeta.construct(  OrDi( [ (i, toget[i]) for i in self._data.keys()[slic] ] ) )
+            else:
+                if self._datastruct == OrDi:
+                    toget = list( toget.getValues() )
+                return Sdfmeta.construct(  toget[slic] )
+        
+        def itsmeta( toget, meta ):
+            indexes = meta.getValues()
+            if paren == '(':
+                if type(self._data) != OrDi:
+                    raise TypeError('"(" not applicaple for lists')
+                return Sdfmeta.construct(  OrDi([(i, toget[i]) for i in indexes if i in toget]) )
+            elif paren == '[' and self._datastruct == OrDi:
+                return Sdfmeta.construct( [item for item in [toget.get(i, None) for i in indexes] if item != None] )
+            le = len(toget)
+            return Sdfmeta.construct(  [toget[i] for i in indexes if i < le ] )
+        
+        if paren == '{':
+            toget = list(self._data.keys())
+        elif paren == '[' and self._datastruct == OrDi:
+            #toget = list(self._data.values())
+            toget = self._data
+        else:
+            toget = self._data
+        
+        if not type(toget) in (list, OrDi):
+            raise TypeError('There is something wrong with our toget going to slicer') 
+        slices = {Sdfmeta:itsmeta, slice:itsslice, type(None): lambda toget, sliceorindex: None }
+        return slices[type(sliceorindex)](toget, sliceorindex)
+        
+    
         
     def sortMe(self, ascending=True, byValue = True):
         '''
