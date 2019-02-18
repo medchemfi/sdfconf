@@ -3710,6 +3710,7 @@ class Sdfmeta(object):
         '''
         return a new Sdfmeta from actual data (list, Ordered dict, string, int, float, ....
         '''
+        #print data
         new = Sdfmeta()
         new.setDumb(False)
         if 'name' in dictarg:
@@ -3728,6 +3729,7 @@ class Sdfmeta(object):
                 data = lmap(str, list(data))
             else:
                 (newdata, newtype, newdelims) = Sdfmeta.whattype(data)
+                print newtype
                 if newtype != str:
                     return Sdfmeta.construct(newdata, delims = newdelims, name = name)
                 else:
@@ -3749,7 +3751,7 @@ class Sdfmeta(object):
             else:
                 raise ValueError('Not dict or list.')
                 #new._datastruct = type(data)
-        elif type(data) in (int, float):
+        elif type(data) in (int, float, long):
             new._datastruct = 'single'
             data = [data]
         elif isinstance(data, Sdfmeta):
@@ -3777,9 +3779,15 @@ class Sdfmeta(object):
             types = {type(data[key]) for key in data}
         else:
             types = set(lmap(type, data))
+            
+        if long in types:
+            types.remove(long)
+            types.add(int)
         
         new._data = data
-        if not all({typ in (int, float, str) for typ in types}):
+        if not all({typ in (int, float, str, long) for typ in types}):
+            print(type(data))
+            print(data)
             raise TypeError('Data type not str, int or float.')
         if len(types)==1:
             #new._datatype = iter(types).next()
@@ -4385,7 +4393,7 @@ class Sdfmeta(object):
     
     @staticmethod
     def metaMap(fu, meta):
-        if fu not in (str, int, float):
+        if fu not in (str, int, float, long):
             raise TypeError('Given type must be int, str or float! It was {}!'.format(fu))
         meta = Sdfmeta.construct(meta)
         if meta._datastruct == OrDi:
@@ -4525,6 +4533,10 @@ class Sdfmeta(object):
                         workmetas[i]._data = meta._data * minlen
                     else:
                         workmetas[i]._data = meta._data[:minlen]
+                #tmpM = Sdfmeta.listOper(oper, workmetas, singles)
+                #print tmpM
+                #print type(tmpM[0])
+                #return Sdfmeta.construct( tmpM, **kwargs ) #Nameless meta
                 return Sdfmeta.construct( Sdfmeta.listOper(oper, workmetas, singles), **kwargs ) #Nameless meta
             
             elif ostru == OrDi:
@@ -4724,8 +4736,6 @@ class Sdfmeta(object):
             if paren == '(':
                 return Sdfmeta.construct(  OrDi( [ (i, toget[i]) for i in self._data.keys()[slic] ] ) )
             else:
-                if self._datastruct == OrDi:
-                    toget = list( toget.getValues() )
                 return Sdfmeta.construct(  toget[slic] )
         
         def itsmeta( toget, meta ):
@@ -4735,15 +4745,15 @@ class Sdfmeta(object):
                     raise TypeError('"(" not applicaple for lists')
                 return Sdfmeta.construct(  OrDi([(i, toget[i]) for i in indexes if i in toget]) )
             elif paren == '[' and self._datastruct == OrDi:
-                return Sdfmeta.construct( [item for item in [toget.get(i, None) for i in indexes] if item != None] )
+                return Sdfmeta.construct( [item for item in [self._data.get(i, None) for i in indexes] if item != None] )
             le = len(toget)
             return Sdfmeta.construct(  [toget[i] for i in indexes if i < le ] )
         
         if paren == '{':
             toget = list(self._data.keys())
         elif paren == '[' and self._datastruct == OrDi:
-            #toget = list(self._data.values())
-            toget = self._data
+            toget = list(self._data.values())
+            #toget = self._data
         else:
             toget = self._data
         
@@ -4780,7 +4790,7 @@ class Sdfmeta(object):
             numoutof = functions.numify(onestring)
         
         ty = type(numoutof)
-        if ty in (int, float):
+        if ty in (int, float, long):
             #Number, return
             return ([numoutof],ty,[])
         #not just number, go on.
@@ -4827,7 +4837,7 @@ class Sdfmeta(object):
         chars = [';',',','\t',' ']
         for char in chars:
             news = listtypetest(onestring,char)
-            #print news
+            print news
             if news:
                 return news
         return ([onestring],str,[])

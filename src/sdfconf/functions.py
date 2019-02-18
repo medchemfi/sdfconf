@@ -23,7 +23,7 @@ def listtostring(tab, fill):
     return ''.join([('{:>'+str(fill)+'}').format(i) for i in tab])
 
 def numify(stri):
-    if type(stri) == int:
+    if type(stri) in (int,long):
         return stri
     elif type(stri) == float:
         if float.is_integer(stri):
@@ -71,7 +71,7 @@ def avg(num):
     try:
         return float(sum(num))/len(num)
     except TypeError:
-        if type(num) in (int,float):
+        if type(num) in (int,float,long):
             return num
         else:
             raise TypeError()
@@ -87,11 +87,29 @@ def div(num):
         if len(num)<2:
             return 1.0/num
         else:
+            return numpy.asscalar(numpy.array(num[0],dtype=float)/numpy.prod(num[1:]))
+    except ZeroDivisionError:
+        return float('inf')
+
+def divBCK(num):
+    try:
+        if len(num)<2:
+            return 1.0/num
+        else:
             return numpy.asscalar(float(num[0])/numpy.prod(num[1:]))
     except ZeroDivisionError:
         return float('inf')
 
 def myprod(num):
+    try:
+        if len(num)<2:
+            return 1.0*num
+        else:
+            return numpy.asscalar(numpy.array(num[0],dtype=float)*numpy.prod(num[1:]))
+    except ZeroDivisionError:
+        return float('inf')
+
+def myprodBCK(num):
     try:
         if len(num)<2:
             return 1.0*num
@@ -102,12 +120,31 @@ def myprod(num):
 
 def remainder(num):
     return numpy.asscalar(numpy.remainder(num[0],num[1]))
+
+def mypowTEST(num):
+    try:
+        if len(num)<2:
+            return numpy.asscalar(numpy.array(num, dtype=float))
+        else:
+            return numpy.asscalar(numpy.array(num[0],dtype=float)**mypow(num[1:]))
+    except ZeroDivisionError:
+        return float('inf')
     
-def mypow(num):
+def mypowBCK(num):
     if type(num) in (tuple, list):
         return numpy.asscalar(numpy.power(*lmap(float,num[:2])))
     else:
         return None
+    
+def mypow(num):
+    try:
+        if len(num)<2:
+            return numpy.asscalar( num )
+        else:
+            return numpy.asscalar( numpy.array(num[0],dtype=float)**numpy.array(num[1],dtype=float) ) #numpy.power(num[1:]))
+    except ZeroDivisionError:
+        return float('inf')
+    
 '''        
 def myprod(num):
     if type(num) in (tuple, list):
@@ -208,6 +245,9 @@ def allsame(listordict):
             types.add(str)
         else:
             types.add(type(thing))
+    if long in types:
+        types.remove(long)
+        types.add(int)
     if len(types) == 1:
         return types.pop()
     elif not str in types:
