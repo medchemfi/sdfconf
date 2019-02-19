@@ -1953,6 +1953,7 @@ class Sdffile(object):
                     'getMeta' : lambda meta : confmol.getMeta( ''.join(meta.getValues()) ) ,
                     'log10' : lambda meta: Sdfmeta.metaFuMap(lambda x: numpy.asscalar( numpy.log10(x)), meta),
                     'ln' : lambda meta: Sdfmeta.metaFuMap(lambda x: numpy.asscalar( numpy.log(x)), meta),
+                    'construct' : lambda meta: Sdfmeta.construct(copy.deepcopy( meta._data[0] )), ##TODO Doesn't work
                     } 
         
         molfunx = { 
@@ -2048,6 +2049,7 @@ class Sdffile(object):
                             return tab
                             
                         elif tab[0] in metafunx and tab[1][0] == '(':
+                            #print repr(tabiter(conf, tab[1] ))
                             return Sdfmeta.construct( metafunx[tab[0]](tabiter(conf, tab[1] )) )
                     #slice
                     meta = tabiter(conf, tab[0])
@@ -3723,17 +3725,18 @@ class Sdfmeta(object):
             
             #if 'literal' in dictarg and dictarg['literal']:
             if dictarg.get('literal', False): #if 'literal' in dictarg and dictarg['literal']:
-                #new._datastruct = 'single'
-                new._datastruct = list #_apparently_ strings are always lists. might have something to do with strings being iterable.
+                new._datastruct = 'single'
+                #new._datastruct = list #_apparently_ strings are always lists. might have something to do with strings being iterable.
                 data = [data]
                 data = lmap(str, list(data))
             else:
                 (newdata, newtype, newdelims) = Sdfmeta.whattype(data)
-                print newtype
+                #print newtype
                 if newtype != str:
                     return Sdfmeta.construct(newdata, delims = newdelims, name = name)
                 else:
                     new._datastruct = 'single'
+                    #new.setType('str')
                     data = [data]
         #elif type(data) in (OrDi, dict, list):
         elif isinstance(data, (dict, list)):
@@ -3754,7 +3757,7 @@ class Sdfmeta(object):
         elif type(data) in (int, float, long):
             new._datastruct = 'single'
             data = [data]
-        elif isinstance(data, Sdfmeta):
+        elif isinstance(data, Sdfmeta): ###TODO FIXME this is why metafunx construct doesnt't work
             out = copy.deepcopy(data)
             #out.numerize()
             out.setname(name)
@@ -3762,7 +3765,7 @@ class Sdfmeta(object):
                 out._delims = dictarg['delims']
             return out
         else:
-            print(type(data))
+            #print(type(data))
             raise TypeError('Datastructure type not list, dict, OrderedDict, str, int or float.')
         if not dictarg.get('literal', False): #('literal' in dictarg and dictarg['literal']):
             if type(data) == list:
@@ -3786,8 +3789,8 @@ class Sdfmeta(object):
         
         new._data = data
         if not all({typ in (int, float, str, long) for typ in types}):
-            print(type(data))
-            print(data)
+            #print(type(data))
+            #print(data)
             raise TypeError('Data type not str, int or float.')
         if len(types)==1:
             #new._datatype = iter(types).next()
@@ -4796,7 +4799,6 @@ class Sdfmeta(object):
         #not just number, go on.
         del(numoutof,ty)
         
-        
         def listtypetest(onestring, delimiter):
             #Is it a list delimited by given delimiter ?
             splitted = functions.listsep(onestring,delimiter)
@@ -4837,7 +4839,7 @@ class Sdfmeta(object):
         chars = [';',',','\t',' ']
         for char in chars:
             news = listtypetest(onestring,char)
-            print news
+            #print news
             if news:
                 return news
         return ([onestring],str,[])
