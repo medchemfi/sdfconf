@@ -1,6 +1,6 @@
 sdfconf
 =======
-By Sakari Lätti (sakari.latti@jyu.fi)
+By Sakari Lätti (sakari.t.latti@utu.fi)
 
 Introduction
 ------------
@@ -21,9 +21,10 @@ Installation
 
 sdfconf is distributed as:
 - source tarball
-- rpm
-- egg (python package)
 - wheels
+- rpm/deb can be provided if necessary
+
+Recommended and most robust way to install sdfconf is to use anaconda to create python 2.7 environment and install sdfconf wheel there with pip.
 
 Usage
 -----
